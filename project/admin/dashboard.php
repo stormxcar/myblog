@@ -24,7 +24,7 @@ if(!isset($admin_id)){
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 
    <!-- custom css file link  -->
-   <link rel="stylesheet" href="../css/admin_style.css">
+   <link rel="stylesheet" href="../css/admin_style_edit.css">
 
 </head>
 <body>
@@ -35,15 +35,15 @@ if(!isset($admin_id)){
 
 <section class="dashboard">
 
-   <h1 class="heading">dashboard</h1>
+   <h1 class="heading">Bảng Điều Khiển</h1>
 
    <div class="box-container">
 
-   <div class="box">
+   <!-- <div class="box">
       <h3>welcome!</h3>
       <p><?= $fetch_profile['name']; ?></p>
       <a href="update_profile.php" class="btn">update profile</a>
-   </div>
+   </div> -->
 
    <div class="box">
       <?php
@@ -52,8 +52,8 @@ if(!isset($admin_id)){
          $numbers_of_posts = $select_posts->rowCount();
       ?>
       <h3><?= $numbers_of_posts; ?></h3>
-      <p>posts added</p>
-      <a href="add_posts.php" class="btn">add new post</a>
+      <p>Bài viết đã được thêm</p>
+      <a href="add_posts.php" class="btn">Thêm bài viết mới</a>
    </div>
 
    <div class="box">
@@ -63,8 +63,8 @@ if(!isset($admin_id)){
          $numbers_of_active_posts = $select_active_posts->rowCount();
       ?>
       <h3><?= $numbers_of_active_posts; ?></h3>
-      <p>active posts</p>
-      <a href="view_posts.php" class="btn">see posts</a>
+      <p>bài viết đang hoạt động</p>
+      <a href="view_posts.php" class="btn">Xem bài viết</a>
    </div>
 
    <div class="box">
@@ -74,8 +74,8 @@ if(!isset($admin_id)){
          $numbers_of_deactive_posts = $select_deactive_posts->rowCount();
       ?>
       <h3><?= $numbers_of_deactive_posts; ?></h3>
-      <p>deactive posts</p>
-      <a href="view_posts.php" class="btn">see posts</a>
+      <p>Bản nháp</p>
+      <a href="view_posts.php" class="btn">Xem bài viết</a>
    </div>
 
    <div class="box">
@@ -85,8 +85,8 @@ if(!isset($admin_id)){
          $numbers_of_users = $select_users->rowCount();
       ?>
       <h3><?= $numbers_of_users; ?></h3>
-      <p>users account</p>
-      <a href="users_accounts.php" class="btn">see users</a>
+      <p>Tài khoản người dùng</p>
+      <a href="users_accounts.php" class="btn">Xem người dùng</a>
    </div>
 
    <div class="box">
@@ -96,8 +96,8 @@ if(!isset($admin_id)){
          $numbers_of_admins = $select_admins->rowCount();
       ?>
       <h3><?= $numbers_of_admins; ?></h3>
-      <p>admins account</p>
-      <a href="admin_accounts.php" class="btn">see admins</a>
+      <p>Tài khoản quản trị viên</p>
+      <a href="admin_accounts.php" class="btn">Xem người quản trị</a>
    </div>
    
    <div class="box">
@@ -108,8 +108,8 @@ if(!isset($admin_id)){
          $numbers_of_comments = $select_comments->rowCount();
       ?>
       <h3><?= $numbers_of_comments; ?></h3>
-      <p>comments added</p>
-      <a href="comments.php" class="btn">see comments</a>
+      <p>Bình luận đã được thêm</p>
+      <a href="comments.php" class="btn">Xem bình luận</a>
    </div>
 
    <div class="box">
@@ -120,8 +120,8 @@ if(!isset($admin_id)){
          $numbers_of_likes = $select_likes->rowCount();
       ?>
       <h3><?= $numbers_of_likes; ?></h3>
-      <p>total likes</p>
-      <a href="view_posts.php" class="btn">see posts</a>
+      <p>Số lượt thích</p>
+      <a href="view_posts.php" class="btn">Xem bài viết</a>
    </div>
 
    </div>
@@ -129,11 +129,6 @@ if(!isset($admin_id)){
 </section>
 
 <!-- admin dashboard section ends -->
-
-
-
-
-
 
 
 

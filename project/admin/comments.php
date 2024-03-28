@@ -34,7 +34,7 @@ if(isset($_POST['delete_comment'])){
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 
    <!-- custom css file link  -->
-   <link rel="stylesheet" href="../css/admin_style.css">
+   <link rel="stylesheet" href="../css/admin_style_edit.css">
 
 </head>
 <body>
@@ -43,9 +43,9 @@ if(isset($_POST['delete_comment'])){
 
 <section class="comments">
 
-   <h1 class="heading">posts comments</h1>
+   <h1 class="heading">Bình luận các bài viết</h1>
    
-   <p class="comment-title">post comments</p>
+   <p class="comment-title">Bình luận bài viết</p>
    <div class="box-container">
    <?php
          $select_comments = $conn->prepare("SELECT * FROM `comments` WHERE admin_id = ?");
@@ -58,7 +58,7 @@ if(isset($_POST['delete_comment'])){
          $select_posts->execute([$fetch_comments['post_id']]);
          while($fetch_posts = $select_posts->fetch(PDO::FETCH_ASSOC)){
       ?>
-      <div class="post-title"> from : <span><?= $fetch_posts['title']; ?></span> <a href="read_post.php?post_id=<?= $fetch_posts['id']; ?>" >view post</a></div>
+      <div class="post-title"> Từ bài viết: <span><?= $fetch_posts['title']; ?></span> <a href="read_post.php?post_id=<?= $fetch_posts['id']; ?>" >Xem bài viết</a></div>
       <?php
          }
       ?>
@@ -73,7 +73,7 @@ if(isset($_POST['delete_comment'])){
       <div class="text"><?= $fetch_comments['comment']; ?></div>
       <form action="" method="POST">
          <input type="hidden" name="comment_id" value="<?= $fetch_comments['id']; ?>">
-         <button type="submit" class="inline-delete-btn" name="delete_comment" onclick="return confirm('delete this comment?');">delete comment</button>
+         <button type="submit" class="inline-delete-btn" name="delete_comment" onclick="return confirm('delete this comment?');">Xóa bình luận</button>
       </form>
    </div>
    <?php

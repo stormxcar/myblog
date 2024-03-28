@@ -56,22 +56,27 @@ if(isset($_POST['submit'])){
 
 <section class="form-container">
 
+   <div class="login_bg">
+      <img src="./uploaded_img/962470bis.jpg" alt="">
+   </div>   
+
    <form action="" method="post">
-      <h3>login now</h3>
-      <input type="email" name="email" required placeholder="enter your email" class="box" maxlength="50" oninput="this.value = this.value.replace(/\s/g, '')">
-      <input type="password" name="pass" required placeholder="enter your password" class="box" maxlength="50" oninput="this.value = this.value.replace(/\s/g, '')">
-      <input type="submit" value="login now" name="submit" class="btn">
-      <p>don't have an account? <a href="register.php">register now</a></p>
+      <h3>CHÀO MỪNG BẠN TRỞ LẠI</h3>
+      <label for="email">
+      <span>Email:</span>
+      <input type="email" name="email" required placeholder="Nhập email của bạn" class="box" maxlength="50" oninput="this.value = this.value.replace(/\s/g, '')">
+      </label>
+      
+      <label for="pass">
+      <span>Mật khẩu:</span>
+      <input type="password" name="pass" required placeholder="Nhập mật khẩu" class="box" maxlength="50" oninput="this.value = this.value.replace(/\s/g, '')">
+      </label>
+      
+      <input type="submit" value="Đăng nhập" name="submit" class="btn">
+      <p>Bạn chưa có tài khoản? <a href="register.php">Đăng ký bây giờ</a></p>
    </form>
 
 </section>
-
-
-
-
-
-
-
 
 
 
@@ -80,11 +85,9 @@ if(isset($_POST['submit'])){
 
 
 
-
-
-
 <!-- custom js file link  -->
 <script src="js/script.js"></script>
 
 </body>
+<script src="js/script.js"></script>
 </html>

@@ -79,7 +79,7 @@ if(isset($_POST['submit'])){
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 
    <!-- custom css file link  -->
-   <link rel="stylesheet" href="css/style.css">
+   <link rel="stylesheet" href="css/style_edit.css">
 
 </head>
 <body>
@@ -90,14 +90,39 @@ if(isset($_POST['submit'])){
 
 <section class="form-container">
 
+   <div class="update_bg">
+      <img src="./uploaded_img/banner-4.avif" alt="">
+   </div>
+
    <form action="" method="post">
-      <h3>update profile</h3>
+      <h3>Thay đổi thông tin cá nhân</h3>
+      <label for="username">
+      <span>Tên người dùng:</span>
       <input type="text" name="name" placeholder="<?= $fetch_profile['name']; ?>" class="box" maxlength="50">
+      </label>
+      
+      <label for="email">
+      <span>Email:</span>
       <input type="email" name="email" placeholder="<?= $fetch_profile['email']; ?>" class="box" maxlength="50" oninput="this.value = this.value.replace(/\s/g, '')">
-      <input type="password" name="old_pass" placeholder="enter your old password" class="box" maxlength="50" oninput="this.value = this.value.replace(/\s/g, '')">
-      <input type="password" name="new_pass" placeholder="enter your new password" class="box" maxlength="50" oninput="this.value = this.value.replace(/\s/g, '')">
-      <input type="password" name="confirm_pass" placeholder="confirm your new password" class="box" maxlength="50" oninput="this.value = this.value.replace(/\s/g, '')">
-      <input type="submit" value="update now" name="submit" class="btn">
+      </label>
+      
+      <label for="pass_old">
+      <span>Mật khẩu Cũ:</span>
+      <input type="password" name="old_pass" placeholder="Nhập mật khẩu cũ" class="box" maxlength="50" oninput="this.value = this.value.replace(/\s/g, '')">
+      </label>
+      
+      <label for="pass_new">
+      <span>Mật khẩu mới:</span>
+      <input type="password" name="new_pass" placeholder="Nhập mật khẩu mới" class="box" maxlength="50" oninput="this.value = this.value.replace(/\s/g, '')">
+      </label>
+      
+<label for="pass_new_conf">
+   <span>Xác nhận mật khẩu mới:</span>
+   <input type="password" name="confirm_pass" placeholder="Nhập lại mật khẩu mới:" class="box" maxlength="50" oninput="this.value = this.value.replace(/\s/g, '')">
+</label>
+
+     
+      <input type="submit" value="Cập nhật ngay" name="submit" class="btn">
    </form>
 
 </section>
@@ -122,4 +147,5 @@ if(isset($_POST['submit'])){
 <script src="js/script.js"></script>
 
 </body>
+<script src="./js/script.js"></script>
 </html>

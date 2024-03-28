@@ -26,7 +26,7 @@ include 'components/like_post.php';
    <meta charset="UTF-8">
    <meta http-equiv="X-UA-Compatible" content="IE=edge">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>author</title>
+   <title>Tác giả</title>
 
    <!-- font awesome cdn link  -->
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
@@ -84,7 +84,7 @@ include 'components/like_post.php';
          }
          ?>
          <div class="post-title"><?= $fetch_posts['title']; ?></div>
-         <div class="post-content content-150"><?= $fetch_posts['content']; ?></div>
+         <div class="post-content content-30"><?= $fetch_posts['content']; ?></div>
          <a href="view_post.php?post_id=<?= $post_id; ?>" class="inline-btn">read more</a>
          <div class="icons">
             <a href="view_post.php?post_id=<?= $post_id; ?>"><i class="fas fa-comment"></i><span>(<?= $total_post_comments; ?>)</span></a>
@@ -95,33 +95,25 @@ include 'components/like_post.php';
       <?php
          }
       }else{
-         echo '<p class="empty">no posts found for this author!</p>';
+         echo '<p class="empty">Không tìm thấy bài đăng nào cho tác giả này!</p>';
       }
       ?>
    </div>
 
 </section>
 
-
-
-
-
-
-
-
-
-
+<!-- <script>
+   document.querySelectorAll('.content-30').forEach(content => {
+   if(content.innerHTML.length > 30) content.innerHTML = content.innerHTML.slice(0, 30);
+});
+</script> -->
 
 <?php include 'components/footer.php'; ?>
-
-
-
-
-
 
 
 <!-- custom js file link  -->
 <script src="js/script.js"></script>
 
 </body>
+<script src="./js/script.js"></script>
 </html>

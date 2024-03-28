@@ -40,40 +40,32 @@ include 'components/like_post.php';
 
 <section class="categories">
 
-   <h1 class="heading">post categories</h1>
+   <h1 class="heading">Thể loại bài đăng</h1>
 
    <div class="box-container">
-      <div class="box"><span>01</span><a href="category.php?category=nature">nature</a></div>
-      <div class="box"><span>02</span><a href="category.php?category=eduction">education</a></div>
-      <div class="box"><span>03</span><a href="category.php?category=pets and animals">pets and animals</a></div>
-      <div class="box"><span>04</span><a href="category.php?category=technology">technology</a></div>
-      <div class="box"><span>05</span><a href="category.php?category=fashion">fashion</a></div>
-      <div class="box"><span>06</span><a href="category.php?category=entertainment">entertainment</a></div>
-      <div class="box"><span>07</span><a href="category.php?category=movies">movies</a></div>
-      <div class="box"><span>08</span><a href="category.php?category=gaming">gaming</a></div>
-      <div class="box"><span>09</span><a href="category.php?category=music">music</a></div>
-      <div class="box"><span>10</span><a href="category.php?category=sports">sports</a></div>
-      <div class="box"><span>11</span><a href="category.php?category=news">news</a></div>
-      <div class="box"><span>12</span><a href="category.php?category=travel">travel</a></div>
-      <div class="box"><span>13</span><a href="category.php?category=comedy">comedy</a></div>
-      <div class="box"><span>14</span><a href="category.php?category=design and development">design and development</a></div>
-      <div class="box"><span>15</span><a href="category.php?category=food and drinks">food and drinks</a></div>
-      <div class="box"><span>16</span><a href="category.php?category=lifestyle">lifestyle</a></div>
-      <div class="box"><span>17</span><a href="category.php?category=health and fitness">health and fitness</a></div>
-      <div class="box"><span>18</span><a href="category.php?category=business">business</a></div>
-      <div class="box"><span>19</span><a href="category.php?category=shopping">shopping</a></div>
-      <div class="box"><span>20</span><a href="category.php?category=animations">animations</a></div>
+      <div class="box"><span>01</span><a href="category.php?category=nature">Thiên nhiên</a></div>
+      <div class="box"><span>02</span><a href="category.php?category=eduction">Giáo dục</a></div>
+      <div class="box"><span>03</span><a href="category.php?category=pets and animals">Thú Cưng</a></div>
+      <div class="box"><span>04</span><a href="category.php?category=technology">Công Nghệ</a></div>
+      <div class="box"><span>05</span><a href="category.php?category=fashion">Thời Trang</a></div>
+      <div class="box"><span>06</span><a href="category.php?category=entertainment">Giải Trí</a></div>
+      <div class="box"><span>07</span><a href="category.php?category=movies">Phim</a></div>
+      <div class="box"><span>08</span><a href="category.php?category=gaming">Trò Chơi</a></div>
+      <div class="box"><span>09</span><a href="category.php?category=music">Âm Nhạc</a></div>
+      <div class="box"><span>10</span><a href="category.php?category=sports">Thể Thao</a></div>
+      <div class="box"><span>11</span><a href="category.php?category=news">Tin Tức</a></div>
+      <div class="box"><span>12</span><a href="category.php?category=travel">Du Lịch</a></div>
+      <div class="box"><span>13</span><a href="category.php?category=comedy">Hài Hước</a></div>
+      <div class="box"><span>14</span><a href="category.php?category=design and development">Thiết kế</a></div>
+      <div class="box"><span>15</span><a href="category.php?category=food and drinks">Thức ăn và Đồ uống</a></div>
+      <div class="box"><span>16</span><a href="category.php?category=lifestyle">Phong Cách Sống</a></div>
+      <div class="box"><span>17</span><a href="category.php?category=health and fitness">Sức khỏe</a></div>
+      <div class="box"><span>18</span><a href="category.php?category=business">Kinh Doanh</a></div>
+      <div class="box"><span>19</span><a href="category.php?category=shopping">Mua Sắm</a></div>
+      <div class="box"><span>20</span><a href="category.php?category=animations">Hoạt Hình</a></div>
    </div>
 
 </section>
-
-
-
-
-
-
-
-
 
 
 <?php include 'components/footer.php'; ?>
@@ -85,7 +77,7 @@ include 'components/like_post.php';
 
 
 <!-- custom js file link  -->
-<script src="js/script.js"></script>
-
+<script src="./js/script.js"></script>
 </body>
+<script src="./js/script.js"></script>
 </html>

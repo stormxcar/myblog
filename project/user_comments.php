@@ -53,7 +53,7 @@ if(isset($_POST['delete_comment'])){
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 
    <!-- custom css file link  -->
-   <link rel="stylesheet" href="css/style.css">
+   <link rel="stylesheet" href="css/style_edit.css">
 
 </head>
 <body>
@@ -87,9 +87,9 @@ if(isset($_POST['delete_comment'])){
 
 <section class="comments-container">
 
-   <h1 class="heading">your comments</h1>
+   <h1 class="heading">Bình luận của bạn</h1>
 
-   <p class="comment-title">your comments on the posts</p>
+   <p class="comment-title">Bình luận của bạn trên bài viết</p>
    <div class="user-comments-container">
       <?php
          $select_comments = $conn->prepare("SELECT * FROM `comments` WHERE user_id = ?");
@@ -117,19 +117,12 @@ if(isset($_POST['delete_comment'])){
       <?php
             }
          }else{
-            echo '<p class="empty">no comments added yet!</p>';
+            echo '<p class="empty">Chưa bình luận nào được thêm!</p>';
          }
       ?>
    </div>
 
 </section>
-
-
-
-
-
-
-
 
 
 
@@ -139,4 +132,5 @@ if(isset($_POST['delete_comment'])){
 <script src="js/script.js"></script>
 
 </body>
+<script src="./js/script.js"></script>
 </html>

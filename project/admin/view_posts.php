@@ -36,13 +36,13 @@ if(isset($_POST['delete'])){
    <meta charset="UTF-8">
    <meta http-equiv="X-UA-Compatible" content="IE=edge">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>posts</title>
+   <title>Bài viết</title>
 
    <!-- font awesome cdn link  -->
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 
    <!-- custom css file link  -->
-   <link rel="stylesheet" href="../css/admin_style.css">
+   <link rel="stylesheet" href="../css/admin_style_edit.css">
 
 </head>
 <body>
@@ -51,7 +51,7 @@ if(isset($_POST['delete'])){
 
 <section class="show-posts">
 
-   <h1 class="heading">your posts</h1>
+   <h1 class="heading">Các bài viết của bạn</h1>
 
    <div class="box-container">
 
@@ -84,10 +84,10 @@ if(isset($_POST['delete'])){
             <div class="comments"><i class="fas fa-comment"></i><span><?= $total_post_comments; ?></span></div>
          </div>
          <div class="flex-btn">
-            <a href="edit_post.php?id=<?= $post_id; ?>" class="option-btn">edit</a>
-            <button type="submit" name="delete" class="delete-btn" onclick="return confirm('delete this post?');">delete</button>
+            <a href="edit_post.php?id=<?= $post_id; ?>" class="option-btn">Chỉnh sửa</a>
+            <button type="submit" name="delete" class="delete-btn" onclick="return confirm('delete this post?');">Xóa</button>
          </div>
-         <a href="read_post.php?post_id=<?= $post_id; ?>" class="btn">view post</a>
+         <a href="read_post.php?post_id=<?= $post_id; ?>" class="btn">Xem bài viết</a>
       </form>
       <?php
             }

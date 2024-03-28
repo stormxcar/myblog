@@ -18,7 +18,7 @@ if(isset($message)){
       <a href="home.php" class="logo">BATrav</a>
 
       <form action="search.php" method="POST" class="search-form">
-         <input type="text" name="search_box" class="box" maxlength="100" placeholder="search for blogs" required>
+         <input type="text" name="search_box" class="box" maxlength="100" placeholder="Tìm kiếm bài viết" required>
          <button type="submit" class="fas fa-search" name="search_btn"></button>
       </form>
 
@@ -29,12 +29,12 @@ if(isset($message)){
       </div>
 
       <nav class="navbar">
-         <a href="home.php"> <i class="fas fa-angle-right"></i> home</a>
-         <a href="posts.php"> <i class="fas fa-angle-right"></i> posts</a>
-         <a href="all_category.php"> <i class="fas fa-angle-right"></i> category</a>
-         <a href="authors.php"> <i class="fas fa-angle-right"></i> authors</a>
-         <a href="login.php"> <i class="fas fa-angle-right"></i> login</a>
-         <a href="register.php"> <i class="fas fa-angle-right"></i> register</a>
+         <a href="home.php"> <i class="fa-solid fa-house"></i> Trang Chủ</a>
+         <a href="posts.php"> <i class="fa-solid fa-address-card"></i></i> Bài Đăng</a>
+         <a href="all_category.php"> <i class="fa-solid fa-layer-group"></i></i> Loại</a>
+         <a href="authors.php"><i class="fa-solid fa-at"></i></i> Tác Gỉa</a>
+         <a href="login.php"><i class="fa-solid fa-right-to-bracket"></i></i> Đăng Nhập</a>
+         <a href="register.php"> <i class="fa-solid fa-square-caret-right"></i></i> Đăng Ký</a>
       </nav>
 
       <div class="profile">
@@ -54,8 +54,8 @@ if(isset($message)){
          <?php
             }else{
          ?>
-            <p class="name">please login first!</p>
-            <a href="login.php" class="option-btn">login</a>
+            <p class="name">Vui lòng đăng nhập trước!</p>
+            <a href="login.php" class="option-btn">Đăng nhập</a>
          <?php
             }
          ?>

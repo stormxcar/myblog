@@ -104,13 +104,13 @@ if(isset($_POST['draft'])){
    <meta charset="UTF-8">
    <meta http-equiv="X-UA-Compatible" content="IE=edge">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>posts</title>
+   <title>Bài Đăng</title>
 
    <!-- font awesome cdn link  -->
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 
    <!-- custom css file link  -->
-   <link rel="stylesheet" href="../css/admin_style.css">
+   <link rel="stylesheet" href="../css/admin_style_edit.css">
 
 </head>
 <body>
@@ -120,44 +120,44 @@ if(isset($_POST['draft'])){
 
 <section class="post-editor">
 
-   <h1 class="heading">add new post</h1>
+   <h1 class="heading">Thêm Bài Đăng Mới</h1>
 
    <form action="" method="post" enctype="multipart/form-data">
       <input type="hidden" name="name" value="<?= $fetch_profile['name']; ?>">
-      <p>post title <span>*</span></p>
-      <input type="text" name="title" maxlength="100" required placeholder="add post title" class="box">
-      <p>post content <span>*</span></p>
-      <textarea name="content" class="box" required maxlength="10000" placeholder="write your content..." cols="30" rows="10"></textarea>
-      <p>post category <span>*</span></p>
+      <p>Tiêu đề bài viết <span>*</span></p>
+      <input type="text" name="title" maxlength="100" required placeholder="Thêm tiêu đề" class="box">
+      <p>Nội dung bài viết <span>*</span></p>
+      <textarea name="content" class="box" required maxlength="10000" placeholder="Viết nội dung..." cols="30" rows="10"></textarea>
+      <p>Thể loại bài viết <span>*</span></p>
       <select name="category" class="box" required>
-         <option value="" selected disabled>-- select category* </option>
-         <option value="nature">nature</option>
-         <option value="education">education</option>
-         <option value="pets and animals">pets and animals</option>
-         <option value="technology">technology</option>
-         <option value="fashion">fashion</option>
-         <option value="entertainment">entertainment</option>
-         <option value="movies and animations">movies</option>
-         <option value="gaming">gaming</option>
-         <option value="music">music</option>
-         <option value="sports">sports</option>
-         <option value="news">news</option>
-         <option value="travel">travel</option>
-         <option value="comedy">comedy</option>
-         <option value="design and development">design and development</option>
-         <option value="food and drinks">food and drinks</option>
-         <option value="lifestyle">lifestyle</option>
-         <option value="personal">personal</option>
-         <option value="health and fitness">health and fitness</option>
-         <option value="business">business</option>
-         <option value="shopping">shopping</option>
-         <option value="animations">animations</option>
+         <option value="" selected disabled>-- Chọn Thể Loại* </option>
+         <option value="nature">Tự Nhiên</option>
+         <option value="education">Giáo Dục</option>
+         <option value="pets and animals">Thú cưng và Động Vật</option>
+         <option value="technology">Công Nghệ</option>
+         <option value="fashion">Thời Trang</option>
+         <option value="entertainment">Giải Trí</option>
+         <option value="movies and animations">Phim</option>
+         <option value="gaming">Trò Chơi</option>
+         <option value="music">Âm Nhạc</option>
+         <option value="sports">Thể Thao</option>
+         <option value="news">Tin Tức</option>
+         <option value="travel">Du Lịch</option>
+         <option value="comedy">Hài Hước</option>
+         <option value="design and development">Thiết kế</option>
+         <option value="food and drinks">Thức ăn Và Đồ uống</option>
+         <option value="lifestyle">Phong Cách Sống</option>
+         <option value="personal">Cá Nhân</option>
+         <option value="health and fitness">Sức Khỏe</option>
+         <option value="business">Kinh Doanh</option>
+         <option value="shopping">Thời Trang</option>
+         <option value="animations">Hoạt Hình</option>
       </select>
-      <p>post image</p>
+      <p>Chọn ảnh bài viết</p>
       <input type="file" name="image" class="box" accept="image/jpg, image/jpeg, image/png, image/webp">
       <div class="flex-btn">
-         <input type="submit" value="publish post" name="publish" class="btn">
-         <input type="submit" value="save draft" name="draft" class="option-btn">
+         <input type="submit" value="Bài viết công khai" name="publish" class="btn">
+         <input type="submit" value="Lưu Bản Nháp" name="draft" class="option-btn">
       </div>
    </form>
 

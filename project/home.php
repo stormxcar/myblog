@@ -125,14 +125,84 @@ include 'components/like_post.php';
    
 </section>
 
+
 <?php
    include './introduce.php'
 ?>
+
+<!-- main post -->
+<section class="main_post-container">
+    
+
+    <div class="box_container">
+        <?php
+        $post_id = 1; // ID của bài viết cần hiển thị
+
+        $select_post = $conn->prepare("SELECT * FROM `posts` WHERE id = ?");
+        $select_post->execute([$post_id]);
+        $fetch_post = $select_post->fetch(PDO::FETCH_ASSOC);
+        ?>
+
+        <div class="box ">
+         <div class="box_left">
+         <input type="hidden" name="post_id" value="<?= $post_id; ?>">
+            <input type="hidden" name="admin_id" value="<?= $fetch_post['admin_id']; ?>">
+            <div class="post-admin">
+                <i class="fas fa-user"></i>
+                <div>
+                    <a href="author_posts.php?author=<?= $fetch_post['name']; ?>"><?= $fetch_post['name']; ?></a>
+                    <div><?= $fetch_post['date']; ?></div>
+                </div>
+            </div>
+
+            <?php if($fetch_post['image'] != ''){ ?>
+            <img src="uploaded_img/<?= $fetch_post['image']; ?>" class="post-image" alt="">
+            <?php } ?>
+         </div>
+           
+         <div class="box_right">
+            <div class="post-title"><?= $fetch_post['title']; ?></div>
+            <div class="post-content content-200"><?= $fetch_post['content']; ?></div>
+            <a href="view_post.php?post_id=<?= $post_id; ?>" class="inline-btn">Doc them</a>
+         </div>
+
+         
+            
+
+            <!-- Tính toán số lượt bình luận và lượt thích -->
+            <?php
+            $count_post_comments = $conn->prepare("SELECT * FROM `comments` WHERE post_id = ?");
+            $count_post_comments->execute([$post_id]);
+            $total_post_comments = $count_post_comments->rowCount();
+
+            $count_post_likes = $conn->prepare("SELECT * FROM `likes` WHERE post_id = ?");
+            $count_post_likes->execute([$post_id]);
+            $total_post_likes = $count_post_likes->rowCount();
+
+            $confirm_likes = $conn->prepare("SELECT * FROM `likes` WHERE user_id = ? AND post_id = ?");
+            $confirm_likes->execute([$user_id, $post_id]);
+            ?>
+
+            <!-- <div class="icons">
+                <div><i class="fas fa-comment"></i><span>(<?= $total_post_comments; ?>)</span></div>
+                <button type="submit" name="like_post"><i class="fas fa-heart" style="<?php if($confirm_likes->rowCount() > 0){ echo 'color:var(--red);'; } ?>"></i><span>(<?= $total_post_likes; ?>)</span></button>
+            </div> -->
+        </div>
+    </div>
+</section>
+
+
+
 <!-- post part -->
 <section class="posts-container">
 
-   <h1 class="heading">News</h1>
+   <h1 class="heading">Tin Tuc</h1>
 
+
+   <div class="btn_post">
+      <button class="prev" id="prevBtn">Prev</button>
+      <button class="next" id="nextBtn">Next</button>
+   </div>
    <div class="box-container">
 
       <?php
@@ -154,7 +224,7 @@ include 'components/like_post.php';
                $confirm_likes = $conn->prepare("SELECT * FROM `likes` WHERE user_id = ? AND post_id = ?");
                $confirm_likes->execute([$user_id, $post_id]);
       ?>
-      <form class="box" method="post">
+      <form class="box is-visible" method="post">
          <input type="hidden" name="post_id" value="<?= $post_id; ?>">
          <input type="hidden" name="admin_id" value="<?= $fetch_posts['admin_id']; ?>">
          <div class="post-admin">
@@ -173,14 +243,14 @@ include 'components/like_post.php';
          }
          ?>
          <div class="post-title"><?= $fetch_posts['title']; ?></div>
-         <div class="post-content content-150"><?= $fetch_posts['content']; ?></div>
-         <a href="view_post.php?post_id=<?= $post_id; ?>" class="inline-btn">read more</a>
+         <div class="post-content content-30"><?= $fetch_posts['content']; ?></div>
+         <a href="view_post.php?post_id=<?= $post_id; ?>" class="inline-btn">Đọc thêm</a>
          <a href="category.php?category=<?= $fetch_posts['category']; ?>" class="post-cat"> <i class="fas fa-tag"></i> <span><?= $fetch_posts['category']; ?></span></a>
          <div class="icons">
             <a href="view_post.php?post_id=<?= $post_id; ?>"><i class="fas fa-comment"></i><span>(<?= $total_post_comments; ?>)</span></a>
             <button type="submit" name="like_post"><i class="fas fa-heart" style="<?php if($confirm_likes->rowCount() > 0){ echo 'color:var(--red);'; } ?>  "></i><span>(<?= $total_post_likes; ?>)</span></button>
          </div>
-      
+         
       </form>
       <?php
          }
@@ -190,10 +260,13 @@ include 'components/like_post.php';
       ?>
    </div>
 
+      
    <div class="more-btn" style="text-align: center; margin-top:1rem;">
       <a href="posts.php" class="inline-btn">view all posts</a>
    </div>
 
+   
+   
 </section>
 
 <?php include './contact.php' ?>
@@ -205,10 +278,43 @@ include 'components/like_post.php';
 <script src="js/script.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-element-bundle.min.js"></script>
 <script>
-document.querySelectorAll('.content-150').forEach(content => {
+document.querySelectorAll('.content-30').forEach(content => {
    if(content.innerHTML.length > 30) content.innerHTML = content.innerHTML.slice(0, 30);
 });
+
+function scrollToTop() {
+   window.scrollTo({
+       top: 0,
+       behavior: 'smooth'
+   });
+}
+
+// xử lý 
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const boxes = document.querySelectorAll('.box');
+
+let currentBoxIndex = 0; // gán vi tri của box ban dau
+
+prevBtn.addEventListener('click', function() {
+    if (currentBoxIndex > 0) { // Kiểm tra xem có box trước đó không
+        currentBoxIndex--; // Giảm chỉ số box hiện tại
+        boxes[currentBoxIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+    }
+});
+
+nextBtn.addEventListener('click', function() {
+    if (currentBoxIndex < boxes.length - 1) { // Kiểm tra xem có box tiếp theo không
+        currentBoxIndex++; // Tăng chỉ số box hiện tại
+        boxes[currentBoxIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+    }
+});
+
 </script>
 
+
+
+<!-- <script src="js/script.js"></script> -->
 </body>
+<script src="./js/script.js"></script>
 </html>

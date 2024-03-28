@@ -33,7 +33,7 @@ if(isset($_SESSION['user_id'])){
 
 <section class="banner-container">
 
-   <h1 class="heading">Banner</h1>
+   <h1 class="heading"></h1>
 
    <div class="box-container">
    <div class="slider-container">

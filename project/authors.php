@@ -20,7 +20,7 @@ include 'components/like_post.php';
    <meta charset="UTF-8">
    <meta http-equiv="X-UA-Compatible" content="IE=edge">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>author</title>
+   <title>Tác giả</title>
 
    <!-- font awesome cdn link  -->
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
@@ -38,7 +38,7 @@ include 'components/like_post.php';
 
 <section class="authors">
 
-   <h1 class="heading">authors</h1>
+   <h1 class="heading">Tác Giả</h1>
 
    <div class="box-container">
 
@@ -62,16 +62,16 @@ include 'components/like_post.php';
 
    ?>
    <div class="box">
-      <p>author : <span><?= $fetch_authors['name']; ?></span></p>
-      <p>total posts : <span><?= $total_admin_posts; ?></span></p>
-      <p>posts likes : <span><?= $total_admin_likes; ?></span></p>
-      <p>posts comments : <span><?= $total_admin_comments; ?></span></p>
-      <a href="author_posts.php?author=<?= $fetch_authors['name']; ?>" class="btn">view posts</a>
+      <p>Tác giả : <span><?= $fetch_authors['name']; ?></span></p>
+      <p>Tổng số bài đăng : <span><?= $total_admin_posts; ?></span></p>
+      <p>Lượt like : <span><?= $total_admin_likes; ?></span></p>
+      <p>Lượt Bình Luận : <span><?= $total_admin_comments; ?></span></p>
+      <a href="author_posts.php?author=<?= $fetch_authors['name']; ?>" class="btn">Xem Bài Đăng</a>
    </div>
    <?php
       }
    }else{
-      echo '<p class="empty">no authors found</p>';
+      echo '<p class="empty">Không có tác giả !</p>';
    }
    ?>
 
@@ -82,18 +82,7 @@ include 'components/like_post.php';
 
 
 
-
-
-
-
-
-
-
 <?php include 'components/footer.php'; ?>
-
-
-
-
 
 
 
@@ -101,4 +90,5 @@ include 'components/like_post.php';
 <script src="js/script.js"></script>
 
 </body>
+<script src="js/script.js"></script>
 </html>

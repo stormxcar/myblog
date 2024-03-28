@@ -69,23 +69,36 @@ if(isset($_POST['submit'])){
 <!-- header section ends -->
 
 <section class="form-container">
-
+   <div class="register_bg">
+      <img src="./uploaded_img/308832756_7871752849561658_997181065324497980_n.jpg" alt="">
+   </div>
    <form action="" method="post">
-      <h3>register now</h3>
-      <input type="text" name="name" required placeholder="enter your name" class="box" maxlength="50">
-      <input type="email" name="email" required placeholder="enter your email" class="box" maxlength="50" oninput="this.value = this.value.replace(/\s/g, '')">
-      <input type="password" name="pass" required placeholder="enter your password" class="box" maxlength="50" oninput="this.value = this.value.replace(/\s/g, '')">
-      <input type="password" name="cpass" required placeholder="confirm your password" class="box" maxlength="50" oninput="this.value = this.value.replace(/\s/g, '')">
-      <input type="submit" value="register now" name="submit" class="btn">
-      <p>already have an account? <a href="login.php">login now</a></p>
+      <h3>Xin chào bạn mới</h3>
+      <label for="username">
+      <span>Tên người dùng:</span>
+      <input type="text" name="name" required placeholder="Nhập tên của bạn" class="box" maxlength="50">
+      </label>
+     
+      <label for="email">
+      <span>Email:</span>
+      <input type="email" name="email" required placeholder="Nhập email của bạn" class="box" maxlength="50" oninput="this.value = this.value.replace(/\s/g, '')">
+      </label>
+      
+      <label for="pass">
+      <span>Mật khẩu:</span>
+      <input type="password" name="pass" required placeholder="Nhập mật khẩu" class="box" maxlength="50" oninput="this.value = this.value.replace(/\s/g, '')">
+      </label>
+      
+      <label for="conf_pass">
+      <span>Xác nhận mật khẩu:</span>
+      <input type="password" name="cpass" required placeholder="Nhập lại mật khẩu" class="box" maxlength="50" oninput="this.value = this.value.replace(/\s/g, '')">
+      </label>
+     
+      <input type="submit" value="Đăng ký" name="submit" class="btn">
+      <p>Bạn đã có tài khoản ? <a href="login.php">Đăng nhập ngay</a></p>
    </form>
 
 </section>
-
-
-
-
-
 
 
 
@@ -96,12 +109,9 @@ if(isset($_POST['submit'])){
 
 
 
-
-
-
-
 <!-- custom js file link  -->
 <script src="js/script.js"></script>
 
 </body>
+<script src="js/script.js"></script>
 </html>

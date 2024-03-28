@@ -38,7 +38,7 @@ include 'components/like_post.php';
 
 <section class="posts-container">
 
-   <h1 class="heading">liked posts</h1>
+   <h1 class="heading">Lượt Thích Về Bài Viết</h1>
 
    <div class="box-container">
 
@@ -83,7 +83,7 @@ include 'components/like_post.php';
          ?>
          <div class="post-title"><?= $fetch_posts['title']; ?></div>
          <div class="post-content content-150"><?= $fetch_posts['content']; ?></div>
-         <a href="view_post.php?post_id=<?= $post_id; ?>" class="inline-btn">read more</a>
+         <a href="view_post.php?post_id=<?= $post_id; ?>" class="inline-btn">Đọc Thêm</a>
          <div class="icons">
             <a href="view_post.php?post_id=<?= $post_id; ?>"><i class="fas fa-comment"></i><span>(<?= $total_post_likes; ?>)</span></a>
             <button type="submit" name="like_post"><i class="fas fa-heart" style="<?php if($total_post_likes > 0 AND $user_id != ''){ echo 'color:red;'; }; ?>"></i><span>(<?= $total_post_likes; ?>)</span></button>
@@ -94,11 +94,11 @@ include 'components/like_post.php';
                }
             }
          }else{
-            echo '<p class="empty">no posts found for this category!</p>';
+            echo '<p class="empty">Không bài viết nào được thêm cho thể loại này!</p>';
          }
          }
       }else{
-         echo '<p class="empty">no liked posts available!</p>';
+         echo '<p class="empty">Lượt thích hiện chưa có!</p>';
       }
       ?>
    </div>
@@ -108,18 +108,11 @@ include 'components/like_post.php';
 </section>
 
 
-
-
-
-
-
-
-
-
 <?php include 'components/footer.php'; ?>
 
 <!-- custom js file link  -->
 <script src="js/script.js"></script>
 
 </body>
+<script src="./js/script.js"></script>
 </html>

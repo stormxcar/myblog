@@ -50,7 +50,7 @@ if(isset($_POST['submit'])){
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 
    <!-- custom css file link  -->
-   <link rel="stylesheet" href="../css/admin_style.css">
+   <link rel="stylesheet" href="../css/admin_style_edit.css">
 
 </head>
 <body>
@@ -62,30 +62,28 @@ if(isset($_POST['submit'])){
 <section class="form-container">
 
    <form action="" method="POST">
-      <h3>register new</h3>
-      <input type="text" name="name" maxlength="20" required placeholder="enter your username" class="box" oninput="this.value = this.value.replace(/\s/g, '')">
-      <input type="password" name="pass" maxlength="20" required placeholder="enter your password" class="box" oninput="this.value = this.value.replace(/\s/g, '')">
-      <input type="password" name="cpass" maxlength="20" required placeholder="confirm your password" class="box" oninput="this.value = this.value.replace(/\s/g, '')">
-      <input type="submit" value="register now" name="submit" class="btn">
+      <h3>Đăng ký mới</h3>
+      <label for="admin_name">
+      <span>Adminname</span>
+      <input type="text" name="name" maxlength="20" required placeholder="Nhập tên tài khoản" class="box" oninput="this.value = this.value.replace(/\s/g, '')">
+      </label>
+      
+      <label for="admin_pass">
+      <span>Mật khẩu</span>
+      <input type="password" name="pass" maxlength="20" required placeholder="Nhập mật khẩu" class="box" oninput="this.value = this.value.replace(/\s/g, '')">
+      </label>
+      
+      <label for="admin_pass_conf">
+      <span>Xác nhận mật khẩu</span>
+      <input type="password" name="cpass" maxlength="20" required placeholder="Nhập lại mật khẩu" class="box" oninput="this.value = this.value.replace(/\s/g, '')">
+      </label>
+      
+      <input type="submit" value="Đăng ký ngay" name="submit" class="btn">
    </form>
 
 </section>
 
 <!-- register admin section ends -->
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 <!-- custom js file link  -->

@@ -32,6 +32,12 @@
 
    <div class="footer_bottom">
    &copy; copyright @ <?= date('Y'); ?> by <span>enka2003</span> | all rights reserved!
+
+   <div class="scroll-to-top" onclick="scrollToTop()">
+        <i class="fas fa-chevron-up"></i>
+    </div>
    </div>
    
 </footer>
+
+<script src="/project/js/script.js">
