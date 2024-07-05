@@ -115,7 +115,7 @@ if(isset($_POST['delete_image'])){
 
 <section class="post-editor">
 
-   <h1 class="heading">edit post</h1>
+   <h1 class="heading">Chỉnh Sửa Bài Viết</h1>
 
    <?php
       $post_id = $_GET['id'];
@@ -127,62 +127,52 @@ if(isset($_POST['delete_image'])){
    <form action="" method="post" enctype="multipart/form-data">
       <input type="hidden" name="old_image" value="<?= $fetch_posts['image']; ?>">
       <input type="hidden" name="post_id" value="<?= $fetch_posts['id']; ?>">
-      <p>post status <span>*</span></p>
+      <p>Trạng Thái Bài Viết <span>*</span></p>
       <select name="status" class="box" required>
          <option value="<?= $fetch_posts['status']; ?>" selected><?= $fetch_posts['status']; ?></option>
          <option value="active">active</option>
          <option value="deactive">deactive</option>
       </select>
-      <p>post title <span>*</span></p>
+      <p>Tiêu đề <span>*</span></p>
       <input type="text" name="title" maxlength="100" required placeholder="add post title" class="box" value="<?= $fetch_posts['title']; ?>">
-      <p>post content <span>*</span></p>
+      <p>Nội dung <span>*</span></p>
       <textarea name="content" class="box" required maxlength="10000" placeholder="write your content..." cols="30" rows="10"><?= $fetch_posts['content']; ?></textarea>
-      <p>post category <span>*</span></p>
+      <p>Thể loại <span>*</span></p>
       <select name="category" class="box" required>
          <option value="<?= $fetch_posts['category']; ?>" selected><?= $fetch_posts['category']; ?></option>
-         <option value="nature">nature</option>
-         <option value="education">education</option>
-         <option value="pets and animals">pets and animals</option>
-         <option value="technology">technology</option>
-         <option value="fashion">fashion</option>
-         <option value="entertainment">entertainment</option>
-         <option value="movies and animations">movies</option>
-         <option value="gaming">gaming</option>
-         <option value="music">music</option>
-         <option value="sports">sports</option>
-         <option value="news">news</option>
-         <option value="travel">travel</option>
-         <option value="comedy">comedy</option>
-         <option value="design and development">design and development</option>
-         <option value="food and drinks">food and drinks</option>
-         <option value="lifestyle">lifestyle</option>
-         <option value="personal">personal</option>
-         <option value="health and fitness">health and fitness</option>
-         <option value="business">business</option>
-         <option value="shopping">shopping</option>
-         <option value="animations">animations</option>
+         <option value="thien nhien">Thiên Nhiên</option>
+         <option value="giao duc">Giáo Dục</option>
+         <option value="du lich">Du lịch và phượt</option>
+         <option value="cong nghe">Công Nghệ</option>
+         <option value="thoi trang">Thời Trang</option>
+         <option value="giai tri">Giải Trí</option>
+         <option value="phim">Phim</option>
+         <option value="tro choi">Trò chơi</option>
+         <option value="am nhac">Âm nhạc</option>
+         <option value="the thao">Thể Thao</option>
+        
       </select>
-      <p>post image</p>
+      <p>Chọn ảnh</p>
       <input type="file" name="image" class="box" accept="image/jpg, image/jpeg, image/png, image/webp">
       <?php if($fetch_posts['image'] != ''){ ?>
          <img src="../uploaded_img/<?= $fetch_posts['image']; ?>" class="image" alt="">
-         <input type="submit" value="delete image" class="inline-delete-btn" name="delete_image">
+         <input type="submit" value="Xóa Ảnh" class="inline-delete-btn" name="delete_image">
       <?php } ?>
       <div class="flex-btn">
-         <input type="submit" value="save post" name="save" class="btn">
-         <a href="view_posts.php" class="option-btn">go back</a>
-         <input type="submit" value="delete post" class="delete-btn" name="delete_post">
+         <input type="submit" value="Lưu" name="save" class="btn">
+         <a href="view_posts.php" class="option-btn">Quay Lại</a>
+         <input type="submit" value="Xóa" class="delete-btn" name="delete_post">
       </div>
    </form>
 
    <?php
          }
       }else{
-         echo '<p class="empty">no posts found!</p>';
+         echo '<p class="empty">Không tìm thấy bài viết!</p>';
    ?>
    <div class="flex-btn">
-      <a href="view_posts.php" class="option-btn">view posts</a>
-      <a href="add_posts.php" class="option-btn">add posts</a>
+      <a href="view_posts.php" class="option-btn">Xem bài viết</a>
+      <a href="add_posts.php" class="option-btn">Thêm bài viết</a>
    </div>
    <?php
       }

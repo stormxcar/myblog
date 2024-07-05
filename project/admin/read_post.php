@@ -92,15 +92,15 @@ if(isset($_POST['delete_comment'])){
          <div class="comments"><i class="fas fa-comment"></i><span><?= $total_post_comments; ?></span></div>
       </div>
       <div class="flex-btn">
-         <a href="edit_post.php?id=<?= $post_id; ?>" class="inline-option-btn">edit</a>
-         <button type="submit" name="delete" class="inline-delete-btn" onclick="return confirm('delete this post?');">delete</button>
-         <a href="view_posts.php" class="inline-option-btn">go back</a>
+         <a href="edit_post.php?id=<?= $post_id; ?>" class="inline-option-btn">Chỉnh sửa</a>
+         <button type="submit" name="delete" class="inline-delete-btn" onclick="return confirm('Bạn có chắc chắn muốn xóa bài viết này không ?');">Xóa</button>
+         <a href="view_posts.php" class="inline-option-btn">Quay lại</a>
       </div>
    </form>
    <?php
          }
       }else{
-         echo '<p class="empty">no posts added yet! <a href="add_posts.php" class="btn" style="margin-top:1.5rem;">add post</a></p>';
+         echo '<p class="empty">Chưa bài viết nào được thêm ! <a href="add_posts.php" class="btn" style="margin-top:1.5rem;">thêm bài viết</a></p>';
       }
    ?>
 
@@ -108,7 +108,7 @@ if(isset($_POST['delete_comment'])){
 
 <section class="comments" style="padding-top: 0;">
    
-   <p class="comment-title">post comments</p>
+   <p class="comment-title">Bình luận</p>
    <div class="box-container">
    <?php
          $select_comments = $conn->prepare("SELECT * FROM `comments` WHERE post_id = ?");
@@ -127,13 +127,13 @@ if(isset($_POST['delete_comment'])){
       <div class="text"><?= $fetch_comments['comment']; ?></div>
       <form action="" method="POST">
          <input type="hidden" name="comment_id" value="<?= $fetch_comments['id']; ?>">
-         <button type="submit" class="inline-delete-btn" name="delete_comment" onclick="return confirm('delete this comment?');">delete comment</button>
+         <button type="submit" class="inline-delete-btn" name="delete_comment" onclick="return confirm('delete this comment?');">Xóa bình luận</button>
       </form>
    </div>
    <?php
          }
       }else{
-         echo '<p class="empty">no comments added yet!</p>';
+         echo '<p class="empty">Chưa có binh luận nào được thêm!</p>';
       }
    ?>
    </div>

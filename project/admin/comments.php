@@ -73,13 +73,13 @@ if(isset($_POST['delete_comment'])){
       <div class="text"><?= $fetch_comments['comment']; ?></div>
       <form action="" method="POST">
          <input type="hidden" name="comment_id" value="<?= $fetch_comments['id']; ?>">
-         <button type="submit" class="inline-delete-btn" name="delete_comment" onclick="return confirm('delete this comment?');">Xóa bình luận</button>
+         <button type="submit" class="inline-delete-btn" name="delete_comment" onclick="return confirm('Bạn có chắc xóa bình luận này không?');">Xóa bình luận</button>
       </form>
    </div>
    <?php
          }
       }else{
-         echo '<p class="empty">no comments added yet!</p>';
+         echo '<p class="empty">Chưa có bình luận nào được thêm!</p>';
       }
    ?>
    </div>

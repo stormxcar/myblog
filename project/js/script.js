@@ -29,13 +29,24 @@ window.onscroll = () => {
 };
 
 document.querySelectorAll(".content-30").forEach((content) => {
-  if (content.innerHTML.length > 30)
+  if (content.innerHTML.length > 30) {
     content.innerHTML = content.innerHTML.slice(0, 30);
+  }
+});
+
+document.querySelectorAll(".content-150").forEach((content) => {
+  if (content.innerHTML.length > 150)
+    content.innerHTML = content.innerHTML.slice(0, 150);
 });
 
 document.querySelectorAll(".content-200").forEach((content) => {
   if (content.innerHTML.length > 200)
     content.innerHTML = content.innerHTML.slice(0, 200);
+});
+
+document.querySelectorAll(".content-220").forEach((content) => {
+  if (content.innerHTML.length > 220)
+    content.innerHTML = content.innerHTML.slice(0, 220);
 });
 
 function scrollToTop() {
@@ -72,24 +83,98 @@ function callPhoneNumber(phoneNumber) {
   }
 }
 
+// xử lý
+document.addEventListener("DOMContentLoaded", (event) => {
+  const prevBtn = document.getElementById("prevBtn");
+  const nextBtn = document.getElementById("nextBtn");
+  const boxes = document.querySelectorAll(".box");
 
-// xử lý 
-const prevBtn = document.getElementById('prevBtn');
-const nextBtn = document.getElementById('nextBtn');
-const boxes = document.querySelectorAll('.box');
+  let currentBoxIndex = 0; // gán vi tri của box ban dau
 
-let currentBoxIndex = 0; // gán vi tri của box ban dau
-
-prevBtn.addEventListener('click', function() {
-    if (currentBoxIndex > 0) { // Kiểm tra xem có box trước đó không
-        currentBoxIndex--; // Giảm chỉ số box hiện tại
-        boxes[currentBoxIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+  prevBtn.addEventListener("click", function () {
+    if (currentBoxIndex > 0) {
+      // Kiểm tra xem có box trước đó không
+      currentBoxIndex--; // Giảm chỉ số box hiện tại
+      boxes[currentBoxIndex].scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "start",
+      });
     }
+  });
+
+  nextBtn.addEventListener("click", function () {
+    if (currentBoxIndex < boxes.length - 1) {
+      // Kiểm tra xem có box tiếp theo không
+      currentBoxIndex++; // Tăng chỉ số box hiện tại
+      boxes[currentBoxIndex].scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "start",
+      });
+    }
+  });
 });
 
-nextBtn.addEventListener('click', function() {
-    if (currentBoxIndex < boxes.length - 1) { // Kiểm tra xem có box tiếp theo không
-        currentBoxIndex++; // Tăng chỉ số box hiện tại
-        boxes[currentBoxIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
-    }
+let direction = 1; // 1 tien, -1 lùi
+
+setInterval(function () {
+  if (currentBoxIndex === boxes.length - 1) {
+    direction = -1; // thay doi huong khi vị trí này box cuoi cung
+  } else if (currentBoxIndex === 0) {
+    direction = 1; // thay doi huong khi vị trí ở box dau tien
+  }
+
+  if (direction === 1) {
+    nextBtn.click();
+  } else {
+    prevBtn.click();
+  }
+}, 2000);
+
+// scroll - ẩn header
+let lastScrollTop = 0;
+const header = document.querySelector(".header");
+
+window.addEventListener("scroll", function () {
+  let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+  if (scrollTop > lastScrollTop) {
+    // Khi cuộn xuống, ẩn header
+    header.classList.add("hide");
+  } else {
+    // Khi cuộn lên, hiện header
+    header.classList.remove("hide");
+  }
+  lastScrollTop = scrollTop;
+});
+
+var swiper = new Swiper(".swiper-container", {
+  pagination: {
+    el: ".swiper-pagination",
+    clickable: true,
+  },
+  navigation: {
+    nextEl: ".swiper-button-next",
+    prevEl: ".swiper-button-prev",
+  },
+  autoplay: {
+    delay: 5000,
+    disableOnInteraction: false,
+  },
+  on: {
+    slideChange: function () {
+      var currentSlide = this.slides[this.activeIndex];
+      var modal = currentSlide.querySelector(".modal");
+      // Remove any existing animation classes
+      modal.classList.remove("slideInLeft", "slideInRight");
+      // Add animation class based on direction
+      if (this.direction === "next") {
+        modal.classList.add("slideInRight");
+      } else {
+        modal.classList.add("slideInLeft");
+      }
+      // Show modal
+      modal.classList.add("show");
+    },
+  },
 });

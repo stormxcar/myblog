@@ -82,22 +82,35 @@ if(isset($_POST['submit'])){
 <section class="form-container">
 
    <form action="" method="POST">
-      <h3>update profile</h3>
+      <h3>Năng cấp thông tin</h3>
+
+      <label for="">
+      <span>admin</span>
       <input type="text" name="name" maxlength="20" class="box" oninput="this.value = this.value.replace(/\s/g, '')" placeholder="<?= $fetch_profile['name']; ?>">
+      </label>
+      
+      <label for="">
+      <span>Mật khẩu cũ</span>
       <input type="password" name="old_pass" maxlength="20" placeholder="enter your old password" class="box" oninput="this.value = this.value.replace(/\s/g, '')">
+      </label>
+  
+      <label for="">
+      <span>Mật khẩu mới</span>
       <input type="password" name="new_pass" maxlength="20" placeholder="enter your new password" class="box" oninput="this.value = this.value.replace(/\s/g, '')">
+      </label>
+     
+
+      <label for="">
+      <span>Xác nhận mật khẩu mới</span>
       <input type="password" name="confirm_pass" maxlength="20" placeholder="confirm your new password" class="box" oninput="this.value = this.value.replace(/\s/g, '')">
-      <input type="submit" value="update now" name="submit" class="btn">
+      </label>
+      
+      <input type="submit" value="Nâng cấp ngay" name="submit" class="btn">
    </form>
 
 </section>
 
 <!-- admin profile update section ends -->
-
-
-
-
-
 
 
 
