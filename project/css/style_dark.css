@@ -1,0 +1,242 @@
+body.dark-mode .light_dark_btn span {
+  border: 1px solid var(--white);
+  background-color: var(--main-color);
+}
+
+body.dark-mode .light_dark_btn span::before {
+  background-color: var(--white);
+  left: calc(100% - 18px);
+}
+body.dark-mode {
+  background-color: var(--main-color);
+  color: var(--white);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+body.dark-mode header {
+  background-color: var(--main-color);
+}
+body.dark-mode .header .flex .navbar {
+  background-color: var(--main-color);
+  transition: background-color 0.3s ease;
+}
+body.dark-mode .header .flex .navbar a {
+  color: var(--white);
+  transition: color 0.3s ease;
+}
+body.dark-mode .header .flex .navbar a i {
+  color: var(--white);
+  transition: color 0.3s ease;
+}
+body.dark-mode .light_dark_btn {
+  background-color: var(--main-color);
+  transition: background-color 0.3s ease;
+}
+body.dark-mode .light_dark_btn::after {
+  color: var(--white);
+  transition: color 0.3s ease;
+}
+body.dark-mode .light_dark_btn p {
+  color: var(--white);
+  transition: color 0.3s ease;
+}
+body.dark-mode .header .flex .search-form {
+  background-color: rgb(55, 55, 55);
+  transition: background-color 0.3s ease;
+}
+
+body.dark-mode .header .flex .search-form input:focus {
+  border-bottom: 2px solid var(--white);
+}
+
+body.dark-mode .header .flex .search-form input:focus ~ .fa-search {
+  background-color: var(--main-color);
+  border: 2px solid white;
+  color: var(--white);
+  transition: border 0.3s ease;
+}
+
+body.dark-mode .header .flex .search-form .box {
+  color: var(--white);
+}
+
+body.dark-mode .introduce .main_title .slogan {
+  color: rgb(199, 194, 194);
+}
+body.dark-mode .introduce .sperator {
+  background-color: var(--gray);
+}
+body.dark-mode .main_post-container .box .post-admin i {
+  border: var(--border-dark);
+}
+body.dark-mode .main_post-container .box .post-admin a {
+  color: var(--white);
+}
+body.dark-mode .main_post-container .box .box_right .post-title {
+  color: var(--white);
+}
+body.dark-mode .main_post-container .box .box_right .post-content {
+  color: var(--white);
+}
+body.dark-mode .btn,
+.delete-btn,
+.option-btn,
+.inline-btn,
+.inline-option-btn,
+.inline-delete-btn {
+  border: 2px solid var(--white);
+}
+body.dark-mode .heading {
+  color: var(--white);
+}
+body.dark-mode .prev,
+body.dark-mode .next {
+  background-color: rgb(72, 89, 115);
+}
+body.dark-mode .prev:focus,
+body.dark-mode .next:focus {
+  /* background-color: #fff; */
+  color: var(--white);
+}
+body.dark-mode .contact .contact_left img {
+  box-shadow: var(--light-color) -15px 15px;
+}
+body.dark-mode .contact .contact_right {
+  border-left: var(--border-dark);
+}
+body.dark-mode .contact .contact_right .contact_right-bottom .book_box #btnGui {
+  background-color: var(--gray);
+  border: var(--border-dark);
+}
+body.dark-mode .footer_top-lienhe ul li a {
+  color: var(--white);
+}
+body.dark-mode .footer_top-thongtin ul li a {
+  color: var(--white);
+}
+body.dark-mode .footer_bottom {
+  border-top: var(--border-dark);
+}
+body.dark-mode .footer_bottom .scroll-to-top {
+  border: var(--border-dark);
+}
+body.dark-mode .posts-container .box-container .box,
+body.dark-mode .posts-container .box-container .box_byPost {
+  background-color: var(--gray);
+  /* border: var(--border-dark); */
+}
+body.dark-mode .posts-container .box-container .box .post-admin i,
+body.dark-mode .posts-container .box-container .box_byPost .post-admin i {
+  border: var(--border-dark);
+  background-color: var(--main-color);
+  color: var(--white);
+}
+body.dark-mode .posts-container .box-container .box .post-admin a,
+body.dark-mode .posts-container .box-container .box_byPost .post-admin a {
+  color: var(--white);
+}
+body.dark-mode .posts-container .box-container .box .post-admin .fa-bookmark,
+body.dark-mode .posts-container .box-container .box_byPost .post-admin .fa-bookmark {
+  background-color:rgb(91,106,128);
+  padding : 0;
+  border: none;
+}
+body.dark-mode .posts-container .box-container .box .post-title,
+body.dark-mode .posts-container .box-container .box_byPost .post-title {
+  color: var(--white);
+}
+
+body.dark-mode .posts-container .box-container .box .post-content,
+body.dark-mode .posts-container .box-container .box_byPost .post-content {
+  color: var(--light-color);
+}
+body.dark-mode .posts-container .box-container .box .icons,
+body.dark-mode .posts-container .box-container .box_byPost .icons {
+  background-color: var(--main-color);
+  /* border: var(--border-dark); */
+}
+body.dark-mode  .posts-container .box-container .view_box .post-content {
+  color: var(--light-color);
+}
+body.dark-mode .posts-container .box-container .box .icons i,
+body.dark-mode .posts-container .box-container .box_byPost .icons i {
+  color: var(--light-bg);
+}
+body.dark-mode .posts-container .box-container .box .icons button,
+body.dark-mode .posts-container .box-container .box_byPost .icons button {
+  background-color:var(--main-color);
+}
+
+body.dark-mode .posts-container .box-container .box .icons span,
+body.dark-mode .posts-container .box-container .box_byPost .icons span {
+  color: var(--light-color);
+}
+body.dark-mode .comments-container .add-comment {
+  background-color: var(--gray);
+  color: var(--white);
+  /* border: var(--border-dark); */
+}
+body.dark-mode .comments-container .comment-title {
+  background-color: var(--light-bg);
+  color: var(--black);
+}
+body.dark-mode .user-comments-container{
+  background-color: var(--gray);
+}
+body.dark-mode .comments-container .user-comments-container .show-comments .comment-user i {
+  border: var(--border-dark);
+  background-color: var(--gray);
+}
+body.dark-mode .comments-container .user-comments-container .show-comments .comment-user span {
+ color: var(--white)
+}
+body.dark-mode .categories .box-container {
+  background-color: var(--gray);
+}
+body.dark-mode .categories .box-container .box span {
+  color: var(--white);
+  /* border: var(--border-dark); */
+  background-color: var(--main-color);
+}
+body.dark-mode .categories .box-container .box a {
+  color: var(--white);
+}
+body.dark-mode .form-container form {
+  background-color: var(--gray);
+}
+body.dark-mode .form-container form label span {
+  color: var(--white);
+}
+body.dark-mode .form-container form p {
+  color: var(--white);
+}
+body.dark-mode .header .profile{
+  background-color: var(--main-color);
+}
+body.dark-mode .header .flex .profile p{
+  color: var(--white);
+}
+body.dark-mode .profile .login_btn{
+  background-color: var(--gray);
+  color: var(--white)
+}
+body.dark-mode .profile .login_hover:hover {
+  background-color: var(--main-color);
+  color: white;
+  border: var(--border-dark);
+}
+body.dark-mode .profile .update_btn,
+body.dark-mode .profile .like_btn,
+body.dark-mode .profile .save_btn,
+body.dark-mode .profile .btn_handle .login_btn,
+body.dark-mode .profile .btn_handle .register_btn,
+body.dark-mode .profile .logout_btn {
+  color: white;
+  background-color: var(--main-color);
+  border: none;
+}
+body.dark-mode .profile i {
+  color: var(--white);
+}
+body.dark-mode .header .flex .icons div:last-child {
+  border: var(--border-dark);
+}

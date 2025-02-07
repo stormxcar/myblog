@@ -40,16 +40,16 @@ if(isset($_POST['submit'])){
 
    if($old_pass != $empty_pass){
       if($old_pass != $prev_pass){
-         $message[] = 'old password not matched!';
+         $message[] = 'Mật khẩu cũ không khớp!';
       }elseif($new_pass != $confirm_pass){
-         $message[] = 'confirm password not matched!';
+         $message[] = 'Mật khẩu nhập lại không khớp!';
       }else{
          if($new_pass != $empty_pass){
             $update_pass = $conn->prepare("UPDATE `admin` SET password = ? WHERE id = ?");
             $update_pass->execute([$confirm_pass, $admin_id]);
-            $message[] = 'password updated successfully!';
+            $message[] = 'Mật khẩu đã được thay đổi thành công!';
          }else{
-            $message[] = 'please enter a new password!';
+            $message[] = 'Vui lòng nhập mật khẩu mới!';
          }
       }
    }
@@ -64,11 +64,10 @@ if(isset($_POST['submit'])){
    <meta charset="UTF-8">
    <meta http-equiv="X-UA-Compatible" content="IE=edge">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>profile update</title>
+   <title>Tài khoản</title>
 
    <!-- font awesome cdn link  -->
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
-
    <!-- custom css file link  -->
    <link rel="stylesheet" href="../css/admin_style_edit.css">
 
@@ -82,7 +81,7 @@ if(isset($_POST['submit'])){
 <section class="form-container">
 
    <form action="" method="POST">
-      <h3>Năng cấp thông tin</h3>
+      <h3>Thay đổi thông tin</h3>
 
       <label for="">
       <span>admin</span>

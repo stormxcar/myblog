@@ -112,6 +112,8 @@ if (isset($_POST['count_post_byCart'])) {
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
    <!-- custom css file link  -->
    <link rel="stylesheet" href="../css/admin_style_edit.css">
+   <!-- custom js file -->
+   <script src="../js/admin_script.js"></script>
 
 </head>
 
@@ -120,13 +122,15 @@ if (isset($_POST['count_post_byCart'])) {
 
    <section class="category_edit">
 
+      <h1 class="heading">Các thẻ hiện có</h1>
+
       <form method="POST" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>">
          <table>
             <thead>
                <tr>
                   <th>STT</th>
-                  <th>cate id</th>
-                  <th>Tên cate</th>
+                  <th>category_id</th>
+                  <th>Tên thẻ</th>
                   <th>Số bài viết đang sử dụng</th>
                   <th>Quản lý thẻ</th>
                </tr>
@@ -149,7 +153,10 @@ if (isset($_POST['count_post_byCart'])) {
                         <td><?php echo $index + 1; ?></td>
                         <td><?php echo $cart['category_id']; ?></td>
                         <td><?php echo $cart['name']; ?></td>
-                        <td><?php echo $cart['num_posts']; ?></td>
+                        <td>
+                           <a href="../admin/view_posts.php" style="color:black"><?php echo htmlspecialchars($cart['num_posts']); ?></a>
+                        </td>
+
                         <td>
                            <form class="manage_cart" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="POST">
                               <input type="hidden" name="cart_id" value="<?php echo $cart['category_id']; ?>">
@@ -221,64 +228,62 @@ if (isset($_POST['count_post_byCart'])) {
    </section>
 
 
-   <!-- đảm bảo file script được tải song song trong quá trình tải trang -->
-   <script async src="../js/admin_script.js"></script>
 </body>
 
 <script>
-   document.addEventListener("DOMContentLoaded", function() {
-      const bodyLayer = document.querySelector("body");
+   // document.addEventListener("DOMContentLoaded", function() {
+   //    const bodyLayer = document.querySelector("body");
 
-      const btn_add_modal = document.querySelector(".add_tag_btn");
-      const add_tag_modal = document.querySelector("#modal_add_tag");
+   //    const btn_add_modal = document.querySelector(".add_tag_btn");
+   //    const add_tag_modal = document.querySelector("#modal_add_tag");
 
-      btn_add_modal.addEventListener("click", (e) => {
-         e.preventDefault();
-         openModal(add_tag_modal);
-      });
+   //    btn_add_modal.addEventListener("click", (e) => {
+   //       e.preventDefault();
+   //       openModal(add_tag_modal);
+   //    });
 
-      const cancel_btn_add = document.querySelector('.cancel_add');
-      cancel_btn_add.addEventListener("click", () => {
-         closeModal(add_tag_modal);
-      });
+   //    const cancel_btn_add = document.querySelector('.cancel_add');
+   //    cancel_btn_add.addEventListener("click", () => {
+   //       closeModal(add_tag_modal);
+   //    });
 
-      const btn_edit_modals = document.querySelectorAll(".edit_btn");
+   //    const btn_edit_modals = document.querySelectorAll(".edit_btn");
 
-      let currentModalId = null;
+   //    let currentModalId = null;
 
-      btn_edit_modals.forEach(btn_edit_modal => {
-         btn_edit_modal.addEventListener("click", (e) => {
-            e.preventDefault();
-            const cartId = e.target.getAttribute('data-cart-id');
-            const cartName = e.target.getAttribute('data-cart-name');
-            const edit_tag_modal = document.querySelector("#modal_edit_tag_" + cartId);
-            const name_input = edit_tag_modal.querySelector("input[name='name']");
-            name_input.value = cartName;
-            openModal(edit_tag_modal);
-            currentModalId = cartId;
-         });
-      });
+   //    btn_edit_modals.forEach(btn_edit_modal => {
+   //       btn_edit_modal.addEventListener("click", (e) => {
+   //          e.preventDefault();
+   //          const cartId = e.target.getAttribute('data-cart-id');
+   //          const cartName = e.target.getAttribute('data-cart-name');
+   //          const edit_tag_modal = document.querySelector("#modal_edit_tag_" + cartId);
+   //          const name_input = edit_tag_modal.querySelector("input[name='name']");
+   //          name_input.value = cartName;
+   //          openModal(edit_tag_modal);
+   //          currentModalId = cartId;
+   //       });
+   //    });
 
-      const cancel_btn_edit = document.querySelectorAll('.cancel_edit');
-      cancel_btn_edit.forEach(cancel_btn => {
-         cancel_btn.addEventListener("click", () => {
-            if (currentModalId !== null) {
-               const currentModal = document.querySelector("#modal_edit_tag_" + currentModalId);
-               closeModal(currentModal);
-            }
-         });
-      });
+   //    const cancel_btn_edit = document.querySelectorAll('.cancel_edit');
+   //    cancel_btn_edit.forEach(cancel_btn => {
+   //       cancel_btn.addEventListener("click", () => {
+   //          if (currentModalId !== null) {
+   //             const currentModal = document.querySelector("#modal_edit_tag_" + currentModalId);
+   //             closeModal(currentModal);
+   //          }
+   //       });
+   //    });
 
-      function openModal(modal) {
-         modal.classList.add("showTag");
-         bodyLayer.style.background = "rgba(0, 0, 0, 0.3)";
-      }
+   //    function openModal(modal) {
+   //       modal.classList.add("showTag");
+   //       bodyLayer.style.background = "rgba(0, 0, 0, 0.3)";
+   //    }
 
-      function closeModal(modal) {
-         modal.classList.remove("showTag");
-         bodyLayer.style.background = "initial";
-      }
-   });
+   //    function closeModal(modal) {
+   //       modal.classList.remove("showTag");
+   //       bodyLayer.style.background = "initial";
+   //    }
+   // });
 </script>
 
 </html>

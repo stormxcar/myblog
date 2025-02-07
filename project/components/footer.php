@@ -59,20 +59,20 @@ $name_text = $select_name->fetchColumn();
       <div class="footer_top-lienhe">
          <h1>THÔNG TIN LIÊN HỆ</h1>
          <ul>
-            <li><span>- Địa chỉ: </span><?= $diachi_text?></li>
-            <li><span>- Số điện thoại: </span><a href="tel:0584.344.344"><?= $dienthoai_text?></a></li>
-            <li><span>- Fax: </span><a href="tel:0584.344.344"><?= $fax_text?></a></li>
-            <li><span>- Email: </span><?= $email_text?></li>
-            <li><span>- Zalo: </span><a href="<?= $zalo_text?>"><?= $name_text?></a></li>
+            <li><span> Địa chỉ: </span><?= $diachi_text?></li>
+            <li><span> Số điện thoại: </span><a href="tel:0584.344.344"><?= $dienthoai_text?></a></li>
+            <li><span> Fax: </span><a href="tel:0584.344.344"><?= $fax_text?></a></li>
+            <li><span> Email: </span><?= $email_text?></li>
+            <li><span> Zalo: </span><a href="<?= $zalo_text?>"><?= $name_text?></a></li>
          </ul>
       </div>
       <div class="footer_top-thongtin">
          <h1>DANH MỤC</h1>
          <ul>
-            <li><a href="#home">Trang Chu</a></li>
-            <li><a href="#introduce">Gioi Thieu</a></li>
-            <li><a href="#news">Tin Tuc</a></li>
-            <li><a href="#contact">Lien He</a></li>
+            <li><a href="#">Trang Chủ</a></li>
+            <li><a href="#introduce">Giới Thiệu</a></li>
+            <li><a href="#news">Bài Viết</a></li>
+            <li><a href="#contact">Liên Hệ</a></li>
          </ul>
       </div>
    </div>
@@ -85,3 +85,12 @@ $name_text = $select_name->fetchColumn();
    </div>
 
 </footer>
+
+<script>
+   function scrollToTop() {
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }
+</script>

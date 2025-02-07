@@ -3,18 +3,31 @@
 include '../components/connect.php';
 
 session_start();
+$message = [];
 
 if (isset($_SESSION['user_id'])) {
    $user_id = $_SESSION['user_id'];
 } else {
    $user_id = '';
-};
+   if (isset($_POST['save_post']) && isset($_POST['post_id'])) {
+      $_SESSION['message'] = 'Bạn cần đăng nhập để lưu bài viết này!';
+      header('Location: ../static/login.php');
+      exit;
+   }
+}
 
 include '../components/like_post.php';
 
 $get_id = $_GET['post_id'];
 
+if (!isset($get_id)) {
+   $_SESSION['message'] = 'Bạn cần đăng nhập để lưu bài viết này!';
+   header('Location: ../static/login.php');
+   exit;
+}
+
 if (isset($_POST['add_comment'])) {
+
 
    $admin_id = $_POST['admin_id'];
    $admin_id = filter_var($admin_id, FILTER_SANITIZE_STRING);
@@ -27,11 +40,11 @@ if (isset($_POST['add_comment'])) {
    $verify_comment->execute([$get_id, $admin_id, $user_id, $user_name, $comment]);
 
    if ($verify_comment->rowCount() > 0) {
-      $message[] = 'Bình luận đã được thêm!';
+      $_SESSION['message'] = 'Đã gửi bình luận!';
    } else {
       $insert_comment = $conn->prepare("INSERT INTO `comments`(post_id, admin_id, user_id, user_name, comment) VALUES(?,?,?,?,?)");
       $insert_comment->execute([$get_id, $admin_id, $user_id, $user_name, $comment]);
-      $message[] = 'Bình luận mới đã được thêm!';
+      $_SESSION['message'] = 'Đã gửi bình luận!';
    }
 }
 
@@ -45,11 +58,11 @@ if (isset($_POST['edit_comment'])) {
    $verify_comment->execute([$comment_edit_box, $edit_comment_id]);
 
    if ($verify_comment->rowCount() > 0) {
-      $message[] = 'Bình luận của bạn đã được thêm!';
+      $_SESSION['message'] = 'Bình luận của bạn đã được thêm!';
    } else {
       $update_comment = $conn->prepare("UPDATE `comments` SET comment = ? WHERE id = ?");
       $update_comment->execute([$comment_edit_box, $edit_comment_id]);
-      $message[] = 'Bình luận của bạn đã được chỉnh sửa!';
+      $_SESSION['message'] = 'Bình luận của bạn đã được chỉnh sửa!';
    }
 }
 
@@ -58,28 +71,26 @@ if (isset($_POST['delete_comment'])) {
    $delete_comment_id = filter_var($delete_comment_id, FILTER_SANITIZE_STRING);
    $delete_comment = $conn->prepare("DELETE FROM `comments` WHERE id = ?");
    $delete_comment->execute([$delete_comment_id]);
-   $message[] = 'Đã xóa bình luận!';
+   $_SESSION['message'] = 'Đã xóa bình luận!';
 }
 
 // Xử lý lưu bài viết
 if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) {
+
    $post_id = $_POST['post_id'];
 
-   // Kiểm tra xem bài viết đã được lưu chưa
    $stmt_check = $conn->prepare("SELECT * FROM favorite_posts WHERE user_id = ? AND post_id = ?");
    $stmt_check->execute([$user_id, $post_id]);
 
    if ($stmt_check->rowCount() > 0) {
-      // Nếu đã lưu, thì xóa khỏi danh sách yêu thích
       $stmt_delete = $conn->prepare("DELETE FROM favorite_posts WHERE user_id = ? AND post_id = ?");
       $stmt_delete->execute([$user_id, $post_id]);
+      $_SESSION['message'] = "Đã xóa khỏi danh sách yêu thích";
    } else {
-      // Nếu chưa lưu, thêm vào danh sách yêu thích
       $stmt_insert = $conn->prepare("INSERT INTO favorite_posts (user_id, post_id) VALUES (?, ?)");
       $stmt_insert->execute([$user_id, $post_id]);
+      $_SESSION['message'] = "Đã lưu bài viết";
    }
-
-   // Redirect hoặc xử lý tiếp theo sau khi lưu thay đổi
    header("Location: " . $_SERVER['PHP_SELF'] . '?post_id=' . $post_id);
    exit;
 }
@@ -99,31 +110,7 @@ $current_tag = $fetch_post_tag['category'];
 $select_related_posts = $conn->prepare("SELECT * FROM `posts` WHERE category = ? AND id != ? AND status = 'active' LIMIT 4");
 $select_related_posts->execute([$current_tag, $get_id]);
 
-
-//Xử lý lưu bài viết
-if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) {
-   $post_id = $_POST['post_id'];
-
-   // Kiểm tra xem bài viết đã được lưu chưa
-   $stmt_check = $conn->prepare("SELECT * FROM favorite_posts WHERE user_id = ? AND post_id = ?");
-   $stmt_check->execute([$user_id, $post_id]);
-
-   if ($stmt_check->rowCount() > 0) {
-      // Nếu đã lưu, thì xóa khỏi danh sách yêu thích
-      $stmt_delete = $conn->prepare("DELETE FROM favorite_posts WHERE user_id = ? AND post_id = ?");
-      $stmt_delete->execute([$user_id, $post_id]);
-   } else {
-      // Nếu chưa lưu, thêm vào danh sách yêu thích
-      $stmt_insert = $conn->prepare("INSERT INTO favorite_posts (user_id, post_id) VALUES (?, ?)");
-      $stmt_insert->execute([$user_id, $post_id]);
-   }
-
-   // Redirect hoặc xử lý tiếp theo sau khi lưu thay đổi
-   header("Location: " . $_SERVER['PHP_SELF'] . '?post_id=' . $post_id);
-   exit;
-}
 ?>
-
 
 <!DOCTYPE html>
 <html lang="en">
@@ -133,12 +120,13 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
    <meta http-equiv="X-UA-Compatible" content="IE=edge">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
    <title>Xem bài viết</title>
-
    <!-- font awesome cdn link  -->
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
-
    <!-- custom css file link  -->
    <link rel="stylesheet" href="../css/style_edit.css">
+   <link rel="stylesheet" href="../css/style_dark.css">
+   <!-- custom js file link  -->
+   <script src="../js/script_edit.js"></script>
 
 </head>
 
@@ -147,6 +135,20 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
    <!-- header section starts  -->
    <?php include '../components/user_header.php'; ?>
    <!-- header section ends -->
+
+   <?php if (isset($_SESSION['message'])) : ?>
+      <div class="message" id="message">
+         <div class="message_detail">
+            <i class="fa-solid fa-bell"></i>
+            <span><?= $_SESSION['message'] ?></span>
+         </div>
+
+         <div class="progress-bar" id="progressBar"></div>
+      </div>
+   <?php
+      unset($_SESSION['message']); // Xóa tin nhắn sau khi hiển thị
+   endif;
+   ?>
 
    <?php
    if (isset($_POST['open_edit_box'])) {
@@ -216,7 +218,8 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
                   <?php
                   if ($fetch_posts['image'] != '') {
                   ?>
-                     <img src="../uploaded_img/<?= $fetch_posts['image']; ?>" class="post-image" alt="">
+                     <img id="image_show" src="../uploaded_img/<?= $fetch_posts['image']; ?>" class="post-image" alt="">
+
                   <?php
                   }
                   ?>
@@ -227,6 +230,8 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
                      <button type="submit" name="like_post"><i class="fas fa-heart" style="<?php if ($confirm_likes->rowCount() > 0) {
                                                                                                 echo 'color:var(--red);';
                                                                                              } ?>  "></i><span>(<?= $total_post_likes; ?>)</span></button>
+
+
                   </div>
 
                </form>
@@ -311,8 +316,6 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
          ?>
       </div>
 
-
-
    </section>
 
    <section class="posts-container" id="related-posts">
@@ -373,6 +376,7 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
                                                                                              } ?>  "></i><span>(<?= $total_post_likes; ?>)</span>
                      </button>
                      <button><i class="fa-solid fa-share-from-square"></i></button>
+
                   </div>
 
                </form>
@@ -383,13 +387,15 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
          }
          ?>
       </div>
+
+      <div id="imageModal" class="modal">
+         <span id="closeModal">&times;</span>
+         <img class="modal-content" id="modalImage">
+         <span id="saveImage"><i class="fa-solid fa-download"></i></span>
+      </div>
    </section>
 
    <?php include '../components/footer.php'; ?>
-
-   <!-- custom js file link  -->
-   <script src="../js/script_edit.js"></script>
-   <script src="../js/script.js"></script>
 
    <script>
       const nav_handle_comment = document.querySelectorAll('.fa-ellipsis-vertical');
@@ -404,6 +410,41 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
 
 
 </body>
-<!-- <script src="js/script.js"></script> -->
+<script>
+   // Lấy các phần tử cần thiết
+   const modal = document.getElementById("imageModal");
+   const modalImg = document.getElementById("modalImage");
+   const avatar = document.getElementById("image_show");
+   const closeModal = document.getElementById("closeModal");
+   const saveImage = document.getElementById('saveImage');
+
+   // Khi click vào ảnh đại diện, hiển thị ảnh trong modal
+   avatar.onclick = function() {
+      modal.style.display = "flex"; // Hiển thị modal
+      modalImg.src = this.src; // Đặt ảnh vào modal
+   }
+
+   // Khi người dùng click vào nút đóng, ẩn modal
+   closeModal.onclick = function() {
+      modal.style.display = "none";
+   }
+
+   // Khi người dùng click vào vùng ngoài ảnh, ẩn modal
+   modal.onclick = function(event) {
+      if (event.target == modal) {
+         modal.style.display = "none";
+      }
+   }
+
+   saveImage.onclick = function() {
+      //   const avatar = document.getElementById('avatar');
+      const link = document.createElement('a');
+      link.href = avatar.src; // Đường dẫn đến ảnh
+      link.download = 'download_image'; // Tên file khi tải về
+      link.click(); // Kích hoạt việc tải về
+      saveImage.style.color = 'green';
+   }
+</script>
+
 
 </html>

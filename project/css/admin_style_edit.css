@@ -232,6 +232,7 @@ section {
   position: fixed;
   top: 0;
   left: 0;
+  transition: 0.2s linear;
   background-color: var(--white);
   z-index: 1000;
   border-right: var(--border);
@@ -241,34 +242,69 @@ section {
   text-align: center;
   overflow-y: scroll;
 }
-
+.header.active {
+  left: -35rem;
+  /* box-shadow: 0 0 0 100vw rgba(0, 0, 0, 0.7); */
+  border-right: none;
+}
+.dashboard.full {
+  width: 100%;
+}
+.header .header_top {
+  background-color: var(--main-color);
+  position: fixed;
+  width: 100%;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 3rem;
+  /* border: var(--border); */
+  transition: transform 0.4s ease-in-out;
+  box-shadow: var(--box-shadow);
+}
+body.padding-left-35rem {
+  padding-left: 0;
+}
 .header .logo {
   font-size: 2.5rem;
-  color: var(--black);
+  color: var(--white);
+  font-weight: bold;
 }
 
 .header .logo span {
-  color: var(--main-color);
+  color:black;
+  font-weight: normal;
 }
 
 .header .profile {
-  padding: 2rem;
-  border-radius: 0.5rem;
+  width: 7rem;
+  height: 7rem;
+  border-radius: 50%;
   background-color: var(--light-bg);
-  margin: 2rem 0;
+  margin: 1rem 0;
   border: var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.header .profile a {
+  font-size: 1.6rem;
+  color: var(--black);
 }
 
-.header .profile p {
+/* .header .profile p {
   margin-bottom: 1.5rem;
   font-size: 2rem;
   color: var(--black);
-}
+} */
 
 .header .navbar {
   padding: 1rem 0;
   overflow-y: scroll;
-  max-height: 45vh;
+  /* max-height: 45vh; */
+  margin-top: 12rem;
 }
 
 .header .navbar a {
@@ -277,7 +313,7 @@ section {
   font-size: 2rem;
   color: var(--black);
   text-align: left;
-  transition: all 2s ;
+  transition: all 2s;
   border-radius: 4px;
   margin-right: 1rem;
 }
@@ -301,7 +337,7 @@ section {
 }
 
 #menu-btn {
-  display: none;
+  display: block;
   border: var(--border);
   border-radius: 0.5rem;
   background-color: var(--white);
@@ -313,9 +349,9 @@ section {
   width: 4.5rem;
   font-size: 2rem;
   position: sticky;
-  top: 1rem;
-  left: 1rem;
-  z-index: 10000;
+  top: 12rem;
+  left: 1.9rem;
+  /* z-index: 10000; */
   text-align: center;
 }
 
@@ -323,10 +359,13 @@ section {
   background-color: var(--black);
   color: var(--white);
 }
-
+.dashboard {
+  margin-top: 5rem;
+  transition: left 0.3s ease, width 0.3s ease;
+}
 .dashboard .box-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(30rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(25rem, 1fr));
   gap: 1.5rem;
   align-items: flex-start;
 }
@@ -360,7 +399,12 @@ section {
   margin: 1rem 0;
   color: var(--light-color);
 }
-
+.post-editor{
+  margin-top: 5rem;
+}
+.post-editor.add-post {
+  width: 100%;
+}
 .post-editor form {
   background-color: var(--white);
   border-radius: 0.5rem;
@@ -414,6 +458,7 @@ section {
   background-color: #eeeeee;
   width: 100%;
   height: 100vh;
+  margin-top: 5rem;
 }
 .show-posts .box-container {
   /* display: grid;
@@ -428,6 +473,7 @@ section {
 table {
   border-collapse: collapse;
   border: var(--border);
+  margin: 0 0 2rem 0;
 }
 
 th {
@@ -452,7 +498,6 @@ td .btn {
   padding: 1rem 2rem;
   font-size: 1.6rem;
 }
-
 
 .show-posts .box-container .box {
   background-color: var(--white);
@@ -531,6 +576,9 @@ td .btn {
   margin-right: 0.5rem;
 }
 
+.accounts{
+  margin-top: 5rem;
+}
 .accounts .box-container {
   /* display: grid; */
   /* grid-template-columns: repeat(auto-fit, 33rem); */
@@ -574,6 +622,15 @@ th,
 tr {
   text-align: center;
 }
+thead th p{
+  font-size: 1rem;
+  font-weight: normal;
+  font-style: italic;
+}
+.banned_check{
+  width: 30px;
+  height: 30px;
+}
 
 .accounts .box-container .box p {
   margin: 0.5rem 0;
@@ -601,6 +658,9 @@ tr {
   width: 100%;
 }
 
+.read-post {
+  margin-top: 5rem;
+}
 .read-post form {
   border-radius: 0.5rem;
   border: var(--border);
@@ -660,7 +720,17 @@ tr {
   color: var(--light-color);
   margin-right: 0.5rem;
 }
+.read-post .flex-btn {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  /* justify-content: space-between; */
+  gap: 1rem;
+}
 
+.comments{
+  margin-top : 5rem;
+}
 .comments .comment-title {
   border-top-right-radius: 0.5rem;
   border-top-left-radius: 0.5rem;
@@ -752,6 +822,7 @@ tr {
 .category_edit {
   position: relative;
   z-index: 999;
+  margin-top: 5rem;
 }
 .manage_cart {
   display: flex;
@@ -861,6 +932,7 @@ tr {
   display: flex;
   flex-direction: column;
   /* gap: 3rem; */
+  margin-top: 5rem;
 }
 
 .setting .banner_edit_form {
@@ -914,7 +986,8 @@ tr {
   font-size: 1.3rem;
   margin-right: 1rem;
 }
-.image-container .banner_img .show_img , .lienhe_image .show_img {
+.image-container .banner_img .show_img,
+.lienhe_image .show_img {
   width: 100px;
   height: auto;
   object-fit: cover;
@@ -940,12 +1013,12 @@ tr {
   background-color: var(--main-color);
   color: white;
 }
-.detail_handle{
+.detail_handle {
   width: 100%;
   height: auto;
   border: black 1px solid;
 }
-.detail_handle .btn_top{
+.detail_handle .btn_top {
   width: 100%;
   display: flex;
   align-items: center;
@@ -976,7 +1049,9 @@ tr {
   height: auto;
 }
 
-#gioithieu , #lienhe , #thongtin {
+#gioithieu,
+#lienhe,
+#thongtin {
   background-color: var(--light-bg);
 }
 .detail_gioithieu {
@@ -987,17 +1062,16 @@ tr {
   flex-direction: column;
   gap: 1.5rem;
 }
-.detail_socials{
+.detail_socials {
   position: relative;
   margin-top: 30px;
   border: black 1px solid;
   padding: 25px;
 }
-.detail_gioithieu h3 , 
+.detail_gioithieu h3,
 .detail_socials h3,
 .logo_edit h3,
-.license_edit h3
-{
+.license_edit h3 {
   position: absolute;
   top: 0;
   left: 0;
@@ -1008,7 +1082,9 @@ tr {
   color: black;
   font-size: 1.3rem;
 }
-.detail_gioithieu .detail_gioithieu_tieude , .detail_gioithieu_slogan , .lienhe_tieude{
+.detail_gioithieu .detail_gioithieu_tieude,
+.detail_gioithieu_slogan,
+.lienhe_tieude {
   display: flex;
   align-items: center;
   gap: 1.2rem;
@@ -1016,13 +1092,16 @@ tr {
   margin-bottom: 1.3rem;
 }
 
-.detail_gioithieu_tieude h4 , .detail_gioithieu_slogan h4 , .lienhe_image h4 ,
-.lienhe_tieude h4 , .lienhe_noidung h4{
+.detail_gioithieu_tieude h4,
+.detail_gioithieu_slogan h4,
+.lienhe_image h4,
+.lienhe_tieude h4,
+.lienhe_noidung h4 {
   /* width: 5%; */
   text-wrap: nowrap;
   font-size: 1.3rem;
 }
-.sperator{
+.sperator {
   width: 90%;
   height: 1px;
   background-color: gray;
@@ -1034,19 +1113,18 @@ tr {
   font-size: 1.3rem;
 }
 
-.detail_gioithieu_tieude input , .detail_gioithieu_slogan input , .detail_gioithieu_noidung input,
-.lienhe_tieude input
-{
+.detail_gioithieu_tieude input,
+.detail_gioithieu_slogan input,
+.detail_gioithieu_noidung input,
+.lienhe_tieude input {
   width: 100%;
-  padding : 12px 16px;
+  padding: 12px 16px;
   border-radius: 3px;
-
 }
-.detail_gioithieu_tieude input:focus{
+.detail_gioithieu_tieude input:focus {
   border: var(--main-color) 2px solid;
-
 }
-textarea{
+textarea {
   background-color: white;
   color: black;
   border: black 1px solid;
@@ -1054,38 +1132,40 @@ textarea{
   padding: 14px 12px;
   min-height: 60px;
 }
-label, .lienhe_noidung{
+label,
+.lienhe_noidung {
   display: flex;
   flex-direction: column;
   gap: 1rem;
   text-align: left;
   margin-bottom: 1.7rem;
 }
-label .top{
+label .top {
   display: flex;
   align-items: center;
   gap: 1rem;
   font-size: 1.2rem;
 }
-label .top i{
+label .top i {
   font-size: 2rem;
   color: var(--main-color);
 }
-label input{
+label input {
   width: 100%;
   padding: 10px;
 }
-label input:focus{
+label input:focus {
   border: var(--main-color) 2px solid;
   border-radius: 3px;
 }
-.lienhe_image{
+.lienhe_image {
   display: flex;
   align-items: center;
   gap: 1.2rem;
   padding: 2rem 0;
 }
-.add_social , .add_tieude_noidung{
+.add_social,
+.add_tieude_noidung {
   padding: 1rem 2.5rem;
   outline: none;
   border: none;
@@ -1093,50 +1173,48 @@ label input:focus{
   color: white;
   border-radius: 3px;
 }
-.bottom{
+.bottom {
   padding: 2rem 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.logo_edit ,
-.license_edit{
+.logo_edit,
+.license_edit {
   position: relative;
   margin-top: 3rem;
   border: black 1px solid;
   padding: 2rem 1.6rem;
   display: flex;
   flex-direction: column;
-  gap:1.6rem;
+  gap: 1.6rem;
 }
-.detail_logo_edit ,
-.detail_license_edit{
+.detail_logo_edit,
+.detail_license_edit {
   display: flex;
   align-items: center;
-  gap: 1.3rem
+  gap: 1.3rem;
 }
-.detail_logo_edit img{
+.detail_logo_edit img {
   width: 100px;
   height: auto;
   object-fit: cover;
   border-radius: 3px;
 }
 .detail_logo_edit h4,
-.detail_license_edit h4{
+.detail_license_edit h4 {
   font-size: 1.3rem;
   text-wrap: nowrap;
 }
-.detail_license_edit input{
+.detail_license_edit input {
   width: 100%;
-  padding : 12px 16px;
+  padding: 12px 16px;
   border-radius: 3px;
 }
-.detail_license_edit input:focus{
+.detail_license_edit input:focus {
   border: var(--main-color) 2px solid;
 }
-
-
 
 /* media queries  */
 
@@ -1147,6 +1225,9 @@ label input:focus{
 
   body {
     padding-left: 0;
+  }
+  body.padding-left-35rem {
+    padding-left: 35rem;
   }
 
   #menu-btn {
@@ -1162,6 +1243,15 @@ label input:focus{
     left: 0rem;
     box-shadow: 0 0 0 100vw rgba(0, 0, 0, 0.7);
     border-right: none;
+  }
+
+  .header.active {
+    left: 0rem;
+    /* box-shadow: 0 0 0 100vw rgba(0, 0, 0, 0.7); */
+    border-right: none;
+  }
+  .dashboard.full {
+    width: 100%;
   }
 }
 

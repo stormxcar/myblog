@@ -2,11 +2,22 @@
 include '../components/connect.php';
 
 session_start();
+$message = [];
+
+if(!isset($_SERVER['HTTP_REFERER'])){
+    header('location: home.php');
+    exit;
+}
 
 if (isset($_SESSION['user_id'])) {
     $user_id = $_SESSION['user_id'];
 } else {
     $user_id = '';
+    if (isset($_POST['save_post']) && isset($_POST['post_id'])) {
+        $_SESSION['message'] = 'Bạn cần đăng nhập để lưu bài viết này!';
+        header('Location: ../static/login.php');
+        exit;
+    }
 };
 
 include '../components/like_post.php';
@@ -17,40 +28,34 @@ $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 if ($current_page <= 0) {
     $current_page = 1;
 }
-
 // Đếm tổng số bài viết mới đăng trong 3 ngày gần đây
-$count_posts = $conn->prepare("SELECT COUNT(*) FROM `posts` WHERE status = ? AND date >= DATE_SUB(CURDATE(), INTERVAL 3 DAY)");
+$count_posts = $conn->prepare("SELECT COUNT(*) FROM `posts` WHERE status = ? AND date >= DATE_SUB(CURDATE(), INTERVAL 5 DAY)");
 $count_posts->execute(['active']);
 $total_posts = $count_posts->fetchColumn();
 
-// Tính tổng số trang
 $total_pages = ceil($total_posts / $items_per_page);
 
-// Tính toán giới hạn và bù trừ cho truy vấn SQL
 $offset = ($current_page - 1) * $items_per_page;
 
-$select_posts = $conn->prepare("SELECT * FROM `posts` WHERE status = ? AND date >= DATE_SUB(CURDATE(), INTERVAL 3 DAY) LIMIT $items_per_page OFFSET $offset");
+$select_posts = $conn->prepare("SELECT * FROM `posts` WHERE status = ? AND date >= DATE_SUB(CURDATE(), INTERVAL 5 DAY) LIMIT $items_per_page OFFSET $offset");
 $select_posts->execute(['active']);
 
 // Xử lý lưu bài viết
 if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) {
     $post_id = $_POST['post_id'];
 
-    // Kiểm tra xem bài viết đã được lưu chưa
     $stmt_check = $conn->prepare("SELECT * FROM favorite_posts WHERE user_id = ? AND post_id = ?");
     $stmt_check->execute([$user_id, $post_id]);
 
     if ($stmt_check->rowCount() > 0) {
-        // Nếu đã lưu, thì xóa khỏi danh sách yêu thích
         $stmt_delete = $conn->prepare("DELETE FROM favorite_posts WHERE user_id = ? AND post_id = ?");
         $stmt_delete->execute([$user_id, $post_id]);
+        $_SESSION['message'] = 'Đã xóa bài viết được lưu';
     } else {
-        // Nếu chưa lưu, thêm vào danh sách yêu thích
         $stmt_insert = $conn->prepare("INSERT INTO favorite_posts (user_id, post_id) VALUES (?, ?)");
         $stmt_insert->execute([$user_id, $post_id]);
+        $_SESSION['message'] = 'Đã lưu bài viết';
     }
-
-    // Redirect hoặc xử lý tiếp theo sau khi lưu thay đổi
     header("Location: " . $_SERVER['PHP_SELF']);
     exit;
 }
@@ -66,10 +71,27 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
     <!-- font awesome cdn link  -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
     <link rel="stylesheet" href="../css/style_edit.css">
+    <link rel="stylesheet" href="../css/style_dark.css">
+    <script src="../js/script_edit.js"></script>
 </head>
 
 <body>
     <?php include '../components/user_header.php'; ?>
+
+    <?php if (isset($_SESSION['message'])) : ?>
+        <div class="message" id="message">
+            <div class="message_detail">
+                <i class="fa-solid fa-bell"></i>
+                <span><?= $_SESSION['message'] ?></span>
+            </div>
+
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+    <?php
+        unset($_SESSION['message']);
+    endif;
+    ?>
+
     <section class="posts-container">
         <h1 class="heading">Bài Viết Mới Đăng</h1>
         <div class="box-container view_all">
@@ -131,7 +153,7 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
             <?php
                 }
             } else {
-                echo '<p class="empty">Chưa bài viết nào được thêm!</p>';
+                echo '<p class="empty">Hiện tại , Chưa bài viết nào được thêm!</p>';
             }
             ?>
         </div>
@@ -139,22 +161,20 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
         <!-- Phân trang -->
         <div class="pagination">
             <?php if ($current_page > 1) : ?>
-                <a href="?page=<?= $current_page - 1 ?>" class="prev-btn">Trang trước</a>
+                <a href="?page=<?= $current_page - 1 ?>" class="prev-btn"><i class="fa-solid fa-chevron-left"></i></a>
             <?php endif; ?>
 
             <span>Trang <?= $current_page ?> / <?= $total_pages ?></span>
 
             <?php if ($current_page < $total_pages) : ?>
-                <a href="?page=<?= $current_page + 1 ?>" class="next-btn">Trang sau</a>
+                <a href="?page=<?= $current_page + 1 ?>" class="next-btn"><i class="fa-solid fa-chevron-right"></i></a>
             <?php endif; ?>
         </div>
+
 
     </section>
 
     <?php include '../components/footer.php'; ?>
-
-    <script src="../js/script_edit.js"></script>
-    <script src="../js/script.js"></script>
 
 </body>
 

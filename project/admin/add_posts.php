@@ -2,8 +2,6 @@
 
 include '../components/connect.php';
 
-
-
 session_start();
 
 $admin_id = $_SESSION['admin_id'];
@@ -13,29 +11,25 @@ if (!isset($admin_id)) {
 }
 
 
-if (isset($_POST['publish'])) {
+if (isset($_POST['publish']) || isset($_POST['draft'])) {
+   $name = filter_var($_POST['name'], FILTER_SANITIZE_STRING);
+   $title = filter_var($_POST['title'], FILTER_SANITIZE_STRING);
+   $content = $_POST['content']; // nội dung HTML từ CKEditor
+   $category = filter_var($_POST['category'], FILTER_SANITIZE_STRING);
 
-   $name = $_POST['name'];
-   $name = filter_var($name, FILTER_SANITIZE_STRING);
-   $title = $_POST['title'];
-   $title = filter_var($title, FILTER_SANITIZE_STRING);
-   $content = $_POST['content'];
-   $content = filter_var($content, FILTER_SANITIZE_STRING);
-   $category = $_POST['category'];
-   $category = filter_var($category, FILTER_SANITIZE_STRING);
-   $status = 'active';
-
+   // Xử lý ảnh
    $image = $_FILES['image']['name'];
    $image = filter_var($image, FILTER_SANITIZE_STRING);
    $image_size = $_FILES['image']['size'];
    $image_tmp_name = $_FILES['image']['tmp_name'];
    $image_folder = '../uploaded_img/' . $image;
 
+   // Kiểm tra tên ảnh và kích thước
    $select_image = $conn->prepare("SELECT * FROM `posts` WHERE image = ? AND admin_id = ?");
    $select_image->execute([$image, $admin_id]);
 
    if (isset($image)) {
-      if ($select_image->rowCount() > 0 and $image != '') {
+      if ($select_image->rowCount() > 0 && $image != '') {
          $message[] = 'Tên ảnh đã tồn tại!';
       } elseif ($image_size > 2000000) {
          $message[] = 'Kích thước ảnh quá lớn!';
@@ -46,7 +40,11 @@ if (isset($_POST['publish'])) {
       $image = '';
    }
 
-   if ($select_image->rowCount() > 0 and $image != '') {
+   // Xác định trạng thái
+   $status = isset($_POST['publish']) ? 'active' : 'deactive';
+
+   // Lưu bài viết
+   if ($select_image->rowCount() > 0 && $image != '') {
       $message[] = 'Vui lòng đổi tên ảnh!';
    } else {
       // Truy vấn để lấy tag_id tương ứng với category
@@ -57,51 +55,11 @@ if (isset($_POST['publish'])) {
 
       $insert_post = $conn->prepare("INSERT INTO `posts` (admin_id, name, title, content, category, image, status, tag_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
       $insert_post->execute([$admin_id, $name, $title, $content, $category, $image, $status, $tag_id]);
-      $message[] = 'Bài viết đã được đăng thành công!';
+
+      $message[] = isset($_POST['publish']) ? 'Bài viết đã được đăng thành công!' : 'Đã lưu bản nháp!';
    }
 }
 
-if (isset($_POST['draft'])) {
-
-   $name = $_POST['name'];
-   $name = filter_var($name, FILTER_SANITIZE_STRING);
-   $title = $_POST['title'];
-   $title = filter_var($title, FILTER_SANITIZE_STRING);
-   $content = $_POST['content'];
-   $content = filter_var($content, FILTER_SANITIZE_STRING);
-   $category = $_POST['category'];
-   $category = filter_var($category, FILTER_SANITIZE_STRING);
-   $status = 'deactive';
-
-   $image = $_FILES['image']['name'];
-   $image = filter_var($image, FILTER_SANITIZE_STRING);
-   $image_size = $_FILES['image']['size'];
-   $image_tmp_name = $_FILES['image']['tmp_name'];
-   $image_folder = '../uploaded_img/' . $image;
-
-   $select_image = $conn->prepare("SELECT * FROM `posts` WHERE image = ? AND admin_id = ?");
-   $select_image->execute([$image, $admin_id]);
-
-   if (isset($image)) {
-      if ($select_image->rowCount() > 0 and $image != '') {
-         $message[] = 'image name repeated!';
-      } elseif ($image_size > 2000000) {
-         $message[] = 'images size is too large!';
-      } else {
-         move_uploaded_file($image_tmp_name, $image_folder);
-      }
-   } else {
-      $image = '';
-   }
-
-   if ($select_image->rowCount() > 0 and $image != '') {
-      $message[] = 'please rename your image!';
-   } else {
-      $insert_post = $conn->prepare("INSERT INTO `posts`(admin_id, name, title, content, category, image, status) VALUES(?,?,?,?,?,?,?)");
-      $insert_post->execute([$admin_id, $name, $title, $content, $category, $image, $status]);
-      $message[] = 'draft saved!';
-   }
-}
 
 
 $select_categories = $conn->prepare("SELECT * FROM cart");
@@ -174,8 +132,6 @@ $categories = $select_categories->fetchAll(PDO::FETCH_ASSOC);
       </form>
    </section>
 
-
-
    <script>
       ClassicEditor
          .create(document.querySelector('#content'))
@@ -191,8 +147,6 @@ $categories = $select_categories->fetchAll(PDO::FETCH_ASSOC);
          return true;
       }
    </script>
-
-
 
    <!-- custom js file link  -->
    <script src="../js/admin_script.js"></script>

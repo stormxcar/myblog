@@ -25,28 +25,24 @@ $tag_text = $select_tag->fetchAll(PDO::FETCH_ASSOC);
    <meta charset="UTF-8">
    <meta http-equiv="X-UA-Compatible" content="IE=edge">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>category</title>
+   <title>Thể loại bài viết</title>
 
    <!-- font awesome cdn link  -->
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
-
    <!-- custom css file link  -->
    <link rel="stylesheet" href="../css/style_edit.css">
-
+   <link rel="stylesheet" href="../css/style_dark.css">
+   <!-- custom js file link  -->
+   <script src="../js/script_edit.js"></script>
 </head>
 
 <body>
-
    <!-- header section starts  -->
    <?php include '../components/user_header.php'; ?>
    <!-- header section ends -->
-
    <section class="categories">
-
       <h1 class="heading">Thể loại bài đăng</h1>
-
       <div class="box-container">
-
          <?php
          $index = 1;
          foreach ($tag_text as $tag) {
@@ -59,14 +55,7 @@ $tag_text = $select_tag->fetchAll(PDO::FETCH_ASSOC);
       </div>
 
    </section>
-
-
    <?php include '../components/footer.php'; ?>
-
-
-   <!-- custom js file link  -->
-   <script src="../js/script_edit.js"></script>
-   <script src="../js/script.js"></script>
 </body>
 
 </html>

@@ -1,4 +1,4 @@
-<div class="map">
+<!-- <div class="map">
 <div class="booking">
     <form action="" class="booking_box">
         <h2>Nhap diem don</h2>
@@ -19,4 +19,4 @@
                     width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy"
                     referrerpolicy="no-referrer-when-downgrade"></iframe>
     </div>
-</div>
+</div> -->

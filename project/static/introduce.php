@@ -28,7 +28,7 @@ $noidung_text_2 = $select_gioithieu_noidung_2->fetchColumn();
 <section class=introduce id="introduce">
     <div class="main_title">
         <h1>Giới Thiệu </h1>
-        <span class="title"><?= $tieude_text ?></span>
+        <span class="title"><?= htmlspecialchars($tieude_text) ?></span>
         <p class="slogan">"<?= $slogan_text ?>"</p>
     </div>
     <div class="sperator"></div>

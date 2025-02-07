@@ -8,6 +8,11 @@ if (isset($_SESSION['user_id'])) {
    $user_id = $_SESSION['user_id'];
 } else {
    $user_id = '';
+   if (isset($_POST['save_post']) && isset($_POST['post_id'])) {
+      $_SESSION['message'] = 'Bạn cần đăng nhập để lưu bài viết này!';
+      header('Location: ../static/login.php'); // Chuyển hướng đến trang đăng nhập
+      exit;
+   }
 };
 
 if (isset($_GET['category'])) {
@@ -17,6 +22,25 @@ if (isset($_GET['category'])) {
 }
 
 include '../components/like_post.php';
+
+// Xử lý lưu bài viết
+if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) {
+   $post_id = $_POST['post_id'];
+   $stmt_check = $conn->prepare("SELECT * FROM favorite_posts WHERE user_id = ? AND post_id = ?");
+   $stmt_check->execute([$user_id, $post_id]);
+
+   if ($stmt_check->rowCount() > 0) {
+      $stmt_delete = $conn->prepare("DELETE FROM favorite_posts WHERE user_id = ? AND post_id = ?");
+      $stmt_delete->execute([$user_id, $post_id]);
+      $_SESSION['message'] = 'Đã xóa bài viết được lưu';
+   } else {
+      $stmt_insert = $conn->prepare("INSERT INTO favorite_posts (user_id, post_id) VALUES (?, ?)");
+      $stmt_insert->execute([$user_id, $post_id]);
+      $_SESSION['message'] = 'Đã lưu bài viết';
+   }
+   header("Location: " . $_SERVER['PHP_SELF'] . '?category=' . $category);
+   exit;
+}
 
 ?>
 
@@ -31,22 +55,35 @@ include '../components/like_post.php';
 
    <!-- font awesome cdn link  -->
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
-
    <!-- custom css file link  -->
    <link rel="stylesheet" href="../css/style_edit.css">
-
+   <link rel="stylesheet" href="../css/style_dark.css">
+   <!-- custom js file link -->
+   <script src="../js/script_edit.js"></script>
 </head>
 
 <body>
-
    <!-- header section starts  -->
    <?php include '../components/user_header.php'; ?>
    <!-- header section ends -->
 
+   <?php if (isset($_SESSION['message'])) : ?>
+      <div class="message" id="message">
+         <div class="message_detail">
+            <i class="fa-solid fa-bell"></i>
+            <span><?= $_SESSION['message'] ?></span>
+         </div>
+
+         <div class="progress-bar" id="progressBar"></div>
+      </div>
+   <?php
+      unset($_SESSION['message']);
+   endif;
+   ?>
 
    <section class="posts-container">
 
-      <h1 class="heading">Các thể loại bài viết</h1>
+      <h1 class="heading">Chủ đề bài viết về <?= $category?></h1>
 
       <div class="box-container">
 
@@ -68,16 +105,25 @@ include '../components/like_post.php';
 
                $confirm_likes = $conn->prepare("SELECT * FROM `likes` WHERE user_id = ? AND post_id = ?");
                $confirm_likes->execute([$user_id, $post_id]);
+
+               $confirm_save = $conn->prepare("SELECT * FROM `favorite_posts` WHERE user_id = ? AND post_id = ?");
+               $confirm_save->execute([$user_id, $post_id]);
          ?>
                <form class="box" method="post">
                   <input type="hidden" name="post_id" value="<?= $post_id; ?>">
                   <input type="hidden" name="admin_id" value="<?= $fetch_posts['admin_id']; ?>">
                   <div class="post-admin">
-                     <i class="fas fa-user"></i>
-                     <div>
-                        <a href="author_posts.php?author=<?= $fetch_posts['name']; ?>"><?= $fetch_posts['name']; ?></a>
-                        <div><?= $fetch_posts['date']; ?></div>
+                     <div class="details_left">
+                        <i class="fas fa-user"></i>
+                        <div>
+                           <a href="author_posts.php?author=<?= $fetch_posts['name']; ?>"><?= $fetch_posts['name']; ?></a>
+                           <div><?= $fetch_posts['date']; ?></div>
+                        </div>
                      </div>
+                     <button type="submit" name="save_post" class="save_mark-btn"><i class="fa-solid fa-bookmark" style="<?php if ($confirm_save->rowCount() > 0) {
+                                                                                                                              echo 'color:yellow;';
+                                                                                                                           } ?>  "></i></button>
+
                   </div>
 
                   <?php
@@ -108,21 +154,7 @@ include '../components/like_post.php';
 
    </section>
 
-
    <?php include '../components/footer.php'; ?>
-
-
-   <!-- custom js file link  -->
-   <!-- <script>
-   document.querySelectorAll(".content-150").forEach((content) => {
-  if (content.innerHTML.length > 150)
-    content.innerHTML = content.innerHTML.slice(0, 150);
-});
-</script> -->
-
-   <script src="../js/script_edit.js"></script>
-   <script src="../js/script.js"></script>
-
 </body>
 
 </html>

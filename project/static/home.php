@@ -1,15 +1,21 @@
 <?php
 include '../components/connect.php';
+
 session_start();
+$message = [];
 
 if (isset($_SESSION['user_id'])) {
    $user_id = $_SESSION['user_id'];
 } else {
    $user_id = '';
+   if (isset($_POST['save_post']) && isset($_POST['post_id'])) {
+      $_SESSION['message'] = 'Bạn cần đăng nhập để lưu bài viết này!';
+      header('Location: ../static/login.php');
+      exit;
+   }
 };
 
 include '../components/like_post.php';
-
 // Truy vấn để lấy đường dẫn ảnh
 $settings_query = $conn->prepare("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('banner_slide_1', 'banner_slide_2', 'banner_slide_3', 'banner_slide_4')");
 $settings_query->execute();
@@ -29,25 +35,23 @@ $banner_images = array_merge($default_images, $settings);
 if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) {
    $post_id = $_POST['post_id'];
 
-   // Kiểm tra xem bài viết đã được lưu chưa
    $stmt_check = $conn->prepare("SELECT * FROM favorite_posts WHERE user_id = ? AND post_id = ?");
    $stmt_check->execute([$user_id, $post_id]);
 
    if ($stmt_check->rowCount() > 0) {
-      // Nếu đã lưu, thì xóa khỏi danh sách yêu thích
       $stmt_delete = $conn->prepare("DELETE FROM favorite_posts WHERE user_id = ? AND post_id = ?");
       $stmt_delete->execute([$user_id, $post_id]);
+      $_SESSION['message'] = 'Đã xóa bài viết được lưu';
    } else {
-      // Nếu chưa lưu, thêm vào danh sách yêu thích
       $stmt_insert = $conn->prepare("INSERT INTO favorite_posts (user_id, post_id) VALUES (?, ?)");
       $stmt_insert->execute([$user_id, $post_id]);
+      $_SESSION['message'] = 'Đã lưu bài viết vào danh sách yêu thích';
    }
 
    // Redirect hoặc xử lý tiếp theo sau khi lưu thay đổi
    header("Location: " . $_SERVER['PHP_SELF']);
    exit;
 }
-
 ?>
 
 
@@ -58,18 +62,44 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
    <meta charset="UTF-8">
    <meta http-equiv="X-UA-Compatible" content="IE=edge">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>home page</title>
+   <title>Trang chủ</title>
 
    <!-- font awesome cdn link  -->
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
-   <!-- 
-   <link rel="stylesheet" href="css/style.css"> -->
+   <!-- custom css file link  -->
    <link rel="stylesheet" href="../css/style_edit.css">
+   <link rel="stylesheet" href="../css/style_dark.css">
+   <!-- custom js file link -->
+   <script defer src="../js/script.js"></script>
 
+   <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css">
+
+   <!-- Tippy.js Script -->
+   <script src="https://unpkg.com/@popperjs/core@2"></script>
+   <script src="https://unpkg.com/tippy.js@6"></script>
 </head>
 
 <body>
+   <div id="loader-wrapper" class="loader-wrapper">
+      <div class="loader"></div>
+      <!-- <img class="loader" src="../uploaded_img/loading.gif" alt=""> -->
+   </div>
+
    <?php include '../components/user_header.php'; ?>
+
+   <?php if (isset($_SESSION['message'])) : ?>
+      <div class="message" id="message">
+         <div class="message_detail">
+            <i class="fa-solid fa-bell"></i>
+            <span><?= $_SESSION['message'] ?></span>
+         </div>
+
+         <div class="progress-bar" id="progressBar"></div>
+      </div>
+   <?php
+      unset($_SESSION['message']);
+   endif;
+   ?>
 
    <div class="banner-container">
       <h1 class="heading"></h1>
@@ -122,7 +152,7 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
       </swiper-container>
    </div>
 
-   <section class="home-grid">
+   <!-- <section class="home-grid">
 
       <div class="box-container">
 
@@ -196,31 +226,26 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
 
       </div>
 
-   </section>
+   </section> -->
 
 
-   <?php
-   include './introduce.php'
-   ?>
+   <?php include './introduce.php' ?>
 
    <?php
    // Lấy tất cả các ID từ bảng `posts`
    $select_ids = $conn->prepare("SELECT id FROM `posts`");
    $select_ids->execute();
    $ids = $select_ids->fetchAll(PDO::FETCH_COLUMN);
-
-   // Kiểm tra xem có ID nào không
+   // Kiểm tra xem có ID
    if ($ids) {
       // Lấy một chỉ mục ngẫu nhiên từ mảng các ID
       $random_index = array_rand($ids);
-
       // Lấy ID tương ứng từ mảng
       $post_id = $ids[$random_index];
    } else {
       // Không có ID nào, đặt $post_id thành null hoặc giá trị mặc định nào đó
       $post_id = null;
    }
-
 
    $select_post = $conn->prepare("SELECT * FROM `posts` WHERE id = ?");
    $select_post->execute([$post_id]);
@@ -379,19 +404,58 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
          <a href="posts.php" class="inline-btn">Xem tất cả</a>
       </div>
 
+
    </section>
 
    <?php include './contact.php' ?>
 
    <?php include '../components/footer.php'; ?>
 
-
-   <script src="../js/script_edit.js"></script>
-   <script src="../js/script.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-element-bundle.min.js"></script>
+   <script defer src="../js/script_edit.js"></script>
+   <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
 
 </body>
-<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-element-bundle.min.js"></script>
-<script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+
+<script type="module">
+   import Swiper from 'https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.mjs'
+
+   var swiper = new Swiper(".swiper-container", {
+      pagination: {
+         el: ".swiper-pagination",
+         clickable: true,
+      },
+      navigation: {
+         nextEl: ".swiper-button-next",
+         prevEl: ".swiper-button-prev",
+      },
+      autoplay: {
+         delay: 5000,
+         disableOnInteraction: false,
+      },
+      on: {
+         slideChange: function() {
+            var currentSlide = this.slides[this.activeIndex];
+            var modal = currentSlide.querySelector(".modal");
+            // Remove any existing animation classes
+            modal.classList.remove("slideInLeft", "slideInRight");
+            // Add animation class based on direction
+            if (this.direction === "next") {
+               modal.classList.add("slideInRight");
+            } else {
+               modal.classList.add("slideInLeft");
+            }
+            // Show modal
+            modal.classList.add("show");
+         },
+      },
+   });
+
+   window.addEventListener("load", function() {
+      const loaderWrapper = document.getElementById('loader-wrapper');
+      loaderWrapper.style.display = 'none'; // Ẩn loader sau khi trang đã tải xong
+   });
+</script>
 
 <script>
    AOS.init();

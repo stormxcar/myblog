@@ -1,5 +1,4 @@
 <?php
-// Kết nối CSDL và truy vấn lấy giá trị bản quyền
 include '../components/connect.php';
 
 $select_lienhe_image = $conn->prepare("SELECT setting_value FROM `settings` WHERE setting_key = 'lienhe_image'");
@@ -22,7 +21,6 @@ $select_name = $conn->prepare("SELECT setting_value FROM `settings` where settin
 $select_name->execute();
 $name_text = $select_name->fetchColumn();
 
-
 ?>
 
 <section class="contact" id="contact">
@@ -44,9 +42,9 @@ $name_text = $select_name->fetchColumn();
             <input type="text" placeholder="<?= $email_text?>">
             <h2>Họ tên</h2>
             <input type="text" placeholder="<?= $name_text?>">
-            <h2>Noi dung</h2>
-           <textarea class="ckeditor" name="noi_dung" id="noi_dung" cols="20" rows="4"></textarea>
-            <a href="mailto:nkha3561@gmail.com" id = "btnGui">Gửi</a>
+            <h2>Nội dung</h2>
+           <textarea class="" name="noi_dung" id="noi_dung" cols="20" rows="4"></textarea>
+            <a href="mailto:<?= $email_text?>" id = "btnGui">Gửi</a>
         </form>
         </div>
     </div>
