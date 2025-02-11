@@ -1,4 +1,9 @@
 <?php
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+require '../../vendor/autoload.php';
+
 include '../components/connect.php';
 
 $select_lienhe_image = $conn->prepare("SELECT setting_value FROM `settings` WHERE setting_key = 'lienhe_image'");
@@ -21,31 +26,62 @@ $select_name = $conn->prepare("SELECT setting_value FROM `settings` where settin
 $select_name->execute();
 $name_text = $select_name->fetchColumn();
 
+if (isset($_POST['submit'])) {
+    $user_email = $_POST['email'];
+    $user_name = $_POST['name'];
+    $message = $_POST['noi_dung'];
+
+    $mail = new PHPMailer(true);
+
+    try {
+        //Server settings
+        $mail->isSMTP();
+        $mail->Host = 'smtp.gmail.com';
+        $mail->SMTPAuth = true;
+        $mail->Username = 'nkha3561@gmail.com';
+        $mail->Password = 'shig qedo jdik eovn';
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = 587;
+
+        $mail->CharSet = 'UTF-8';
+
+        //Recipients
+        $mail->setFrom($user_email, $user_name);
+        $mail->addAddress($email_text);
+
+        //Content
+        $mail->isHTML(true);
+        $mail->Subject = "Liên hệ từ $user_name";
+        $mail->Body = "Email: $user_email<br><br>Nội dung:<br>$message";
+
+        $mail->send();
+        echo "<script>alert('Email đã được gửi thành công!');</script>";
+    } catch (Exception $e) {
+        echo "<script>alert('Gửi email thất bại. Vui lòng thử lại sau.');</script>";
+    }
+}
 ?>
 
 <section class="contact" id="contact">
     <div class="contact_left">
-        <img src="<?= $image_url?>" alt="">
+        <img src="<?= $image_url ?>" alt="">
     </div>
     <div class="contact_right">
         <div class="contact_right-top">
-        <h1><?= $tieude_text?></h1>
-        
-        <p>
-        <?= $noidung_text ?>
-        </p>
+            <h1><?= $tieude_text ?></h1>
+            <p><?= $noidung_text ?></p>
         </div>
         <div class="contact_right-bottom">
-        <h1>LIÊN HỆ</h1>
-        <form action="" class="book_box" method=post>
-            <h2>Email</h2>
-            <input type="text" placeholder="<?= $email_text?>">
-            <h2>Họ tên</h2>
-            <input type="text" placeholder="<?= $name_text?>">
-            <h2>Nội dung</h2>
-           <textarea class="" name="noi_dung" id="noi_dung" cols="20" rows="4"></textarea>
-            <a href="mailto:<?= $email_text?>" id = "btnGui">Gửi</a>
-        </form>
+            <h1>LIÊN HỆ</h1>
+            <form action="" class="book_box" method="post">
+                <h2>Email</h2>
+                <input type="email" name="email" placeholder="<?= $email_text ?>" required>
+                <h2>Họ tên</h2>
+                <input type="text" name="name" placeholder="<?= $name_text ?>" required>
+                <h2>Nội dung</h2>
+                <textarea name="noi_dung" id="noi_dung" cols="20" rows="4" required></textarea>
+                <button type="submit" name="submit" id="btnGui">Gửi</button>
+            </form>
         </div>
     </div>
 </section>

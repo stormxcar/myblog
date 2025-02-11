@@ -20,11 +20,11 @@ include '../components/like_post.php';
 
 $get_id = $_GET['post_id'];
 
-if (!isset($get_id)) {
-   $_SESSION['message'] = 'Bạn cần đăng nhập để lưu bài viết này!';
-   header('Location: ../static/login.php');
-   exit;
-}
+// if (!isset($get_id)) {
+//    $_SESSION['message'] = 'Bạn cần đăng nhập để lưu bài viết này!';
+//    header('Location: ../static/login.php');
+//    exit;
+// }
 
 if (isset($_POST['add_comment'])) {
 
