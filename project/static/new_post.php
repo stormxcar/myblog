@@ -147,7 +147,7 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
                             <button type="submit" name="like_post"><i class="fas fa-heart" style="<?php if ($confirm_likes->rowCount() > 0) {
                                                                                                         echo 'color:var(--red);';
                                                                                                     } ?>  "></i><span>(<?= $total_post_likes; ?>)</span></button>
-                            <button><i class="fa-solid fa-share-from-square"></i>Chia sẻ</button>
+                            <!-- <button><i class="fa-solid fa-share-from-square"></i>Chia sẻ</button> -->
                         </div>
                     </form>
             <?php

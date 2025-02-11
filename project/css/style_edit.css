@@ -74,9 +74,9 @@ section {
   margin-top: 1rem;
   border-radius: 0.5rem;
   cursor: pointer;
-  font-size: 1.8rem;
+  /* font-size: 1.8rem; */
   color: var(--white);
-  padding: 1.2rem 3rem;
+  padding: 1rem 2rem;
   text-transform: capitalize;
   text-align: center;
   border: 2px solid var(--main-color);
@@ -91,7 +91,7 @@ section {
 .inline-option-btn,
 .inline-delete-btn {
   display: inline-block;
-  margin-right: 1rem;
+  /* margin-right: 1rem; */
 }
 
 .btn,
@@ -230,13 +230,13 @@ section {
   transition: width 4s linear;
 }
 .empty {
-  border: var(--border-light);
+  /* border: var(--border-light); */
   border-radius: 0.5rem;
-  background-color: var(--white);
+  /* background-color: var(--white); */
   padding: 1.5rem;
   text-align: center;
   width: 100%;
-  font-size: 2rem;
+  font-size: 1.5rem;
   text-transform: capitalize;
   color: var(--red);
   box-shadow: var(--box-shadow);
@@ -870,6 +870,14 @@ swiper-slide img {
   /* gap: 2rem; */
   width: 100%;
 }
+#categorySelect{
+  width: 100%;
+  padding: 1rem 2rem;
+  border-radius: 0.5rem;
+  border: var(--border-light);
+  font-size: 1.5rem;
+  color: var(--black);
+}
 .new_posts-container {
   width: 100%;
   padding: 5rem 8rem;
@@ -961,7 +969,7 @@ swiper-slide img {
   width: calc(25% - 40px);
   overflow: hidden;
   max-height: 500px;
-  margin: 20px 20px 20px 0px;
+  /* margin: 20px 20px 20px 0px; */
   flex: 0 0 auto;
 }
 .box-container-newBlog .box_byPost_newBlog{
@@ -1364,7 +1372,7 @@ swiper-slide img {
   border-radius: 0.5rem;
   background-color: var(--light-bg);
   padding: 1.5rem 2rem;
-  font-size: 1.8rem;
+  font-size: 1.6rem;
   color: var(--black);
   width: 100%;
   white-space: pre-line;
@@ -1398,7 +1406,7 @@ swiper-slide img {
   background-color: var(--black);
   color: var(--white);
   padding: 1.5rem;
-  font-size: 2rem;
+  font-size: 1.5rem;
   border-radius: 0.5rem;
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
@@ -1417,7 +1425,7 @@ swiper-slide img {
   font-size: 2rem;
   color: var(--black);
   line-height: 1.5;
-  height: 15rem;
+  height: 12rem;
   width: 100%;
   resize: none;
   background-color: var(--light-bg);
@@ -1531,7 +1539,7 @@ swiper-slide img {
 }
 
 .gallery-item {
-  width: calc(33.333% - 1rem);
+  width: calc(25% - 1rem);
   position: relative;
   overflow: hidden;
   padding: 0.7rem;

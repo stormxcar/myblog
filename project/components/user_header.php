@@ -70,7 +70,7 @@ if ($avatar) {
          <a href="home.php"> <i class="fa-solid fa-house"></i> Trang chủ</a>
          <a href="posts.php"> <i class="fa-solid fa-address-card"></i></i> Bài đăng</a>
          <a href="new_post.php"> <i class="fa-solid fa-newspaper"></i></i> Bài đăng gần đây</a>
-         <a href="all_category.php"> <i class="fa-solid fa-layer-group"></i></i> Loại</a>
+         <!-- <a href="all_category.php"> <i class="fa-solid fa-layer-group"></i></i> Loại</a> -->
 
          <!-- check if user is not login then show login and register button -->
           <?php

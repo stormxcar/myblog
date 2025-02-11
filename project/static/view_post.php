@@ -128,6 +128,8 @@ $select_related_posts->execute([$current_tag, $get_id]);
    <!-- custom js file link  -->
    <script src="../js/script_edit.js"></script>
 
+   <!-- script framework -->
+   <script type="text/javascript" src="https://platform-api.sharethis.com/js/sharethis.js#property=67aac4723093bd0013c183d7&product=sticky-share-buttons&source=platform" async="async"></script>
 </head>
 
 <body>
@@ -156,7 +158,7 @@ $select_related_posts->execute([$current_tag, $get_id]);
       $comment_id = filter_var($comment_id, FILTER_SANITIZE_STRING);
    ?>
       <section class="comment-edit-form">
-         <p>Chỉnh sửa bài viết của bạn</p>
+         <p>Chỉnh sửa bình luận của bạn</p>
          <?php
          $select_edit_comment = $conn->prepare("SELECT * FROM `comments` WHERE id = ?");
          $select_edit_comment->execute([$comment_id]);
@@ -230,6 +232,8 @@ $select_related_posts->execute([$current_tag, $get_id]);
                      <button type="submit" name="like_post"><i class="fas fa-heart" style="<?php if ($confirm_likes->rowCount() > 0) {
                                                                                                 echo 'color:var(--red);';
                                                                                              } ?>  "></i><span>(<?= $total_post_likes; ?>)</span></button>
+
+                     
 
 
                   </div>
@@ -375,7 +379,7 @@ $select_related_posts->execute([$current_tag, $get_id]);
                                                                                                 echo 'color:var(--red);';
                                                                                              } ?>  "></i><span>(<?= $total_post_likes; ?>)</span>
                      </button>
-                     <button><i class="fa-solid fa-share-from-square"></i></button>
+                     <!-- <button><i class="fa-solid fa-share-from-square"></i></button> -->
 
                   </div>
 
@@ -394,6 +398,8 @@ $select_related_posts->execute([$current_tag, $get_id]);
          <span id="saveImage"><i class="fa-solid fa-download"></i></span>
       </div>
    </section>
+
+   <div class="sharethis-sticky-share-buttons"></div>
 
    <?php include '../components/footer.php'; ?>
 
