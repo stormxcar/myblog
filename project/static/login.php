@@ -90,7 +90,11 @@ if (isset($_POST['submit'])) {
 
          <label for="pass">
             <span>Mật khẩu:</span>
-            <input type="password" name="pass" required placeholder="Nhập mật khẩu" class="box" maxlength="50" oninput="this.value = this.value.replace(/\s/g, '')" value="12345678">
+            <input type="password" name="pass" required placeholder="Nhập mật khẩu" class="box" maxlength="50" oninput="this.value = this.value.replace(/\s/g, '')" value="111">
+         </label>
+
+         <label for="forgot_pass">
+            <a style="font-size: 1.5rem;" href="forgot_pass.php">Quên mật khẩu?</a>
          </label>
          
 

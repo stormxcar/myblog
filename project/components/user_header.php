@@ -28,17 +28,17 @@ $avatar = $select_avatar->fetch(PDO::FETCH_ASSOC);
 
 if ($avatar) {
    $avatarContent = $avatar['avatar'];
-   
+
    // Xác định loại MIME của dữ liệu ảnh
    $finfo = finfo_open(FILEINFO_MIME_TYPE);
    $avatarMime = finfo_buffer($finfo, $avatarContent);
    finfo_close($finfo);
-   
+
    // Đảm bảo loại MIME chính xác
    if (!$avatarMime) {
-       $avatarMime = 'image/jpeg'; // Mặc định nếu không xác định được
+      $avatarMime = 'image/jpeg'; // Mặc định nếu không xác định được
    }
-   
+
    $avatarBase64 = base64_encode($avatarContent);
    $avatarSrc = "data:$avatarMime;base64,$avatarBase64";
 } else {
@@ -70,18 +70,17 @@ if ($avatar) {
          <a href="home.php"> <i class="fa-solid fa-house"></i> Trang chủ</a>
          <a href="posts.php"> <i class="fa-solid fa-address-card"></i></i> Bài đăng</a>
          <a href="new_post.php"> <i class="fa-solid fa-newspaper"></i></i> Bài đăng gần đây</a>
-         <!-- <a href="all_category.php"> <i class="fa-solid fa-layer-group"></i></i> Loại</a> -->
 
          <!-- check if user is not login then show login and register button -->
-          <?php
-            if (!isset($_SESSION['user_id'])) {
-              echo '<a href="login.php"><i class="fa-solid fa-right-to-bracket"></i></i> Đăng Nhập</a>';
-              echo '<a href="register.php"> <i class="fa-solid fa-square-caret-right"></i></i> Đăng Ký</a>';
-            }
-          ?>
-         <!-- <a href="login.php"><i class="fa-solid fa-right-to-bracket"></i></i> Đăng Nhập</a>
-         <a href="register.php"> <i class="fa-solid fa-square-caret-right"></i></i> Đăng Ký</a> -->
-         <button class="light_dark_btn"><span></span><p>Sáng / Tối</p></button>
+         <?php
+         if (!isset($_SESSION['user_id'])) {
+            echo '<a href="login.php"><i class="fa-solid fa-right-to-bracket"></i></i> Đăng Nhập</a>';
+            echo '<a href="register.php"> <i class="fa-solid fa-square-caret-right"></i></i> Đăng Ký</a>';
+         }
+         ?>
+         <button class="light_dark_btn"><span></span>
+            <p>Sáng / Tối</p>
+         </button>
       </nav>
 
       <div class="profile">
@@ -104,16 +103,6 @@ if ($avatar) {
                <i class="fa-solid fa-bookmark"></i>
                <span>Bài viết đã lưu</span>
             </a>
-            <!-- <div class="btn_handle">
-               <a href="login.php" class="login_btn btn">
-                  <i class="fa-solid fa-right-to-bracket"></i>
-                  <span>Đăng nhập</span>
-               </a>
-               <a href="register.php" class="register_btn btn">
-                  <i class="fa-solid fa-square-caret-right"></i>
-                  <span>Đăng ký</span>
-               </a>
-            </div> -->
             <a href="../components/user_logout.php" onclick="return confirm('Bạn muốn thoát khỏi website này phải không ?');" class="logout_btn btn">
                <i class="fa-solid fa-right-from-bracket"></i>
                <span>Đăng xuất</span>

@@ -22,7 +22,6 @@ if (isset($message)) {
          $fetch_profile = $select_profile->fetch(PDO::FETCH_ASSOC);
          ?>
          <a href="update_profile.php"><?= $fetch_profile['name']; ?></a>
-         <!-- <a href="update_profile.php" class="btn">Thay đổi thông tin</a> -->
       </div>
    </div>
 
@@ -44,33 +43,3 @@ if (isset($message)) {
 </header>
 
 <div id="menu-btn" class="fas fa-bars"></div>
-
-<script>
-   // document.addEventListener('DOMContentLoaded', () => {
-   //    const currentPath = window.location.pathname;
-   //    const navbarLinks = document.querySelectorAll('.navbar a');
-
-   //    // Loại bỏ class 'active' khỏi tất cả các liên kết trước khi gán lại
-   //    navbarLinks.forEach(link => {
-   //       link.classList.remove('active');
-   //    });
-
-   //    // Gán class 'active' cho liên kết hiện tại dựa trên đường dẫn
-   //    navbarLinks.forEach(link => {
-   //       if (link.getAttribute('href') === currentPath) {
-   //          link.classList.add('active');
-   //       }
-
-   //       // Ghi nhớ liên kết đã nhấp vào
-   //       link.addEventListener('click', () => {
-   //          sessionStorage.setItem('activeNavbarLink', link.getAttribute('href'));
-   //       });
-   //    });
-
-   //    // Lấy liên kết đã được lưu trong sessionStorage và gán class 'active' cho nó
-   //    const activeLink = sessionStorage.getItem('activeNavbarLink');
-   //    if (activeLink) {
-   //       document.querySelector(`.navbar a[href="${activeLink}"]`)?.classList.add('active');
-   //    }
-   // });
-</script>

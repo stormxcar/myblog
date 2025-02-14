@@ -1,16 +1,24 @@
 <?php
+
+require '../../vendor/autoload.php';
+
+use Dotenv\Dotenv;
+
+$dotenv = Dotenv::createImmutable(__DIR__ . '/../../');
+$dotenv->load();
+
 // localhost
 // sql309.infinityfree.com
-$servername = "localhost";
+$servername = $_ENV['DB_HOST'];
 // root
 // if0_36177097
-$username = "root";
+$username = $_ENV['DB_USER'];
 // " "
 // DQeaxOvzlDUM6
-$password = "";
+$password = $_ENV['DB_PASS'];
 // blog_db
 // if0_36177097_blog_db2
-$dbname = "blog_db";
+$dbname = $_ENV['DB_NAME'];
 
 try {
   // dbname : blog_db
