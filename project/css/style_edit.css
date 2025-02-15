@@ -582,6 +582,7 @@ section {
 /* banner */
 .banner-container {
   position: relative;
+  margin: 0 auto;
   width: 100%;
   height: 100px;
 }
@@ -590,109 +591,113 @@ section {
   height: 100%;
 }
 
+/* Swiper slide */
 swiper-slide {
-  text-align: center;
-  font-size: 18px;
-  background: #fff;
+  position: relative;
+  width: 100%;
+  height: 100vh;
   display: flex;
-  justify-content: center;
-  align-items: center;
-  /* position: relative; */
+  align-items: flex-start;
+  justify-content: start;
+  padding-top: 35rem;
+  padding-left: 10rem;
+  overflow: hidden;
 }
 
-swiper-slide img {
-  display: block;
+/* Background blur */
+.background-blur {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
-  height: 95vh;
-  object-fit: cover;
-  position: relative;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  filter: blur(10px);
+  z-index: 1;
 }
-.swiper-container .swiper-button-next,
+
+.banner_content {
+  width: 80%;
+  height: 50%;
+  z-index: 2;
+  display: flex;
+  flex-direction: row;
+  gap: 2rem;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+/* Main image */
+.img_main_banner img {
+  position: relative;
+  z-index: 2;
+  width: 300px;
+  height: 400px;
+  object-fit: contain;
+}
+
+/* Post slide content */
+.post-slide {
+  position: relative;
+  z-index: 3;
+  /* text-align: center; */
+  color: white;
+}
+
+.swiper-container 
+.swiper-button-next,
 .swiper-button-prev {
   background: red !important;
   position: relative;
   color: green !important;
 }
-
-.modal {
-  position: absolute;
-  background-color: gainsboro;
-  text-align: left;
-  padding: 3rem;
+.post-slide .post-admin{
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
-.modal .caption h3 {
-  font-size: 5rem;
+.post-slide .post-admin i{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  background-color: var(--light-bg);
+  color: var(--black);
 }
-.modal .caption button {
-  padding: 1rem 6rem;
-  outline: none;
-  border: var(--border-light);
-  margin-bottom: 2rem;
+.post-slide .post-admin a{
+  font-size: 1.6rem;
+  color: var(--main-color);
 }
-.modal .caption .content p {
-  line-height: 30px;
+.post-slide .post-admin a:hover{
+  color: var(--black);
 }
-
-.modal {
-  display: none;
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background-color: #fff;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-}
-
-.modal.show {
+.post-slide .post-title{
+  font-size: 2rem;
+  color: var(--light-bg);
+  font-size: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   display: block;
 }
-
-/* Add your animation effects here */
-.modal.slideInLeft {
-  animation: slideInLeft 0.5s forwards;
+.post-slide .post-content{
+  font-size: 1.5rem;
+  padding: 0.5rem 0;
+  color: var(--white);
+}
+.post-slide .post-content::after{
+  content: "...";
+}
+.post-slide .inline-btn{
+  display: block;
+  width: 50%;
 }
 
-.modal.slideInRight {
-  animation: slideInRight 0.5s forwards;
-}
-
-@keyframes slideInLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-100%);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes slideInRight {
-  from {
-    opacity: 0;
-    transform: translateX(100%);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* .caption h2 {
-  font-size: 24px;
-  margin-bottom: 10px;
-  color: red;
-}
-
-.caption .btn {
-  background-color: #fff;
-  color: #000;
-  padding: 10px 20px;
-  border: none;
-  cursor: pointer;
-} */
+/* ---------------------------------- */
 
 .home-grid .box-container {
   display: flex;
@@ -754,7 +759,7 @@ swiper-slide img {
   justify-content: center;
   padding: 7.5rem;
   /* margin: 0rem 0 0rem 0; */
-  background-color: var(--gray);
+  /* background-color: var(--gray); */
   position: relative;
   margin-top: 80vh;
 }
@@ -922,7 +927,7 @@ swiper-slide img {
   background: var(--gray);
   padding: 5rem 8rem;
   position: relative;
-  margin-top: 5rem;
+  /* margin-top: 5rem; */
 }
 .posts-container-byCategory{
   padding: 5rem 8rem;

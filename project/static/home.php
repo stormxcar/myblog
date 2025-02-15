@@ -53,6 +53,11 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
    exit;
 }
 
+// Truy vấn các bài viết từ cơ sở dữ liệu
+$select_posts = $conn->prepare("SELECT * FROM `posts` WHERE status = ? ORDER BY date DESC LIMIT 5");
+$select_posts->execute(['active']);
+$posts = $select_posts->fetchAll(PDO::FETCH_ASSOC);
+
 ?>
 
 
@@ -85,7 +90,6 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
 <body>
    <div id="loader-wrapper" class="loader-wrapper">
       <div class="loader"></div>
-      <!-- <img class="loader" src="../uploaded_img/loading.gif" alt=""> -->
    </div>
 
    <?php include '../components/user_header.php'; ?>
@@ -108,132 +112,34 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
       <h1 class="heading"></h1>
 
       <swiper-container class="mySwiper" pagination="true" pagination-clickable="true" navigation="true" space-between="30" centered-slides="true" autoplay-delay="5000" autoplay-disable-on-interaction="false">
-         <swiper-slide><img src="<?php echo htmlspecialchars($banner_images['banner_slide_1']); ?>" alt="">
-            <div class="modal">
-               <div class="caption">
-                  <h3>BAO ANH</h3>
-                  <button>Click me</button>
+         <?php foreach ($posts as $post) : ?>
+            <swiper-slide>
+            <div class="background-blur" style="background-image: linear-gradient(to top, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0)), url('../uploaded_img/<?= $post['image']; ?>');"></div>
+               <div class="banner_content">
+                  <div class="img_main_banner">
+                     <img src="../uploaded_img/<?= $post['image']; ?>" alt="">
+                  </div>
+                  <div class="post-slide">
+                     <div class="post-admin">
+                        <i class="fas fa-user"></i>
+                        <div>
+                           <a href="author_posts.php?author=<?= $post['name']; ?>"><?= $post['name']; ?></a>
+                           <div><?= $post['date']; ?></div>
+                        </div>
+                     </div>
+                     <a href="view_post.php?post_id=<?= $post['id']; ?>" class="post-title"><?= $post['title']; ?></a>
+                     <a href="view_post.php?post_id=<?= $post['id']; ?>" class="post-content content-200"><?= $post['content']; ?></a>
+                     <a href="view_post.php?post_id=<?= $post['id']; ?>" class="inline-btn">Đọc thêm</a>
+                  </div>
                </div>
-               <div class="content">
-                  <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Vel, sint.</p>
-               </div>
-            </div>
-         </swiper-slide>
-         <swiper-slide><img src="<?php echo htmlspecialchars($banner_images['banner_slide_2']); ?>" alt="">
-            <div class="modal">
-               <div class="caption">
-                  <h3>TAXI PHAN RANG</h3>
-                  <button>Click me</button>
-               </div>
-               <div class="content">
-                  <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Vel, sint.</p>
-               </div>
-            </div>
-         </swiper-slide>
-         <swiper-slide><img src="<?php echo htmlspecialchars($banner_images['banner_slide_3']); ?>" alt="">
-            <div class="modal">
-               <div class="caption">
-                  <h3>PHAN RANG - THAPS CHAMS</h3>
-                  <button>Click me</button>
-               </div>
-               <div class="content">
-                  <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Vel, sint.</p>
-               </div>
-            </div>
-         </swiper-slide>
-         <swiper-slide><img src="<?php echo htmlspecialchars($banner_images['banner_slide_4']); ?>" alt="">
-            <div class="modal">
-               <div class="caption">
-                  <h3>NINH HAI NINH THUAN</h3>
-                  <button>Click me</button>
-               </div>
-               <div class="content">
-                  <p>Lorem ipsum dolor sit amet, consectetur adipisicing elit. Vel, sint.</p>
-               </div>
-            </div>
-         </swiper-slide>
+
+            </swiper-slide>
+         <?php endforeach; ?>
       </swiper-container>
    </div>
 
 
    <?php include './introduce.php' ?>
-
-   <?php
-   // Lấy tất cả các ID từ bảng `posts`
-   $select_ids = $conn->prepare("SELECT id FROM `posts`");
-   $select_ids->execute();
-   $ids = $select_ids->fetchAll(PDO::FETCH_COLUMN);
-   // Kiểm tra xem có ID
-   if ($ids) {
-      // Lấy một chỉ mục ngẫu nhiên từ mảng các ID
-      $random_index = array_rand($ids);
-      // Lấy ID tương ứng từ mảng
-      $post_id = $ids[$random_index];
-   } else {
-      // Không có ID nào, đặt $post_id thành null hoặc giá trị mặc định nào đó
-      $post_id = null;
-   }
-
-   $select_post = $conn->prepare("SELECT * FROM `posts` WHERE id = ?");
-   $select_post->execute([$post_id]);
-   $fetch_post = $select_post->fetch(PDO::FETCH_ASSOC);
-
-   if ($fetch_post) {
-   ?>
-      <!-- main post -->
-      <section class="main_post-container">
-         <div class="box_container">
-            <div class="box ">
-               <div class="box_left">
-                  <input type="hidden" name="post_id" value="<?= $post_id; ?>">
-                  <input type="hidden" name="admin_id" value="<?= $fetch_post['admin_id']; ?>">
-                  <div class="post-admin">
-                     <i class="fas fa-user"></i>
-                     <div>
-                        <a href="author_posts.php?author=<?= $fetch_post['name']; ?>"><?= $fetch_post['name']; ?></a>
-                        <div><?= $fetch_post['date']; ?></div>
-                     </div>
-                  </div>
-
-                  <?php if ($fetch_post['image'] != '') { ?>
-                     <img src="../uploaded_img/<?= $fetch_post['image']; ?>" class="post_main-image" alt="">
-                  <?php } ?>
-               </div>
-
-               <div class="box_right">
-                  <a href="view_post.php?post_id=<?= $post_id; ?>" class="post-title"><?= $fetch_post['title']; ?></a>
-                  <a href="view_post.php?post_id=<?= $post_id; ?>" class="post-content content-200"><?= $fetch_post['content']; ?></a>
-                  <a href="view_post.php?post_id=<?= $post_id; ?>" class="inline-btn">Đọc thêm</a>
-               </div>
-
-               <!-- Tính toán số lượt bình luận và lượt thích -->
-               <?php
-               $count_post_comments = $conn->prepare("SELECT * FROM `comments` WHERE post_id = ?");
-               $count_post_comments->execute([$post_id]);
-               $total_post_comments = $count_post_comments->rowCount();
-
-               $count_post_likes = $conn->prepare("SELECT * FROM `likes` WHERE post_id = ?");
-               $count_post_likes->execute([$post_id]);
-               $total_post_likes = $count_post_likes->rowCount();
-
-               $confirm_likes = $conn->prepare("SELECT * FROM `likes` WHERE user_id = ? AND post_id = ?");
-               $confirm_likes->execute([$user_id, $post_id]);
-               ?>
-
-               <!-- <div class="icons">
-                <div><i class="fas fa-comment"></i><span>(<?= $total_post_comments; ?>)</span></div>
-                <button type="submit" name="like_post"><i class="fas fa-heart" style="<?php if ($confirm_likes->rowCount() > 0) {
-                                                                                          echo 'color:var(--red);';
-                                                                                       } ?>"></i><span>(<?= $total_post_likes; ?>)</span></button>
-            </div> -->
-            </div>
-         </div>
-      </section>
-
-   <?php
-   }
-   ?>
-
 
    <!-- posts part -->
    <section class="posts-container" id="news">
