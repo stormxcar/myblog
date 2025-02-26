@@ -120,13 +120,6 @@ $posts = $select_posts->fetchAll(PDO::FETCH_ASSOC);
                      <img src="../uploaded_img/<?= $post['image']; ?>" alt="">
                   </div>
                   <div class="post-slide">
-                     <div class="post-admin">
-                        <i class="fas fa-user"></i>
-                        <div>
-                           <a href="author_posts.php?author=<?= $post['name']; ?>"><?= $post['name']; ?></a>
-                           <div><?= $post['date']; ?></div>
-                        </div>
-                     </div>
                      <a href="view_post.php?post_id=<?= $post['id']; ?>" class="post-title"><?= $post['title']; ?></a>
                      <a href="view_post.php?post_id=<?= $post['id']; ?>" class="post-content content-200"><?= $post['content']; ?></a>
                      <a href="view_post.php?post_id=<?= $post['id']; ?>" class="inline-btn">Đọc thêm</a>
