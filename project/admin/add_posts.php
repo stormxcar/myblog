@@ -12,14 +12,15 @@ if (!isset($admin_id)) {
 
 
 if (isset($_POST['publish']) || isset($_POST['draft'])) {
-   $name = filter_var($_POST['name'], FILTER_SANITIZE_STRING);
-   $title = filter_var($_POST['title'], FILTER_SANITIZE_STRING);
    $content = $_POST['content']; // nội dung HTML từ CKEditor
-   $category = filter_var($_POST['category'], FILTER_SANITIZE_STRING);
+   $name = htmlspecialchars($_POST['name'], ENT_QUOTES, 'UTF-8');
+   $title = htmlspecialchars($_POST['title'], ENT_QUOTES, 'UTF-8');
+   $category = htmlspecialchars($_POST['category'], ENT_QUOTES, 'UTF-8');
+
 
    // Xử lý ảnh
    $image = $_FILES['image']['name'];
-   $image = filter_var($image, FILTER_SANITIZE_STRING);
+   $image = htmlspecialchars($image, ENT_QUOTES, 'UTF-8');
    $image_size = $_FILES['image']['size'];
    $image_tmp_name = $_FILES['image']['tmp_name'];
    $image_folder = '../uploaded_img/' . $image;
@@ -53,8 +54,9 @@ if (isset($_POST['publish']) || isset($_POST['draft'])) {
       $tag = $select_tag_id->fetch(PDO::FETCH_ASSOC);
       $tag_id = $tag['category_id'];
 
-      $insert_post = $conn->prepare("INSERT INTO `posts` (admin_id, name, title, content, category, image, status, tag_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-      $insert_post->execute([$admin_id, $name, $title, $content, $category, $image, $status, $tag_id]);
+      $date = date('Y-m-d');
+      $insert_post = $conn->prepare("INSERT INTO `posts` (admin_id, name, title, content, category, image, status, tag_id, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      $insert_post->execute([$admin_id, $name, $title, $content, $category, $image, $status, $tag_id, $date]);
 
       $message[] = isset($_POST['publish']) ? 'Bài viết đã được đăng thành công!' : 'Đã lưu bản nháp!';
    }

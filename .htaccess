@@ -1,4 +1,0 @@
-# không thể sử dụng đường dẫn tuyệt đối để cấu hình 
-ErrorDocument 404 /blogging%20website/project/static/404.php
-
-RewriteEngine On

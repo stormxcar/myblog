@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th2 14, 2025 lúc 04:22 AM
+-- Thời gian đã tạo: Th5 14, 2025 lúc 08:11 AM
 -- Phiên bản máy phục vụ: 10.4.28-MariaDB
 -- Phiên bản PHP: 8.2.4
 
@@ -78,6 +78,8 @@ INSERT INTO `cart` (`category_id`, `name`, `admin_id`) VALUES
 -- Cấu trúc bảng cho bảng `comments`
 --
 
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+
 CREATE TABLE `comments` (
   `id` int(100) NOT NULL,
   `post_id` int(100) NOT NULL,
@@ -85,7 +87,7 @@ CREATE TABLE `comments` (
   `user_id` int(100) NOT NULL,
   `user_name` varchar(50) NOT NULL,
   `comment` varchar(1000) NOT NULL,
-  `date` date NOT NULL DEFAULT current_timestamp()
+  `date` date NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -123,7 +125,8 @@ INSERT INTO `favorite_posts` (`id`, `user_id`, `post_id`, `created_at`) VALUES
 (63, 18, 13, '2024-08-03 01:41:58'),
 (69, 1, 29, '2025-02-10 04:25:22'),
 (71, 1, 17, '2025-02-10 04:34:24'),
-(73, 1, 24, '2025-02-10 04:35:25');
+(73, 1, 24, '2025-02-10 04:35:25'),
+(74, 1, 11, '2025-05-14 05:09:28');
 
 -- --------------------------------------------------------
 
@@ -167,7 +170,7 @@ CREATE TABLE `posts` (
   `content` varchar(10000) NOT NULL,
   `category` varchar(50) NOT NULL,
   `image` varchar(100) NOT NULL,
-  `date` date NOT NULL DEFAULT current_timestamp(),
+  `date` date NOT NULL,
   `status` varchar(10) NOT NULL,
   `tag_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -357,7 +360,7 @@ ALTER TABLE `comments`
 -- AUTO_INCREMENT cho bảng `favorite_posts`
 --
 ALTER TABLE `favorite_posts`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=74;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=75;
 
 --
 -- AUTO_INCREMENT cho bảng `likes`

@@ -1,0 +1,8 @@
+Options +Indexes +FollowSymLinks +MultiViews
+Require all granted
+
+RewriteEngine On
+RewriteBase /
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ static/$1 [L]

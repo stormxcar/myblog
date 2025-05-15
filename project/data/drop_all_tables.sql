@@ -1,0 +1,11 @@
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- Xóa trực tiếp tất cả các bảng trong database blog_db
+DROP TABLE IF EXISTS admin;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS posts;
+DROP TABLE IF EXISTS comments;
+DROP TABLE IF EXISTS likes;
+DROP TABLE IF EXISTS cart;
+
+SET FOREIGN_KEY_CHECKS = 1;
