@@ -3,6 +3,11 @@ Require all granted
 
 RewriteEngine On
 RewriteBase /
+
+# Rewrite root URL (/) to /static/home.php
+RewriteRule ^$ /static/home.php [L]
+
+# Nếu không phải file hoặc thư mục, chuyển đến index.php (nếu cần)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ static/$1 [L]
+RewriteRule ^ index.php [L]
