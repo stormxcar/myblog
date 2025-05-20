@@ -16,3 +16,12 @@ tmp/
 # Ignore IDE specific files
 .vscode/
 .idea/
+
+
+docker-compose.yml
+Dockerfile
+mysql-config.cnf
+000-default.conf
+package.json
+package-lock.json
+php.ini
