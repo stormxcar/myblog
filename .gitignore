@@ -5,7 +5,7 @@
 node_modules/
 
 # Ignore vendor directory (Composer dependencies)
-vendor/
+# vendor/
 
 # Ignore log files
 *.log
