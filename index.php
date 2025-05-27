@@ -8,6 +8,6 @@ if (!file_exists(__DIR__ . '/static/home.php')) {
     die("Error: home.php not found in static directory.");
 }
 
-// Chuyển hướng đến /static/home.php : 
-header("Location: /static/home.php");
+// Chuyển hướng đến static/home.php
+header("Location: static/home.php");
 exit;
