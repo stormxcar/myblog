@@ -3,22 +3,18 @@ include '../components/connect.php';
 
 session_start();
 
-if (isset($_SESSION['user_id'])) {
-   $user_id = $_SESSION['user_id'];
-} else {
-   $user_id = '';
-};
+$user_id = $_SESSION['user_id'] ?? '';
 
 ?>
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 
 <head>
    <meta charset="UTF-8">
    <meta http-equiv="X-UA-Compatible" content="IE=edge">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
    <title>Tất cả ảnh</title>
+   <meta name="description" content="Bộ sưu tập tất cả ảnh từ các bài viết trên website. Xem và khám phá những hình ảnh mới nhất.">
 
    <!-- font awesome cdn link  -->
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
@@ -32,50 +28,53 @@ if (isset($_SESSION['user_id'])) {
 <body>
    <?php include '../components/user_header.php'; ?>
 
-   <section style="margin-top: 5rem;" class="photo-gallery">
-      <h1 class="heading">Tất cả ảnh</h1>
-      <div class="gallery-grid">
-      <?php
-      // Truy vấn để lấy tất cả các bức ảnh từ cơ sở dữ liệu
-      $select_photos = $conn->prepare("SELECT image FROM `posts` WHERE status = ? ORDER BY id DESC");
-      $select_photos->execute(['active']);
+   <main id="main-content">
+      <section style="margin-top: 5rem;" class="photo-gallery">
+         <header>
+            <h1 class="heading">Tất cả ảnh</h1>
+         </header>
+         <div class="gallery-grid">
+         <?php
+         $select_photos = $conn->prepare("SELECT image FROM `posts` WHERE status = ? ORDER BY id DESC");
+         $select_photos->execute(['active']);
 
-      if ($select_photos->rowCount() > 0) {
-         while ($fetch_photos = $select_photos->fetch(PDO::FETCH_ASSOC)) {
-            $photo_url = '../uploaded_img/' . $fetch_photos['image'];
-            $photo_alt = $fetch_photos['image'];
-      ?>
-            <div class="gallery-item">
-               <img src="<?= $photo_url; ?>" alt="<?= $photo_alt; ?>">
-            </div>
-      <?php
+         if ($select_photos->rowCount() > 0) {
+            while ($fetch_photos = $select_photos->fetch(PDO::FETCH_ASSOC)) {
+               $photo_url = '../uploaded_img/' . $fetch_photos['image'];
+               $photo_alt = 'Ảnh bài viết: ' . pathinfo($fetch_photos['image'], PATHINFO_FILENAME);
+         ?>
+               <figure class="gallery-item">
+                  <img src="<?= $photo_url; ?>" alt="<?= htmlspecialchars($photo_alt); ?>" loading="lazy">
+                  <!-- <figcaption><?= htmlspecialchars($photo_alt); ?></figcaption> -->
+               </figure>
+         <?php
+            }
+         } else {
+            echo '<p class="empty">Chưa có ảnh nào được thêm!</p>';
          }
-      } else {
-         echo '<p class="empty">Chưa có ảnh nào được thêm!</p>';
-      }
-      ?>
-      </div>
-   </section>
+         ?>
+         </div>
+      </section>
+   </main>
 
    <?php include '../components/footer.php'; ?>
 
    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-element-bundle.min.js"></script>
    <script defer src="../js/script_edit.js"></script>
    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
-</body>
+   <script>
+      AOS.init();
 
-<script>
-   AOS.init();
-
-   document.addEventListener('DOMContentLoaded', function () {
-      var elem = document.querySelector('.gallery-grid');
-      var msnry = new Masonry(elem, {
-         // options
-         itemSelector: '.gallery-item',
-         columnWidth: '.gallery-item',
-         percentPosition: true
+      document.addEventListener('DOMContentLoaded', function () {
+         var elem = document.querySelector('.gallery-grid');
+         if (elem) {
+            var msnry = new Masonry(elem, {
+               itemSelector: '.gallery-item',
+               columnWidth: '.gallery-item',
+               percentPosition: true
+            });
+         }
       });
-    });
-</script>
-
+   </script>
+</body>
 </html>

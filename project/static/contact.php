@@ -3,28 +3,20 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 require '../../vendor/autoload.php';
-
 include '../components/connect.php';
 
-$select_lienhe_image = $conn->prepare("SELECT setting_value FROM `settings` WHERE setting_key = 'lienhe_image'");
-$select_lienhe_image->execute();
-$image_url = $select_lienhe_image->fetchColumn();
+// Lấy các giá trị settings
+function get_setting($conn, $key) {
+    $stmt = $conn->prepare("SELECT setting_value FROM `settings` WHERE setting_key = ?");
+    $stmt->execute([$key]);
+    return $stmt->fetchColumn();
+}
 
-$select_lienhe_tieude = $conn->prepare("SELECT setting_value FROM `settings` WHERE setting_key = 'lienhe_tieude'");
-$select_lienhe_tieude->execute();
-$tieude_text = $select_lienhe_tieude->fetchColumn();
-
-$select_lienhe_noidung = $conn->prepare("SELECT setting_value FROM `settings` WHERE setting_key = 'lienhe_noidung'");
-$select_lienhe_noidung->execute();
-$noidung_text = $select_lienhe_noidung->fetchColumn();
-
-$select_email = $conn->prepare("SELECT setting_value FROM `settings` where setting_key = 'lienhe_email'");
-$select_email->execute();
-$email_text = $select_email->fetchColumn();
-
-$select_name = $conn->prepare("SELECT setting_value FROM `settings` where setting_key = 'lienhe_name'");
-$select_name->execute();
-$name_text = $select_name->fetchColumn();
+$image_url = get_setting($conn, 'lienhe_image');
+$tieude_text = get_setting($conn, 'lienhe_tieude');
+$noidung_text = get_setting($conn, 'lienhe_noidung');
+$email_text = get_setting($conn, 'lienhe_email');
+$name_text = get_setting($conn, 'lienhe_name');
 
 if (isset($_POST['submit'])) {
     $user_email = $_POST['email'];
@@ -34,7 +26,6 @@ if (isset($_POST['submit'])) {
     $mail = new PHPMailer(true);
 
     try {
-        //Server settings
         $mail->isSMTP();
         $mail->Host = $_ENV['SMTP_HOST'];
         $mail->SMTPAuth = true;
@@ -42,14 +33,11 @@ if (isset($_POST['submit'])) {
         $mail->Password = $_ENV['SMTP_PASS'];
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port = 587;
-
         $mail->CharSet = 'UTF-8';
 
-        //Recipients
         $mail->setFrom($user_email, $user_name);
         $mail->addAddress($email_text);
 
-        //Content
         $mail->isHTML(true);
         $mail->Subject = "Liên hệ từ $user_name";
         $mail->Body = "Email: $user_email<br><br>Nội dung:<br>$message";
@@ -62,26 +50,34 @@ if (isset($_POST['submit'])) {
 }
 ?>
 
-<section class="contact" id="contact">
-    <div class="contact_left">
-        <img src="<?= $image_url ?>" alt="">
-    </div>
-    <div class="contact_right">
-        <div class="contact_right-top">
-            <h1><?= $tieude_text ?></h1>
-            <p><?= $noidung_text ?></p>
+<main>
+    <section class="contact" id="contact" aria-label="Liên hệ">
+        <figure class="contact_left">
+            <img src="<?= htmlspecialchars($image_url) ?>" alt="Hình liên hệ" loading="lazy">
+        </figure>
+        <div class="contact_right">
+            <header class="contact_right-top">
+                <h1><?= htmlspecialchars($tieude_text) ?></h1>
+                <p><?= htmlspecialchars($noidung_text) ?></p>
+            </header>
+            <section class="contact_right-bottom">
+                <h2>Liên hệ</h2>
+                <form action="" class="book_box" method="post" aria-label="Form liên hệ">
+                    <div>
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" placeholder="<?= htmlspecialchars($email_text) ?>" required>
+                    </div>
+                    <div>
+                        <label for="name">Họ tên</label>
+                        <input type="text" id="name" name="name" placeholder="<?= htmlspecialchars($name_text) ?>" required>
+                    </div>
+                    <div>
+                        <label for="noi_dung">Nội dung</label>
+                        <textarea name="noi_dung" id="noi_dung" cols="20" rows="4" required></textarea>
+                    </div>
+                    <button type="submit" name="submit" id="btnGui">Gửi</button>
+                </form>
+            </section>
         </div>
-        <div class="contact_right-bottom">
-            <h1>LIÊN HỆ</h1>
-            <form action="" class="book_box" method="post">
-                <h2>Email</h2>
-                <input type="email" name="email" placeholder="<?= $email_text ?>" required>
-                <h2>Họ tên</h2>
-                <input type="text" name="name" placeholder="<?= $name_text ?>" required>
-                <h2>Nội dung</h2>
-                <textarea name="noi_dung" id="noi_dung" cols="20" rows="4" required></textarea>
-                <button type="submit" name="submit" id="btnGui">Gửi</button>
-            </form>
-        </div>
-    </div>
-</section>
+    </section>
+</main>
