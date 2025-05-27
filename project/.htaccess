@@ -1,11 +1,19 @@
 Options +Indexes +FollowSymLinks +MultiViews
 Require all granted
 
+# Chỉ định trang 404 tùy chỉnh
+ErrorDocument 404 /static/404.php
+
 RewriteEngine On
 RewriteBase /
 
 # Rewrite root URL (/) to /static/home.php
 RewriteRule ^$ static/home.php [L]
+
+# Chuyển hướng tất cả URL đến static/ nếu không phải file/thư mục trong root
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ static/$1 [L]
 
 # Nếu không phải file hoặc thư mục, chuyển đến index.php (nếu cần)
 RewriteCond %{REQUEST_FILENAME} !-f
