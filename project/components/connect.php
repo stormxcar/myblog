@@ -30,7 +30,7 @@ try {
         $username = getenv('DB_USER') ?: 'root';
         $password = getenv('DB_PASS') ?: '';
         $dbname = getenv('DB_NAME') ?: 'blog_db';
-        $port = getenv('DB_PORT') ?: 3306;
+        $port = getenv('DB_PORT') ?: 3308;
     }
 
     $conn = new PDO("mysql:host=$servername;port=$port;dbname=$dbname", $username, $password);

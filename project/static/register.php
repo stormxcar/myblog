@@ -96,7 +96,7 @@ if (isset($_POST['submit'])) {
       <div class="register_bg">
          <img src="../uploaded_img/banner-4.avif" alt="">
       </div>
-      <form action="" method="post" enctype="multipart/form-data"> <!-- Thêm enctype ở đây -->
+      <form action="" method="post" enctype="multipart/form-data" > <!-- Thêm enctype ở đây -->
          <h3>Xin chào bạn mới</h3>
          <label for="username">
             <span>Tên người dùng:</span>

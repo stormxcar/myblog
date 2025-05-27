@@ -322,9 +322,9 @@ section {
 .dashboard .box-container .box {
   text-align: center;
   background-color: var(--white);
-  border: var(--border);
+  /* border: var(--border); */
   box-shadow: var(--box-shadow);
-  border-radius: 0.5rem;
+  border-radius: 1rem;
   text-align: center;
   padding: 1.5rem;
 }

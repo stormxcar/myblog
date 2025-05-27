@@ -134,7 +134,7 @@ if (isset($_POST['submit'])) {
       </div>
 
       <form action="" method="post" enctype="multipart/form-data">
-         <h3>Thay đổi thông tin cá nhân</h3>
+         <h3>Cập nhật thông tin cá nhân</h3>
          <label for="username">
             <span>Tên người dùng:</span>
             <input type="text" name="name" placeholder="<?= $fetch_profile['name']; ?>" class="box" maxlength="50">

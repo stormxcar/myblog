@@ -96,7 +96,7 @@ if (isset($_POST['submit'])) {
          <label for="forgot_pass">
             <a style="font-size: 1.5rem;" href="forgot_pass.php">Quên mật khẩu?</a>
          </label>
-         
+
 
          <input type="submit" value="Đăng nhập" name="submit" class="btn">
          <!-- <a class="btn" href="">Login with Google</a> -->

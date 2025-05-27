@@ -4,7 +4,7 @@ include '../components/connect.php';
 session_start();
 $message = [];
 
-if(!isset($_SERVER['HTTP_REFERER'])){
+if (!isset($_SERVER['HTTP_REFERER'])) {
     header('location: home.php');
     exit;
 }
@@ -92,8 +92,8 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
     endif;
     ?>
 
-    <section class="posts-container">
-        <h1 class="heading">Bài Viết Mới Đăng</h1>
+    <section class="posts-container" style="flex:1;margin-top:4rem;padding-top:10rem">
+        <h1 class="heading">Bài Viết Mới</h1>
         <div class="box-container view_all">
 
             <?php
@@ -153,23 +153,30 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
             <?php
                 }
             } else {
-                echo '<p class="empty">Hiện tại , Chưa bài viết nào được thêm!</p>';
+                echo '<p style="font-weight: bold;" class="empty">Hiện tại , Chưa bài viết nào được thêm!</p>';
             }
             ?>
         </div>
 
-        <!-- Phân trang -->
-        <div class="pagination">
-            <?php if ($current_page > 1) : ?>
-                <a href="?page=<?= $current_page - 1 ?>" class="prev-btn"><i class="fa-solid fa-chevron-left"></i></a>
-            <?php endif; ?>
+        <?php
+        if ($select_posts->rowCount() > 0) {
+        ?>
+            <!-- Phân trang -->
+            <div class="pagination">
+                <?php if ($current_page > 1) : ?>
+                    <a href="?page=<?= $current_page - 1 ?>" class="prev-btn"><i class="fa-solid fa-chevron-left"></i></a>
+                <?php endif; ?>
 
-            <span>Trang <?= $current_page ?> / <?= $total_pages ?></span>
+                <span>Trang <?= $current_page ?> / <?= $total_pages ?></span>
 
-            <?php if ($current_page < $total_pages) : ?>
-                <a href="?page=<?= $current_page + 1 ?>" class="next-btn"><i class="fa-solid fa-chevron-right"></i></a>
-            <?php endif; ?>
-        </div>
+                <?php if ($current_page < $total_pages) : ?>
+                    <a href="?page=<?= $current_page + 1 ?>" class="next-btn"><i class="fa-solid fa-chevron-right"></i></a>
+                <?php endif; ?>
+            </div>
+        <?php
+        } else {
+        }
+        ?>
 
 
     </section>

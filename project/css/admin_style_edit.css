@@ -116,6 +116,7 @@ section {
 .flex-btn {
   display: flex;
   flex-direction: row;
+  /* width: 50% */
   /* gap: 1rem; */
 }
 
@@ -234,7 +235,7 @@ section {
   top: 0;
   left: 0;
   transition: 0.2s linear;
-  background-color: var(--white);
+  background-color: var(--main-color);
   z-index: 1000;
   border-right: var(--border);
   width: 35rem;
@@ -242,6 +243,7 @@ section {
   min-height: 100vh;
   text-align: center;
   overflow-y: scroll;
+  color: var(--white)
 }
 .header.active {
   left: -35rem;
@@ -317,19 +319,20 @@ body.padding-left-35rem {
   transition: all 2s;
   border-radius: 4px;
   margin-right: 1rem;
+  color: var(--white)
 }
 .header .navbar a.active {
   color: white;
   background-color: var(--main-color);
 }
 .header .navbar a.active i {
-  color: white;
+  color: var(--white);
   background-color: var(--main-color);
 }
 
 .header .navbar a i {
   margin-right: 1.5rem;
-  color: var(--main-color);
+  color: var(--white);
   transition: 0.2s linear;
 }
 
@@ -374,9 +377,9 @@ body.padding-left-35rem {
 .dashboard .box-container .box {
   text-align: center;
   background-color: var(--white);
-  border: var(--border);
+  /* border: var(--border); */
   box-shadow: var(--box-shadow);
-  border-radius: 0.5rem;
+  border-radius: 1rem;
   text-align: center;
   padding: 1.5rem;
 }
@@ -409,7 +412,7 @@ body.padding-left-35rem {
 .post-editor form {
   background-color: var(--white);
   border-radius: 0.5rem;
-  border: var(--border);
+  /* border: var(--border); */
   padding: 2rem;
   box-shadow: var(--box-shadow);
   width: 100%;
@@ -432,12 +435,17 @@ body.padding-left-35rem {
   width: 100%;
   margin: 1rem 0;
   border-radius: 0.5rem;
-  border: var(--border);
+  /* border: var(--border); */
   padding: 1.4rem;
   font-size: 1.8rem;
   color: var(--black);
   background-color: var(--light-bg);
 }
+
+.post-editor form .box:focus{
+  border: var(--border);
+}
+
 
 .post-editor form textarea {
   min-height: 40rem;
@@ -458,7 +466,7 @@ body.padding-left-35rem {
 .show-posts {
   background-color: #eeeeee;
   width: 100%;
-  height: 100vh;
+  /* height: 100vh; */
   margin-top: 5rem;
 }
 .show-posts .box-container {

@@ -1,4 +1,5 @@
 <?php
+
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
@@ -6,7 +7,8 @@ require '../../vendor/autoload.php';
 include '../components/connect.php';
 
 // Lấy các giá trị settings
-function get_setting($conn, $key) {
+function get_setting($conn, $key)
+{
     $stmt = $conn->prepare("SELECT setting_value FROM `settings` WHERE setting_key = ?");
     $stmt->execute([$key]);
     return $stmt->fetchColumn();

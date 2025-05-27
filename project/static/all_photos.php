@@ -29,7 +29,7 @@ $user_id = $_SESSION['user_id'] ?? '';
    <?php include '../components/user_header.php'; ?>
 
    <main id="main-content">
-      <section style="margin-top: 5rem;" class="photo-gallery">
+      <section style="padding-top: 12rem;" class="photo-gallery">
          <header>
             <h1 class="heading">Tất cả ảnh</h1>
          </header>

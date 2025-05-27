@@ -4,7 +4,7 @@ include '../components/connect.php';
 session_start();
 $message = [];
 
-if(!isset($_SERVER['HTTP_REFERER'])){
+if (!isset($_SERVER['HTTP_REFERER'])) {
     header('location: home.php');
     exit;
 }
@@ -46,7 +46,7 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
     if ($stmt_check->rowCount() > 0) {
         $stmt_delete = $conn->prepare("DELETE FROM favorite_posts WHERE user_id = ? AND post_id = ?");
         $stmt_delete->execute([$user_id, $post_id]);
-        $_SESSION['message'] = 'Đã xóa bài viết được lưu'; 
+        $_SESSION['message'] = 'Đã xóa bài viết được lưu';
     } else {
         $stmt_insert = $conn->prepare("INSERT INTO favorite_posts (user_id, post_id) VALUES (?, ?)");
         $stmt_insert->execute([$user_id, $post_id]);
@@ -89,7 +89,7 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
     endif;
     ?>
 
-    <section class="posts-container">
+    <section class="posts-container" style="margin-top:4rem;padding-top:10rem">
         <h1 class="heading">Các Bài Viết Đã Lưu</h1>
         <div class="box-container view_all">
 
@@ -151,27 +151,39 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
             <?php
                 }
             } else {
-                echo '<p class="empty">Bạn chưa lưu bài viết nào!</p>';
+                echo '<div style="margin:0 auto;display: flex;flex-direction:column;">
+            <p style="font-weight: bold;box-shadow:none !important" class="empty">Hiện tại, bạn chưa lưu bài viết nào!</p>
+            <a href="posts.php" class="inline-btn" style="margin-top:2rem;">Xem bài viết</a>
+            </div>';
             }
             ?>
         </div>
 
-        <!-- Phân trang -->
-        <div class="pagination">
-            <?php if ($current_page > 1) : ?>
-                <a href="?page=<?= $current_page - 1 ?>" class="prev-btn"><i class="fa-solid fa-chevron-left"></i></a>
-            <?php endif; ?>
 
-            <span>Trang <?= $current_page ?> / <?= $total_pages ?></span>
+        <?php
+        if (count($favorite_posts) > 0) {
+        ?>
+            <!-- Phân trang -->
+            <div class="pagination">
+                <?php if ($current_page > 1) : ?>
+                    <a href="?page=<?= $current_page - 1 ?>" class="prev-btn"><i class="fa-solid fa-chevron-left"></i></a>
+                <?php endif; ?>
 
-            <?php if ($current_page < $total_pages) : ?>
-                <a href="?page=<?= $current_page + 1 ?>" class="next-btn"><i class="fa-solid fa-chevron-right"></i></a>
-            <?php endif; ?>
-        </div>
+                <span>Trang <?= $current_page ?> / <?= $total_pages ?></span>
+
+                <?php if ($current_page < $total_pages) : ?>
+                    <a href="?page=<?= $current_page + 1 ?>" class="next-btn"><i class="fa-solid fa-chevron-right"></i></a>
+                <?php endif; ?>
+            </div>
+        <?php
+        } else {
+        }
+        ?>
 
     </section>
 
     <?php include '../components/footer.php'; ?>
 
 </body>
+
 </html>

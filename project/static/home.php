@@ -118,15 +118,25 @@ $posts = $select_posts->fetchAll(PDO::FETCH_ASSOC);
       <swiper-container class="mySwiper" pagination="true" pagination-clickable="true" navigation="true" space-between="30" centered-slides="true" autoplay-delay="5000" autoplay-disable-on-interaction="false">
          <?php foreach ($posts as $post) : ?>
             <swiper-slide>
-            <div class="background-blur" style="background-image: linear-gradient(to top, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0)), url('../uploaded_img/<?= $post['image']; ?>');"></div>
+            <div class="background-blur" style="background-image: linear-gradient(to top, rgba(0, 0, 0, 0.7) 70%, rgba(0, 0, 0, 0) 100%), url('../uploaded_img/<?= $post['image']; ?>');"></div>
                <div class="banner_content">
-                  <div class="img_main_banner">
+                  <!-- <div class="img_main_banner">
                      <img src="../uploaded_img/<?= $post['image']; ?>" alt="">
-                  </div>
+                  </div> -->
                   <div class="post-slide">
-                     <a href="view_post.php?post_id=<?= $post['id']; ?>" class="post-title"><?= $post['title']; ?></a>
+                     <?php
+                     $title = $post['title'];
+                     $shortTitle = mb_substr($title, 0 , 60) . '...';
+
+                     $content = $post['content'];
+                     $shortContent = mb_substr($content, 0, 100) . '...';
+                     ?>
+
+                     <a 
+                     style="font-weight: bold;font-size: 7rem;margin-bottom: 1rem;"
+                     href="view_post.php?post_id=<?= $post['id']; ?>" class="post-title"><?= $shortTitle; ?></a>
                      <a href="view_post.php?post_id=<?= $post['id']; ?>" class="post-content content-200"><?= $post['content']; ?></a>
-                     <a href="view_post.php?post_id=<?= $post['id']; ?>" class="inline-btn">Đọc thêm</a>
+                     <!-- <a href="view_post.php?post_id=<?= $post['id']; ?>" class="inline-btn" style="border: none !important;">Đọc thêm</a> -->
                   </div>
                </div>
 

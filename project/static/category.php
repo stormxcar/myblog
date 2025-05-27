@@ -68,12 +68,11 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
       <?php unset($_SESSION['message']); ?>
    <?php endif; ?>
 
-   <main>
-      <header>
-         <h1>Bài viết về <span><?= htmlspecialchars($category) ?></span></h1>
-      </header>
+   <main style="padding-top:10rem">
+
 
       <section class="posts-container" aria-label="Danh sách bài viết">
+         <h1 class="heading">Bài viết về <span><?= htmlspecialchars($category) ?></span></h1>
          <div class="box-container">
             <?php
             $select_posts = $conn->prepare("SELECT * FROM `posts` WHERE category = ? and status = ?");

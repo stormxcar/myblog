@@ -19,7 +19,7 @@ try {
    echo "Connection failed: " . $e->getMessage();
 }
 
-$user_id = $_SESSION['user_id']; // Hoặc lấy ID người dùng từ session hoặc yêu cầu
+$user_id = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null; // Kiểm tra tồn tại trước khi sử dụng
 
 // Lấy ảnh từ cơ sở dữ liệu
 $select_avatar = $conn->prepare("SELECT avatar FROM `users` WHERE id = ?");

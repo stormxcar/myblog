@@ -69,11 +69,12 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
       <?php unset($_SESSION['message']); ?>
    <?php endif; ?>
 
-   <main>
-      <header class="author-header">
-         <h1>Bài viết của <span><?= htmlspecialchars($author) ?></span></h1>
-      </header>
+   <main style="padding-top: 8rem;">
+      <!-- <header class="author-header" style="margin:0 auto">
+         
+      </header> -->
       <section class="posts-container" aria-label="Danh sách bài viết">
+         <h1 class="heading">Bài viết của <span><?= htmlspecialchars($author) ?></span></h1>
          <div class="box-container">
             <?php
             $select_posts = $conn->prepare("SELECT * FROM `posts` WHERE name = ? and status = ?");
@@ -143,4 +144,5 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
    </main>
    <?php include '../components/footer.php'; ?>
 </body>
+
 </html>

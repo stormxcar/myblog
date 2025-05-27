@@ -92,7 +92,7 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
    endif;
    ?>
 
-   <section class="posts-container">
+   <section class="posts-container" style="margin-top: 4rem;padding-top:10rem">
 
       <h1 class="heading">Tất cả bài viết</h1>
 

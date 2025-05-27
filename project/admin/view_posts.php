@@ -61,7 +61,7 @@ if (isset($_POST['delete'])) {
 
    <?php include '../components/admin_header.php' ?>
 
-   <section class="show-posts">
+   <section class="show-posts" style="margin-bottom: 10rem;">
       <h1 class="heading">Các bài viết của bạn</h1>
       <div class="box-container">
          <table>

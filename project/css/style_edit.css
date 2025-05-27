@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Arima:wght@200&family=Gloock&family=Inter:wght@200;300;400;500;600;700;800&family=Lobster&family=Montserrat:wght@200;300;400;500;600;700;800;900&family=Nunito:wght@200;300;400;500;600;700;800;900&family=Open+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&family=Poppins:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300;1,400;1,600;1,800;1,900&family=Roboto+Mono:wght@100;300;400;500;600;700&family=Roboto+Slab:wght@100;200;300;400;500;600;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=Outfit:wght@100..900&family=Titillium+Web:ital,wght@0,200;0,300;0,400;0,600;0,700;0,900;1,200;1,300;1,400;1,600;1,700&display=swap");
 
 :root {
   --main-color: #304463;
@@ -16,7 +16,7 @@
 }
 
 * {
-  font-family: "Open Sans", sans-serif;
+  font-family: "Montserrat", "Outfit", Arial, Helvetica, sans-serif;
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -365,7 +365,7 @@ section {
   right: 1.5rem;
   background-color: var(--white);
   border-radius: 0.5rem;
-  width: 20rem;
+  width: auto;
   box-shadow: 0 10px 10px rgba(0, 0, 0, 0.1);
   display: none;
   animation: 0.2s linear fadeIn;
@@ -406,13 +406,14 @@ section {
   right: 2rem;
   background-color: var(--white);
   border-radius: 0.5rem;
-  width: 23rem;
+  width: auto;
   box-shadow: var(--border);
   display: none;
   padding: 1.5rem;
   animation: 0.2s linear fadeIn;
   text-align: center;
   overflow: hidden;
+  transform-origin: left;
 }
 
 .header .flex .profile p {
@@ -585,23 +586,25 @@ section {
   margin: 0 auto;
   width: 100%;
   height: 100px;
+  padding-top: 2rem;
 }
 .swiper-container {
   width: 100%;
-  height: 100%;
+  height: 95%;
 }
 
 /* Swiper slide */
 swiper-slide {
   position: relative;
   width: 100%;
-  height: 100vh;
+  height: 95vh;
   display: flex;
   align-items: flex-start;
   justify-content: start;
   padding-top: 35rem;
   padding-left: 10rem;
   overflow: hidden;
+  object-position: top;
 }
 
 /* Background blur */
@@ -612,8 +615,9 @@ swiper-slide {
   width: 100%;
   height: 100%;
   background-size: cover;
-  background-position: center;
-  filter: blur(10px);
+  background-position: top;
+  background-repeat: no-repeat;
+  /* filter: blur(10px); */
   z-index: 1;
 }
 
@@ -643,6 +647,7 @@ swiper-slide {
   z-index: 3;
   /* text-align: center; */
   color: white;
+  margin-top: 20rem;
 }
 
 .swiper-container .swiper-button-next,
@@ -680,7 +685,7 @@ swiper-slide {
   font-size: bold;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  /* white-space: nowrap; */
   display: block;
 }
 .post-slide .post-content {
@@ -1499,8 +1504,16 @@ swiper-slide {
 }
 .pagination a {
   font-size: 2rem;
-  padding: 1rem 2rem;
-  border: 1px solid black;
+  width: 40px;
+  height: 40px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* padding: 1rem; */
+  background: #fff;
+  border: 1px solid var(--main-color);
+  border-radius: 50%;
 }
 .pagination span {
   font-size: 1.7rem;
@@ -1599,16 +1612,26 @@ swiper-slide {
   display: flex;
   flex-direction: column;
   gap: 1.2rem;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+.contact .contact_right .contact_right-bottom .book_box label {
+  font-size: 1.5rem;
+  color: var(--black);
+  font-weight: bold;
+  margin-bottom: 0.5rem;
 }
 .contact .contact_right .contact_right-bottom .book_box input {
   border: var(--border-light);
   padding: 1rem 2rem;
   outline: none;
+  width: 100%;
 }
 .contact .contact_right .contact_right-bottom .book_box textarea {
   outline: none;
   border: var(--border-light);
   padding: 2rem;
+  width: 100%;
 }
 .contact .contact_right .contact_right-bottom .book_box #btnGui {
   color: var(--white);
@@ -1683,7 +1706,7 @@ swiper-slide {
 
 /*footer*/
 .footer {
-  background-color: #c8c6c629;
+  background-color: var(--main-color);
   text-align: center;
   padding: 7rem 1rem 2rem 1rem;
   display: flex;
@@ -1691,6 +1714,7 @@ swiper-slide {
   align-items: center;
   justify-content: center;
   max-height: 100vh;
+  color: var(--white);
 }
 .footer_top {
   display: flex;
@@ -1741,7 +1765,7 @@ swiper-slide {
 }
 .footer_top-lienhe ul li a {
   text-decoration: none;
-  color: var(--black);
+  color: var(--white);
 }
 .footer_top-thongtin ul li {
   list-style: none;
@@ -1750,6 +1774,7 @@ swiper-slide {
 }
 .footer_top-thongtin ul li a {
   text-decoration: none;
+  color:var(--light-bg)
 }
 
 .footer_bottom {
@@ -1757,7 +1782,7 @@ swiper-slide {
   margin-top: 40px;
   padding: 1rem 0;
   width: 100%;
-  border-top: var(--border-light);
+  border-top: var(--border-dark);
 }
 .footer_bottom .scroll-to-top {
   position: absolute;
@@ -1771,7 +1796,7 @@ swiper-slide {
   line-height: 40px;
   border-radius: 50%;
   cursor: pointer;
-  border: var(--border-light);
+  border: var(--border-dark);
 }
 
 .scroll-to-top i {
@@ -2023,7 +2048,7 @@ swiper-slide {
   }
 
   .banner_content {
-    /* width: 80%; */
+    width: 80%;
     /* height: 50%; */
     z-index: 2;
     display: flex;
@@ -2472,7 +2497,7 @@ swiper-slide {
     align-items: center;
     gap: 3rem;
     padding: 1rem 0;
-    margin : 4rem 2rem 4rem 2rem;
+    margin: 4rem 2rem 4rem 2rem;
   }
   .contact .contact_left {
     display: flex;
@@ -2707,7 +2732,6 @@ swiper-slide {
   }
 }
 
-
 /* responsive for mobile */
 @media (max-width: 432px) {
   html {
@@ -2764,9 +2788,8 @@ swiper-slide {
     object-fit: cover;
   }
   .banner_content .post-slide .post-content,
-  .banner_content .post-slide .post-title
-  {
-    width: 200px
+  .banner_content .post-slide .post-title {
+    width: 200px;
   }
 
   /* introduce */
@@ -3153,7 +3176,7 @@ swiper-slide {
     align-items: center;
     gap: 3rem;
     padding: 1rem 0;
-    margin : 4rem 2rem 4rem 2rem;
+    margin: 4rem 2rem 4rem 2rem;
   }
   .contact .contact_left {
     display: flex;
@@ -3453,13 +3476,14 @@ swiper-slide {
 }
 
 .loader {
-  border: 5px solid #f3f3f3; /* Light grey */
+  border: 10px solid transparent;
   border-top: 10px solid var(--main-color); /* Blue */
   border-bottom: 10px solid var(--main-color);
   border-radius: 50%;
   width: 60px;
   height: 60px;
   animation: spin 1s linear infinite;
+  /* border-width: 10px; */
 }
 
 @keyframes spin {

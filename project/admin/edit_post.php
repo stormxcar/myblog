@@ -12,10 +12,11 @@ if (!isset($admin_id)) {
 
 if (isset($_POST['save'])) {
    $post_id = $_GET['id'];
-   $title = filter_var($_POST['title'], FILTER_SANITIZE_STRING);
-   $content = $_POST['content']; // Nội dung từ CKEditor
-   $category = filter_var($_POST['category'], FILTER_SANITIZE_STRING);
-   $status = filter_var($_POST['status'], FILTER_SANITIZE_STRING);
+   // Lấy và xử lý dữ liệu từ form
+   $title = htmlspecialchars($_POST['title'], ENT_QUOTES, 'UTF-8');
+   $content = $_POST['content']; // Nội dung từ CKEditor, cần xử lý riêng nếu chứa HTML
+   $category = htmlspecialchars($_POST['category'], ENT_QUOTES, 'UTF-8');
+   $status = htmlspecialchars($_POST['status'], ENT_QUOTES, 'UTF-8');
 
    // Cập nhật thông tin bài viết
    $update_post = $conn->prepare("UPDATE `posts` SET title = ?, content = ?, category = ?, status = ? WHERE id = ?");
@@ -26,7 +27,7 @@ if (isset($_POST['save'])) {
    // Xử lý ảnh tải lên
    $old_image = $_POST['old_image'];
    $image = $_FILES['image']['name'];
-   $image = filter_var($image, FILTER_SANITIZE_STRING);
+   $image = htmlspecialchars($image, ENT_QUOTES, 'UTF-8'); // Thay thế FILTER_SANITIZE_STRING
    $image_size = $_FILES['image']['size'];
    $image_tmp_name = $_FILES['image']['tmp_name'];
    $image_folder = '../uploaded_img/' . $image;
@@ -139,14 +140,16 @@ if (isset($_POST['delete_image'])) {
                <p>Tiêu đề <span>*</span></p>
                <input type="text" name="title" maxlength="100" required placeholder="add post title" class="box" value="<?= $fetch_posts['title']; ?>">
                <p>Nội dung <span>*</span></p>
-               <textarea name="content" class="box" required maxlength="10000" placeholder="write your content..." cols="30" rows="10"><?= $fetch_posts['content']; ?></textarea>
+               <textarea name="content" id="content" class="box" required maxlength="10000" placeholder="write your content..." cols="30" rows="10"><?= htmlspecialchars($fetch_posts['content'], ENT_QUOTES, 'UTF-8'); ?></textarea>
                <script>
+                  // Khởi tạo CKEditor
                   CKEDITOR.replace('content', {
                      filebrowserBrowseUrl: '../plugin/ckfinder/ckfinder.html',
-                     // filebrowserImageBrowseUrl: '../plugin/ckfinder/ckfinder.html?type=Images',
                      filebrowserUploadUrl: '../plugin/ckfinder/core/connector/php/connector.php?command=QuickUpload&type=Files'
-                     // filebrowserImageUploadUrl: '../plugin/ckfinder/core/connector/php/connector.php?command=QuickUpload&type=Images'
                   });
+
+                  // Đặt nội dung ban đầu sau khi CKEditor được khởi tạo
+                  CKEDITOR.instances['content'].setData(`<?= addslashes(htmlspecialchars_decode($fetch_posts['content'], ENT_QUOTES)); ?>`);
                </script>
 
                <p>Thể loại <span>*</span></p>

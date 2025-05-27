@@ -67,7 +67,7 @@ if (isset($_POST['submit'])) {
    </div> -->
       <form action="" method="POST">
          <h3>Chào mừng bạn trở lại</h3>
-         <p>default username = <span>admin</span> & password = <span>111</span></p>
+         <!-- <p>default username = <span>admin</span> & password = <span>111</span></p> -->
          <label for="admin_name">
             <span>Adminname</span>
             <input type="text" name="name" maxlength="20" required placeholder="enter your username" class="box" oninput="this.value = this.value.replace(/\s/g, '')">

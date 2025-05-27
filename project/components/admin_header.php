@@ -14,7 +14,7 @@ if (isset($message)) {
 <header class="header">
 
    <div class="header_top">
-      <a href="dashboard.php" class="logo">Admin<span>Panel</span></a>
+      <a href="dashboard.php" class="logo">Admin panel - Hayhoblog</a>
       <div class="profile">
          <?php
          $select_profile = $conn->prepare("SELECT * FROM `admin` WHERE id = ?");

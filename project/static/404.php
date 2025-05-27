@@ -1,3 +1,7 @@
+<?php
+http_response_code(404); // Trả về mã trạng thái 404
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 

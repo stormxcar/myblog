@@ -5,7 +5,7 @@ include '../components/connect.php';
 session_start();
 $message = [];
 
-if(!isset($_SERVER['HTTP_REFERER'])){
+if (!isset($_SERVER['HTTP_REFERER'])) {
    header('location: home.php');
    exit;
 }
@@ -27,13 +27,13 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
    $stmt_check->execute([$user_id, $post_id]);
 
    if ($stmt_check->rowCount() > 0) {
-       $stmt_delete = $conn->prepare("DELETE FROM favorite_posts WHERE user_id = ? AND post_id = ?");
-       $stmt_delete->execute([$user_id, $post_id]);
-       $_SESSION['message'] = 'Đã xóa bài viết được lưu'; 
+      $stmt_delete = $conn->prepare("DELETE FROM favorite_posts WHERE user_id = ? AND post_id = ?");
+      $stmt_delete->execute([$user_id, $post_id]);
+      $_SESSION['message'] = 'Đã xóa bài viết được lưu';
    } else {
-       $stmt_insert = $conn->prepare("INSERT INTO favorite_posts (user_id, post_id) VALUES (?, ?)");
-       $stmt_insert->execute([$user_id, $post_id]);
-       $_SESSION['message'] = 'Đã lưu bài viết';
+      $stmt_insert = $conn->prepare("INSERT INTO favorite_posts (user_id, post_id) VALUES (?, ?)");
+      $stmt_insert->execute([$user_id, $post_id]);
+      $_SESSION['message'] = 'Đã lưu bài viết';
    }
    header("Location: " . $_SERVER['PHP_SELF']);
    exit;
@@ -66,20 +66,20 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
    <!-- header section ends -->
 
    <?php if (isset($_SESSION['message'])) : ?>
-        <div class="message" id="message">
-            <div class="message_detail">
-                <i class="fa-solid fa-bell"></i>
-                <span><?= $_SESSION['message'] ?></span>
-            </div>
+      <div class="message" id="message">
+         <div class="message_detail">
+            <i class="fa-solid fa-bell"></i>
+            <span><?= $_SESSION['message'] ?></span>
+         </div>
 
-            <div class="progress-bar" id="progressBar"></div>
-        </div>
-    <?php
-        unset($_SESSION['message']); // Clear the message after displaying it
-    endif;
-    ?>
+         <div class="progress-bar" id="progressBar"></div>
+      </div>
+   <?php
+      unset($_SESSION['message']); // Clear the message after displaying it
+   endif;
+   ?>
 
-   <section class="posts-container">
+   <section class="posts-container" style="padding-top:12rem">
 
       <h1 class="heading">Danh sách bài viết yêu thích</h1>
 
@@ -121,8 +121,8 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
                                  </div>
                               </div>
                               <button type="submit" name="save_post" class="save_mark-btn"><i class="fa-solid fa-bookmark" style="<?php if ($confirm_save->rowCount() > 0) {
-                                                                                                                                    echo 'color:yellow;';
-                                                                                                                                } ?>  "></i></button>
+                                                                                                                                       echo 'color:yellow;';
+                                                                                                                                    } ?>  "></i></button>
 
 
                            </div>
@@ -148,10 +148,17 @@ if (isset($_POST['save_post']) && isset($_POST['post_id']) && !empty($user_id)) 
          <?php
                      }
                   }
-               } 
+               }
             }
          } else {
-            echo '<p class="empty">Hiện tại, bạn chưa thích bài viết nào!</p>';
+            echo '
+            <div style="margin:0 auto;display: flex;flex-direction:column;">
+            <p style="font-weight: bold;box-shadow:none !important" class="empty">Hiện tại, bạn chưa thích bài viết nào!</p>
+            <a href="posts.php" class="inline-btn" style="margin-top:2rem;">Xem bài viết</a>
+            </div>
+            
+
+            ';
          }
          ?>
       </div>
