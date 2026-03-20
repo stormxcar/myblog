@@ -78,13 +78,14 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // mở phone
-  document
-    .querySelector('a[href^="tel:"]')
-    .addEventListener("click", function (event) {
+  const phoneLink = document.querySelector('a[href^="tel:"]');
+  if (phoneLink) {
+    phoneLink.addEventListener("click", function (event) {
       event.preventDefault();
       var phoneNumber = this.getAttribute("href").replace("tel:", "");
       callPhoneNumber(phoneNumber);
     });
+  }
 
   function callPhoneNumber(phoneNumber) {
     if (
@@ -99,7 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // handle nút trước / sau của slide
-  if (prevBtn) {
+  if (prevBtn && boxes.length > 0) {
     prevBtn.addEventListener("click", function () {
       if (currentBoxIndex > 0) {
         currentBoxIndex--;
@@ -112,7 +113,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  if (nextBtn) {
+  if (nextBtn && boxes.length > 0) {
     nextBtn.addEventListener("click", function () {
       if (currentBoxIndex < boxes.length - 1) {
         currentBoxIndex++;
@@ -126,15 +127,17 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ẩn thanh header khi cuộn
-  window.addEventListener("scroll", function () {
-    let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-    if (scrollTop > lastScrollTop) {
-      header.classList.add("hide");
-    } else {
-      header.classList.remove("hide");
-    }
-    lastScrollTop = scrollTop;
-  });
+  if (header) {
+    window.addEventListener("scroll", function () {
+      let scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      if (scrollTop > lastScrollTop) {
+        header.classList.add("hide");
+      } else {
+        header.classList.remove("hide");
+      }
+      lastScrollTop = scrollTop;
+    });
+  }
 
   if (message) {
     progressBar.style.width = "100%";
@@ -146,28 +149,32 @@ document.addEventListener("DOMContentLoaded", () => {
   // theme dark / light mode
   const body = document.body;
   const toggleButton = document.querySelector(".light_dark_btn span");
-  const currentTheme = localStorage.getItem("theme");
 
-  if (localStorage.getItem("dark-mode") === "enabled") {
-    body.classList.add("dark-mode");
+  if (toggleButton) {
+    if (localStorage.getItem("dark-mode") === "enabled") {
+      body.classList.add("dark-mode");
+    }
+
+    toggleButton.addEventListener("click", () => {
+      body.classList.toggle("dark-mode");
+
+      // Lưu trạng thái dark mode vào localStorage
+      if (body.classList.contains("dark-mode")) {
+        localStorage.setItem("dark-mode", "enabled");
+      } else {
+        localStorage.setItem("dark-mode", "disabled");
+      }
+    });
   }
 
-  toggleButton.addEventListener("click", () => {
-    body.classList.toggle("dark-mode");
-
-    // Lưu trạng thái dark mode vào localStorage
-    if (body.classList.contains("dark-mode")) {
-      localStorage.setItem("dark-mode", "enabled");
-    } else {
-      localStorage.setItem("dark-mode", "disabled");
-    }
-  });
-
-  tippy('#searchToolTip', {
-    content: 'Hãy thử tìm kiếm một thứ gì đó !',
-      placement: 'bottom',
-      animation: 'scale',
+  // Check if tippy element exists before initializing
+  if (document.getElementById("searchToolTip")) {
+    tippy("#searchToolTip", {
+      content: "Hãy thử tìm kiếm một thứ gì đó !",
+      placement: "bottom",
+      animation: "scale",
       delay: [100, 200],
-      theme: '',
-  });
+      theme: "",
+    });
+  }
 });

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 include '../components/connect.php';
 
@@ -40,16 +40,16 @@ if(isset($_POST['submit'])){
 
    if($old_pass != $empty_pass){
       if($old_pass != $prev_pass){
-         $message[] = 'Mật khẩu cũ không khớp!';
+         $message[] = 'Máº­t kháº©u cÅ© khÃ´ng khá»›p!';
       }elseif($new_pass != $confirm_pass){
-         $message[] = 'Mật khẩu nhập lại không khớp!';
+         $message[] = 'Máº­t kháº©u nháº­p láº¡i khÃ´ng khá»›p!';
       }else{
          if($new_pass != $empty_pass){
             $update_pass = $conn->prepare("UPDATE `admin` SET password = ? WHERE id = ?");
             $update_pass->execute([$confirm_pass, $admin_id]);
-            $message[] = 'Mật khẩu đã được thay đổi thành công!';
+            $message[] = 'Máº­t kháº©u Ä‘Ã£ Ä‘Æ°á»£c thay Ä‘á»•i thÃ nh cÃ´ng!';
          }else{
-            $message[] = 'Vui lòng nhập mật khẩu mới!';
+            $message[] = 'Vui lÃ²ng nháº­p máº­t kháº©u má»›i!';
          }
       }
    }
@@ -64,12 +64,11 @@ if(isset($_POST['submit'])){
    <meta charset="UTF-8">
    <meta http-equiv="X-UA-Compatible" content="IE=edge">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>Tài khoản</title>
+   <title>TÃ i khoáº£n</title>
 
    <!-- font awesome cdn link  -->
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
    <!-- custom css file link  -->
-   <link rel="stylesheet" href="../css/admin_style_edit.css">
 
 </head>
 <body>
@@ -81,7 +80,7 @@ if(isset($_POST['submit'])){
 <section class="form-container">
 
    <form action="" method="POST">
-      <h3>Thay đổi thông tin</h3>
+      <h3>Thay Ä‘á»•i thÃ´ng tin</h3>
 
       <label for="">
       <span>admin</span>
@@ -89,22 +88,22 @@ if(isset($_POST['submit'])){
       </label>
       
       <label for="">
-      <span>Mật khẩu cũ</span>
+      <span>Máº­t kháº©u cÅ©</span>
       <input type="password" name="old_pass" maxlength="20" placeholder="enter your old password" class="box" oninput="this.value = this.value.replace(/\s/g, '')">
       </label>
   
       <label for="">
-      <span>Mật khẩu mới</span>
+      <span>Máº­t kháº©u má»›i</span>
       <input type="password" name="new_pass" maxlength="20" placeholder="enter your new password" class="box" oninput="this.value = this.value.replace(/\s/g, '')">
       </label>
      
 
       <label for="">
-      <span>Xác nhận mật khẩu mới</span>
+      <span>XÃ¡c nháº­n máº­t kháº©u má»›i</span>
       <input type="password" name="confirm_pass" maxlength="20" placeholder="confirm your new password" class="box" oninput="this.value = this.value.replace(/\s/g, '')">
       </label>
       
-      <input type="submit" value="Nâng cấp ngay" name="submit" class="btn">
+      <input type="submit" value="NÃ¢ng cáº¥p ngay" name="submit" class="btn">
    </form>
 
 </section>

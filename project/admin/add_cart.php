@@ -1,289 +1,236 @@
 <?php
 include '../components/connect.php';
-
 session_start();
-$admin_id = $_SESSION['admin_id'];
 
-// yêu cầu đăng nhập admin 
-if (!isset($admin_id)) {
-   header('location:admin_login.php');
-}
-$message = [];
-
-if (isset($_POST['add_to_cart'])) {
-   // Kiểm tra nếu người dùng chưa đăng nhập
-   if (empty($admin_id)) {
-      header('location:login.php');
-      exit(); // Dừng việc thực thi tiếp tục nếu chưa đăng nhập
-   } else {
-      // Lấy tên tag từ form
-      $name = $_POST['name'];
-      $name = filter_var($name, FILTER_SANITIZE_STRING);
-
-      // Thêm cart và admin_id tương ứng vào bảng cart
-      $insert_cart = $conn->prepare("INSERT INTO `cart`(admin_id, name) VALUES(?, ?)");
-      if ($insert_cart->execute([$admin_id, $name])) {
-         $message[] = 'Thẻ đã được thêm !';
-         header('Location: add_cart.php');
-         exit();
-      } else {
-         $message[] = 'Có lỗi xảy ra khi thêm thẻ!';
-      }
-
-      // Reset biến session
-      unset($_SESSION['message']);
-   }
+$admin_id = $_SESSION['admin_id'] ?? null;
+if (!$admin_id) {
+    header('location:admin_login.php');
+    exit;
 }
 
-if (isset($_POST['delete_cart'])) {
-   $cart_id = $_POST['cart_id'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['add_category'])) {
+        $name = trim($_POST['name'] ?? '');
+        if ($name === '') {
+            $message[] = 'Tên danh mục không được để trống.';
+        } else {
+            try {
+                $exists = $conn->prepare('SELECT category_id FROM cart WHERE name = ? LIMIT 1');
+                $exists->execute([$name]);
+                if ($exists->fetch(PDO::FETCH_ASSOC)) {
+                    $message[] = 'Danh mục đã tồn tại.';
+                } else {
+                    $cartOwnerId = blog_resolve_cart_admin_fk_value($conn, $admin_id);
+                    $stmt = $conn->prepare('INSERT INTO cart(admin_id, name) VALUES(?, ?)');
+                    $stmt->execute([(int)$cartOwnerId, $name]);
+                    if ($stmt->rowCount() > 0) {
+                        $_SESSION['message'] = 'Đã thêm danh mục.';
+                        header('location:add_cart.php');
+                        exit;
+                    }
+                    $message[] = 'Không thể thêm danh mục mới.';
+                }
+            } catch (PDOException $e) {
+                $message[] = 'Không thể thêm danh mục do ràng buộc dữ liệu admin. Vui lòng kiểm tra mapping tài khoản admin.';
+            }
+        }
+    }
 
-   // Xóa thẻ khỏi cơ sở dữ liệu
-   $delete_cart = $conn->prepare("DELETE FROM `cart` WHERE category_id = ?");
-   if ($delete_cart->execute([$cart_id])) {
-      $message[] = 'Thẻ đã được xóa !';
-      // Điều hướng người dùng sau khi xóa thẻ
-      header('Location: add_cart.php');
-      exit();
-   } else {
-      $message[] = 'Có lỗi xảy ra khi xóa thẻ!';
-   }
+    if (isset($_POST['bulk_action'])) {
+        $bulkAction = $_POST['bulk_action'] ?? '';
+        $selected = $_POST['selected_category_ids'] ?? [];
+        $selected = is_array($selected) ? array_map('intval', $selected) : [];
+        $selected = array_values(array_filter(array_unique($selected), function ($v) {
+            return $v > 0;
+        }));
+
+        if ($bulkAction === 'delete' && !empty($selected)) {
+            $idsInSql = implode(',', array_fill(0, count($selected), '?'));
+            $sql = 'DELETE FROM cart WHERE category_id IN (' . $idsInSql . ')';
+            $stmt = $conn->prepare($sql);
+            $stmt->execute($selected);
+            $message[] = 'Đã xóa các danh mục đã chọn.';
+        }
+    }
 }
 
-if (isset($_POST['edit_cart'])) {
-   $cart_id = filter_var($_POST['cart_id'], FILTER_SANITIZE_NUMBER_INT);
-   $new_name = filter_var($_POST['name'], FILTER_SANITIZE_STRING);
+$q = trim($_GET['q'] ?? '');
+$sort = $_GET['sort'] ?? 'id';
+$order = strtolower($_GET['order'] ?? 'desc') === 'asc' ? 'ASC' : 'DESC';
+$perPage = (int)($_GET['per_page'] ?? 10);
+$perPage = in_array($perPage, [10, 20, 50, 100], true) ? $perPage : 10;
+$page = max(1, (int)($_GET['page'] ?? 1));
 
-   if (!empty($cart_id) && !empty($new_name)) {
-      // Cập nhật tên thẻ trong cơ sở dữ liệu
-      $update_cart = $conn->prepare("UPDATE `cart` SET name = ? WHERE category_id = ?");
-      if ($update_cart->execute([$new_name, $cart_id])) {
-         $message[] = 'Thẻ đã được cập nhật!';
-         // Điều hướng người dùng sau khi cập nhật thẻ
-         header('Location: add_cart.php');
-         exit();
-      } else {
-         $message[] = 'Có lỗi xảy ra khi cập nhật thẻ!';
-      }
-   } else {
-      $message[] = 'Vui lòng điền đầy đủ thông tin!';
-   }
+$allowedSort = [
+    'id' => 'c.category_id',
+    'name' => 'c.name',
+    'posts' => 'posts_count'
+];
+$sortSql = $allowedSort[$sort] ?? 'c.category_id';
+
+$where = [];
+$params = [];
+
+if ($q !== '') {
+    $where[] = 'c.name LIKE ?';
+    $params[] = '%' . $q . '%';
 }
 
+$whereSql = !empty($where) ? ('WHERE ' . implode(' AND ', $where)) : '';
 
+$countSql = "SELECT COUNT(*) FROM cart c {$whereSql}";
+$countStmt = $conn->prepare($countSql);
+$countStmt->execute($params);
+$totalRows = (int)$countStmt->fetchColumn();
+$totalPages = max(1, (int)ceil($totalRows / $perPage));
+if ($page > $totalPages) {
+    $page = $totalPages;
+}
+$offset = ($page - 1) * $perPage;
 
-if (isset($_POST['count_post_byCart'])) {
-   // Kiểm tra nếu người dùng chưa đăng nhập
-   if (empty($admin_id)) {
-      header('location:login.php');
-      exit(); // Dừng việc thực thi tiếp tục nếu chưa đăng nhập
-   } else {
-      $cart_id = $_POST['cart_id'];
+$sql = "
+    SELECT
+        c.category_id,
+        c.name,
+        COALESCE((SELECT COUNT(*) FROM posts p WHERE p.tag_id = c.category_id), 0) AS posts_count
+    FROM cart c
+    {$whereSql}
+    ORDER BY {$sortSql} {$order}
+    LIMIT {$perPage} OFFSET {$offset}
+";
+$stmt = $conn->prepare($sql);
+$stmt->execute($params);
+$categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-      // Truy vấn SQL để đếm số lượng bài viết sử dụng thẻ tag cụ thể
-      /*
-       SELECT c.category_id, c.name, COUNT(p.post_id) AS num_posts 
-       FROM `cart` c 
-       LEFT JOIN `posts` p ON c.category_id = p.tag_id 
-       WHERE c.admin_id = ? 
-       GROUP BY c.category_id, c.name
-       */
-
-      $count_post_byCart = $conn->prepare("SELECT COUNT(*) AS num_posts FROM `posts` WHERE tag_id = ?");
-      $count_post_byCart->execute([$cart_id]);
-      $count = $count_post_byCart->fetch(PDO::FETCH_ASSOC);
-      echo $count['num_posts'];
-      exit(); // Dừng việc thực thi tiếp tục sau khi đã hiển thị số lượng bài viết
-   }
+function categoriesPageUrl($targetPage)
+{
+    $query = $_GET;
+    $query['page'] = $targetPage;
+    return 'add_cart.php?' . http_build_query($query);
 }
 ?>
-
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 
 <head>
-   <meta charset="UTF-8">
-   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>Quản lý carts</title>
-
-   <!-- font awesome cdn link  -->
-   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
-   <!-- custom css file link  -->
-   <link rel="stylesheet" href="../css/admin_style_edit.css">
-   <!-- custom js file -->
-   <script src="../js/admin_script.js"></script>
-
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý danh mục</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 </head>
 
-<body>
-   <?php include '../components/admin_header.php' ?>
+<body class="ui-page">
+    <?php include '../components/admin_header.php' ?>
 
-   <section class="category_edit">
+    <section class="category_edit ui-container">
+        <h1 class="heading ui-title">Quản lý danh mục</h1>
 
-      <h1 class="heading">Các thẻ hiện có</h1>
+        <article class="admin-panel-card" style="margin-bottom:1.2rem;">
+            <form method="post" style="display:flex;gap:.8rem;flex-wrap:wrap;align-items:center;">
+                <input type="text" name="name" class="box" placeholder="Nhập tên danh mục mới" required>
+                <button type="submit" name="add_category" class="btn ui-btn">Thêm danh mục</button>
+            </form>
+        </article>
 
-      <form method="POST" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>">
-         <table>
-            <thead>
-               <tr>
-                  <th>STT</th>
-                  <th>category_id</th>
-                  <th>Tên thẻ</th>
-                  <th>Số bài viết đang sử dụng</th>
-                  <th>Quản lý thẻ</th>
-               </tr>
-            </thead>
-            <tbody>
-               <?php
-               $select_carts = $conn->prepare("
-         SELECT c.category_id, c.name, COUNT(p.id) AS num_posts 
-         FROM `cart` c 
-         LEFT JOIN `posts` p ON c.category_id = p.tag_id 
-         WHERE c.admin_id = ? 
-         GROUP BY c.category_id, c.name
-         ");
-               $select_carts->execute([$admin_id]);
-               $carts = $select_carts->fetchAll(PDO::FETCH_ASSOC);
-               ?>
-               <?php if (isset($carts) && !empty($carts)) : ?>
-                  <?php foreach ($carts as $index => $cart) : ?>
-                     <tr>
-                        <td><?php echo $index + 1; ?></td>
-                        <td><?php echo $cart['category_id']; ?></td>
-                        <td><?php echo $cart['name']; ?></td>
-                        <td>
-                           <a href="../admin/view_posts.php" style="color:black"><?php echo htmlspecialchars($cart['num_posts']); ?></a>
-                        </td>
+        <article class="admin-panel-card" style="margin-bottom:1.2rem;">
+            <form method="get" data-admin-ajax-form="1" style="display:flex;gap:.8rem;flex-wrap:wrap;align-items:center;">
+                <input type="text" name="q" class="box" placeholder="Tìm theo tên danh mục" value="<?= htmlspecialchars($q); ?>">
 
-                        <td>
-                           <form class="manage_cart" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="POST">
-                              <input type="hidden" name="cart_id" value="<?php echo $cart['category_id']; ?>">
-                              <button type="submit" class="edit_btn" data-cart-id="<?php echo $cart['category_id']; ?>" data-cart-name="<?php echo $cart['name']; ?>">Sửa</button>
-                              <button type="submit" name="delete_cart" class="delete_btn" style="margin-top:0">Xóa</button>
-                           </form>
-                        </td>
-                     </tr>
-                  <?php endforeach; ?>
-               <?php else : ?>
-                  <tr>
-                     <td colspan="5">Không có dữ liệu cart để hiển thị.</td>
-                  </tr>
-               <?php endif; ?>
-            </tbody>
-         </table>
-      </form>
+                <select name="sort" class="box ui-select">
+                    <option value="id" <?= $sort === 'id' ? 'selected' : ''; ?>>Sắp xếp theo ID</option>
+                    <option value="name" <?= $sort === 'name' ? 'selected' : ''; ?>>Sắp xếp theo tên</option>
+                    <option value="posts" <?= $sort === 'posts' ? 'selected' : ''; ?>>Sắp xếp theo số bài viết</option>
+                </select>
 
+                <select name="order" class="box ui-select">
+                    <option value="desc" <?= $order === 'DESC' ? 'selected' : ''; ?>>Giảm dần</option>
+                    <option value="asc" <?= $order === 'ASC' ? 'selected' : ''; ?>>Tăng dần</option>
+                </select>
 
-      <button class="add_tag_btn">
-         <i class="fas fa-plus"></i>
-         <span>Thêm tag</span>
-      </button>
+                <select name="per_page" class="box ui-select">
+                    <option value="10" <?= $perPage === 10 ? 'selected' : ''; ?>>10 / trang</option>
+                    <option value="20" <?= $perPage === 20 ? 'selected' : ''; ?>>20 / trang</option>
+                    <option value="50" <?= $perPage === 50 ? 'selected' : ''; ?>>50 / trang</option>
+                    <option value="100" <?= $perPage === 100 ? 'selected' : ''; ?>>100 / trang</option>
+                </select>
 
-      <div class="add_cart" id="modal_add_tag">
-         <div class="modal">
-            <div class="modal_content">
-               <div class="modal_title">
-                  <h3>Thêm cart</h3>
-               </div>
-               <form method="POST" action="add_cart.php">
-                  <div class="modal_details">
-                     <span>Nhập tên thẻ mới:</span>
-                     <input type="text" name="name" placeholder="hạnh phúc" class="cart_box" required>
-                  </div>
-                  <div class="modal_footer">
-                     <button type="button" class="cancel_add">Hủy</button>
-                     <button type="submit" name="add_to_cart" class="submit">Thêm</button>
-                  </div>
-               </form>
-            </div>
-         </div>
-      </div>
+                <input type="hidden" name="page" value="1">
+                <button type="submit" class="btn ui-btn">Lọc / Sắp xếp</button>
+                <a href="add_cart.php" data-admin-ajax-link="1" class="delete-btn ui-btn-danger" style="text-decoration:none;display:inline-flex;align-items:center;">Reset</a>
+                <button type="button" data-admin-refresh="1" class="option-btn ui-btn-warning">Làm mới</button>
+            </form>
+        </article>
 
-      <?php foreach ($carts as $cart) : ?>
-         <div class="edit_cart" id="modal_edit_tag_<?php echo $cart['category_id']; ?>">
-            <div class="modal_edit">
-               <div class="modal_content">
-                  <div class="modal_title">
-                     <h3>Cập nhật cart</h3>
-                  </div>
-                  <form method="POST" action="add_cart.php">
-                     <div class="modal_details">
-                        <input type="hidden" name="cart_id" value="<?php echo $cart['category_id']; ?>">
-                        <span>Cập nhật tên thẻ: </span>
-                        <input type="text" name="name" value="<?php echo $cart['name']; ?>" class="cart_box" required>
-                     </div>
-                     <div class="modal_footer">
-                        <button type="button" class="cancel_edit">Hủy</button>
-                        <button type="submit" name="edit_cart" class="submit">Cập nhật</button>
-                     </div>
-                  </form>
-               </div>
-            </div>
-         </div>
-      <?php endforeach; ?>
+        <div class="ui-card">
+            <form method="post" data-admin-ajax-post-form="1" onsubmit="return confirm('Bạn chắc chắn thực hiện thao tác hàng loạt?');">
+                <div style="display:flex;gap:.8rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem;">
+                    <label style="display:flex;align-items:center;gap:.4rem;">
+                        <input type="checkbox" id="checkAllCategory"> Chọn tất cả
+                    </label>
 
+                    <select name="bulk_action" class="box ui-select" required>
+                        <option value="">-- Chọn thao tác --</option>
+                        <option value="delete">Xóa danh mục</option>
+                    </select>
 
-   </section>
+                    <button type="submit" class="btn ui-btn">Thực hiện</button>
+                </div>
 
+                <div class="ui-table-wrap">
+                    <table class="ui-table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>ID</th>
+                                <th>Tên danh mục</th>
+                                <th>Số bài viết</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (!empty($categories)): ?>
+                                <?php foreach ($categories as $cat): ?>
+                                    <tr>
+                                        <td><input type="checkbox" class="row-check-category" name="selected_category_ids[]" value="<?= (int)$cat['category_id']; ?>"></td>
+                                        <td><?= (int)$cat['category_id']; ?></td>
+                                        <td><?= htmlspecialchars((string)$cat['name']); ?></td>
+                                        <td><?= (int)$cat['posts_count']; ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="4">Không có danh mục phù hợp bộ lọc.</td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
 
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:1rem;">
+                    <div>Trang <?= (int)$page; ?>/<?= (int)$totalPages; ?> - Tổng: <?= (int)$totalRows; ?> danh mục</div>
+                    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+                        <?php if ($page > 1): ?>
+                            <a data-admin-ajax-link="1" class="option-btn ui-btn-warning" href="<?= htmlspecialchars(categoriesPageUrl(1)); ?>">Đầu</a>
+                            <a data-admin-ajax-link="1" class="option-btn ui-btn-warning" href="<?= htmlspecialchars(categoriesPageUrl($page - 1)); ?>">Trước</a>
+                        <?php endif; ?>
+                        <?php if ($page < $totalPages): ?>
+                            <a data-admin-ajax-link="1" class="btn ui-btn" href="<?= htmlspecialchars(categoriesPageUrl($page + 1)); ?>">Sau</a>
+                            <a data-admin-ajax-link="1" class="btn ui-btn" href="<?= htmlspecialchars(categoriesPageUrl($totalPages)); ?>">Cuối</a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <script src="../js/admin_script.js"></script>
+    <script>
+        const checkAllCategory = document.getElementById('checkAllCategory');
+        if (checkAllCategory) {
+            checkAllCategory.setAttribute('data-bulk-check-all', '1');
+            checkAllCategory.setAttribute('data-target-selector', '.row-check-category');
+        }
+    </script>
 </body>
-
-<script>
-   // document.addEventListener("DOMContentLoaded", function() {
-   //    const bodyLayer = document.querySelector("body");
-
-   //    const btn_add_modal = document.querySelector(".add_tag_btn");
-   //    const add_tag_modal = document.querySelector("#modal_add_tag");
-
-   //    btn_add_modal.addEventListener("click", (e) => {
-   //       e.preventDefault();
-   //       openModal(add_tag_modal);
-   //    });
-
-   //    const cancel_btn_add = document.querySelector('.cancel_add');
-   //    cancel_btn_add.addEventListener("click", () => {
-   //       closeModal(add_tag_modal);
-   //    });
-
-   //    const btn_edit_modals = document.querySelectorAll(".edit_btn");
-
-   //    let currentModalId = null;
-
-   //    btn_edit_modals.forEach(btn_edit_modal => {
-   //       btn_edit_modal.addEventListener("click", (e) => {
-   //          e.preventDefault();
-   //          const cartId = e.target.getAttribute('data-cart-id');
-   //          const cartName = e.target.getAttribute('data-cart-name');
-   //          const edit_tag_modal = document.querySelector("#modal_edit_tag_" + cartId);
-   //          const name_input = edit_tag_modal.querySelector("input[name='name']");
-   //          name_input.value = cartName;
-   //          openModal(edit_tag_modal);
-   //          currentModalId = cartId;
-   //       });
-   //    });
-
-   //    const cancel_btn_edit = document.querySelectorAll('.cancel_edit');
-   //    cancel_btn_edit.forEach(cancel_btn => {
-   //       cancel_btn.addEventListener("click", () => {
-   //          if (currentModalId !== null) {
-   //             const currentModal = document.querySelector("#modal_edit_tag_" + currentModalId);
-   //             closeModal(currentModal);
-   //          }
-   //       });
-   //    });
-
-   //    function openModal(modal) {
-   //       modal.classList.add("showTag");
-   //       bodyLayer.style.background = "rgba(0, 0, 0, 0.3)";
-   //    }
-
-   //    function closeModal(modal) {
-   //       modal.classList.remove("showTag");
-   //       bodyLayer.style.background = "initial";
-   //    }
-   // });
-</script>
 
 </html>

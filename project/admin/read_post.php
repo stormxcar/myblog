@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 include '../components/connect.php';
 
@@ -35,7 +35,7 @@ if (isset($_POST['delete_comment'])) {
    $comment_id = filter_var($comment_id, FILTER_SANITIZE_STRING);
    $delete_comment = $conn->prepare("DELETE FROM `comments` WHERE id = ?");
    $delete_comment->execute([$comment_id]);
-   $message[] = 'Bình luận đã được xóa!';
+   $message[] = 'BÃ¬nh luáº­n Ä‘Ã£ Ä‘Æ°á»£c xÃ³a!';
 }
 
 ?>
@@ -47,13 +47,12 @@ if (isset($_POST['delete_comment'])) {
    <meta charset="UTF-8">
    <meta http-equiv="X-UA-Compatible" content="IE=edge">
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>Các bài đăng</title>
+   <title>CÃ¡c bÃ i Ä‘Äƒng</title>
 
    <!-- font awesome cdn link  -->
    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 
    <!-- custom css file link  -->
-   <link rel="stylesheet" href="../css/admin_style_edit.css">
 
 </head>
 
@@ -63,7 +62,7 @@ if (isset($_POST['delete_comment'])) {
 
    <section class="read-post">
 
-   <h1 class="heading">Chi tiết bài viết</h1>
+   <h1 class="heading">Chi tiáº¿t bÃ i viáº¿t</h1>
 
       <?php
       $select_posts = $conn->prepare("SELECT * FROM `posts` WHERE admin_id = ? AND id = ?");
@@ -98,15 +97,15 @@ if (isset($_POST['delete_comment'])) {
                   <div class="comments"><i class="fas fa-comment"></i><span><?= $total_post_comments; ?></span></div>
                </div>
                <div class="flex-btn">
-                  <a href="edit_post.php?id=<?= $post_id; ?>" class="inline-option-btn">Chỉnh sửa</a>
-                  <button type="submit" name="delete" class="inline-delete-btn" onclick="return confirm('Bạn có chắc chắn muốn xóa bài viết này không ?');">Xóa</button>
-                  <a href="view_posts.php" class="inline-option-btn">Quay lại</a>
+                  <a href="edit_post.php?id=<?= $post_id; ?>" class="inline-option-btn">Chá»‰nh sá»­a</a>
+                  <button type="submit" name="delete" class="inline-delete-btn" onclick="return confirm('Báº¡n cÃ³ cháº¯c cháº¯n muá»‘n xÃ³a bÃ i viáº¿t nÃ y khÃ´ng ?');">XÃ³a</button>
+                  <a href="view_posts.php" class="inline-option-btn">Quay láº¡i</a>
                </div>
             </form>
       <?php
          }
       } else {
-         echo '<p class="empty">Chưa bài viết nào được thêm ! <a href="add_posts.php" class="btn" style="margin-top:1.5rem;">thêm bài viết</a></p>';
+         echo '<p class="empty">ChÆ°a bÃ i viáº¿t nÃ o Ä‘Æ°á»£c thÃªm ! <a href="add_posts.php" class="btn" style="margin-top:1.5rem;">thÃªm bÃ i viáº¿t</a></p>';
       }
       ?>
 
@@ -114,7 +113,7 @@ if (isset($_POST['delete_comment'])) {
 
    <section class="comments" style="padding-top: 0;">
 
-      <p class="comment-title">Bình luận</p>
+      <p class="comment-title">BÃ¬nh luáº­n</p>
       <div class="box-container">
          <?php
          $select_comments = $conn->prepare("SELECT * FROM `comments` WHERE post_id = ?");
@@ -133,13 +132,13 @@ if (isset($_POST['delete_comment'])) {
                   <div class="text"><?= $fetch_comments['comment']; ?></div>
                   <form action="" method="POST">
                      <input type="hidden" name="comment_id" value="<?= $fetch_comments['id']; ?>">
-                     <button type="submit" class="inline-delete-btn" name="delete_comment" onclick="return confirm('delete this comment?');">Xóa bình luận</button>
+                     <button type="submit" class="inline-delete-btn" name="delete_comment" onclick="return confirm('delete this comment?');">XÃ³a bÃ¬nh luáº­n</button>
                   </form>
                </div>
          <?php
             }
          } else {
-            echo '<p class="empty">Chưa có binh luận nào được thêm!</p>';
+            echo '<p class="empty">ChÆ°a cÃ³ binh luáº­n nÃ o Ä‘Æ°á»£c thÃªm!</p>';
          }
          ?>
       </div>

@@ -1,5 +1,15 @@
 {
+  "name": "blogging-website",
+  "version": "1.0.0",
+  "description": "Blog website with PHP and Tailwind CSS",
+  "scripts": {
+    "build-css": "tailwindcss -i ./project/css/input.css -o ./project/css/output.css --watch",
+    "dev": "npm run build-css"
+  },
   "dependencies": {
     "ckeditor4": "^4.22.1"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0"
   }
 }

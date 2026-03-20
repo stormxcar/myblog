@@ -1,180 +1,299 @@
 <?php
 include '../components/connect.php';
-
 session_start();
 
-if (isset($_SESSION['admin_id'])) {
-   $admin_id = $_SESSION['admin_id'];
-} else {
-   header('location:admin_login.php');
-   exit;
+$admin_id = $_SESSION['admin_id'] ?? null;
+if (!$admin_id) {
+    header('location:admin_login.php');
+    exit;
 }
 
-if (isset($_POST['delete'])) {
-   // Kiểm tra xem post_id có tồn tại không
-   if (!isset($_POST['post_id'])) {
-      $message[] = 'Không tìm thấy ID bài viết!';
-   } else {
-      $post_id = $_POST['post_id'];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $bulkAction = $_POST['bulk_action'] ?? '';
+    $selected = $_POST['selected_post_ids'] ?? [];
+    $selected = is_array($selected) ? array_map('intval', $selected) : [];
+    $selected = array_values(array_filter(array_unique($selected), function ($v) {
+        return $v > 0;
+    }));
 
-      // Lấy thông tin bài viết để kiểm tra
-      $select_post = $conn->prepare("SELECT * FROM `posts` WHERE id = ? AND admin_id = ?");
-      $select_post->execute([$post_id, $admin_id]);
-      $fetch_post = $select_post->fetch(PDO::FETCH_ASSOC);
+    if (!empty($selected) && in_array($bulkAction, ['delete', 'active', 'inactive'], true)) {
+        $inSql = implode(',', array_fill(0, count($selected), '?'));
 
-      // Kiểm tra nếu bài viết tồn tại
-      if ($fetch_post === false) {
-         $message[] = 'Bài viết không tồn tại hoặc bạn không có quyền xóa bài viết này!';
-      } else {
-         // Xóa bài viết
-         $delete_post = $conn->prepare("DELETE FROM `posts` WHERE id = ? AND admin_id = ?");
-         $delete_post->execute([$post_id, $admin_id]);
+        if ($bulkAction === 'delete') {
+            $imgSql = "SELECT image FROM posts WHERE id IN ({$inSql})";
+            $imgStmt = $conn->prepare($imgSql);
+            $imgStmt->execute($selected);
 
-         if ($delete_post->rowCount() > 0) {
-            $message[] = 'Bài viết đã được xóa!';
-         } else {
-            $message[] = 'Có lỗi xảy ra khi xóa bài viết!';
-         }
-      }
-   }
+            while ($img = $imgStmt->fetch(PDO::FETCH_ASSOC)) {
+                if (!empty($img['image'])) {
+                    $path = '../uploaded_img/' . $img['image'];
+                    if (is_file($path)) {
+                        @unlink($path);
+                    }
+                }
+            }
+
+            $delSql = "DELETE FROM posts WHERE id IN ({$inSql})";
+            $delStmt = $conn->prepare($delSql);
+            $delStmt->execute($selected);
+            $message[] = 'Đã xóa các bài viết đã chọn.';
+        }
+
+        if ($bulkAction === 'active' || $bulkAction === 'inactive') {
+            $newStatus = $bulkAction === 'active' ? 'active' : 'deactive';
+            $updSql = "UPDATE posts SET status = ? WHERE id IN ({$inSql})";
+            $updStmt = $conn->prepare($updSql);
+            $updStmt->execute(array_merge([$newStatus], $selected));
+            $message[] = 'Đã cập nhật trạng thái bài viết đã chọn.';
+        }
+    }
+}
+
+$q = trim($_GET['q'] ?? '');
+$status = $_GET['status'] ?? 'all';
+$category = trim($_GET['category'] ?? 'all');
+$sort = $_GET['sort'] ?? 'date';
+$order = strtolower($_GET['order'] ?? 'desc') === 'asc' ? 'ASC' : 'DESC';
+$perPage = (int)($_GET['per_page'] ?? 10);
+$perPage = in_array($perPage, [10, 20, 50, 100], true) ? $perPage : 10;
+$page = max(1, (int)($_GET['page'] ?? 1));
+
+$allowedSort = [
+    'id' => 'p.id',
+    'date' => 'p.date',
+    'title' => 'p.title',
+    'status' => 'p.status',
+    'comments' => 'comments_count',
+    'likes' => 'likes_count'
+];
+$sortSql = $allowedSort[$sort] ?? 'p.date';
+
+$where = [];
+$params = [];
+
+if ($q !== '') {
+    $where[] = '(p.title LIKE ? OR p.content LIKE ? OR p.name LIKE ?)';
+    $qLike = '%' . $q . '%';
+    $params[] = $qLike;
+    $params[] = $qLike;
+    $params[] = $qLike;
+}
+
+if ($status !== 'all') {
+    $where[] = 'p.status = ?';
+    $params[] = $status;
+}
+
+if ($category !== 'all') {
+    $where[] = 'c.name = ?';
+    $params[] = $category;
+}
+
+$whereSql = !empty($where) ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+$categoryStmt = $conn->prepare('SELECT DISTINCT name FROM cart WHERE name IS NOT NULL AND name <> "" ORDER BY name ASC');
+$categoryStmt->execute();
+$categories = $categoryStmt->fetchAll(PDO::FETCH_ASSOC);
+
+$countSql = "
+    SELECT COUNT(*)
+    FROM posts p
+    LEFT JOIN cart c ON c.category_id = p.tag_id
+    {$whereSql}
+";
+$countStmt = $conn->prepare($countSql);
+$countStmt->execute($params);
+$totalRows = (int)$countStmt->fetchColumn();
+$totalPages = max(1, (int)ceil($totalRows / $perPage));
+if ($page > $totalPages) {
+    $page = $totalPages;
+}
+$offset = ($page - 1) * $perPage;
+
+$sql = "
+    SELECT
+        p.id,
+        p.image,
+        p.status,
+        p.date,
+        p.title,
+        p.content,
+        p.name,
+        c.name AS category_name,
+        COALESCE((SELECT COUNT(*) FROM comments cm WHERE cm.post_id = p.id), 0) AS comments_count,
+        COALESCE((SELECT COUNT(*) FROM likes lk WHERE lk.post_id = p.id), 0) AS likes_count
+    FROM posts p
+    LEFT JOIN cart c ON c.category_id = p.tag_id
+    {$whereSql}
+    ORDER BY {$sortSql} {$order}
+    LIMIT {$perPage} OFFSET {$offset}
+";
+
+$stmt = $conn->prepare($sql);
+$stmt->execute($params);
+$posts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+function postsPageUrl($targetPage)
+{
+    $query = $_GET;
+    $query['page'] = $targetPage;
+    return 'view_posts.php?' . http_build_query($query);
 }
 ?>
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 
 <head>
-   <meta charset="UTF-8">
-   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>Bài viết</title>
-
-   <!-- font awesome cdn link  -->
-   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
-
-   <!-- custom css file link  -->
-   <link rel="stylesheet" href="../css/admin_style_edit.css">
-
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý bài viết</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 </head>
 
-<body>
+<body class="ui-page">
+    <?php include '../components/admin_header.php' ?>
 
-   <?php include '../components/admin_header.php' ?>
+    <section class="show-posts ui-container" style="margin-bottom: 8rem;">
+        <h1 class="heading ui-title">Quản lý bài viết</h1>
 
-   <section class="show-posts" style="margin-bottom: 10rem;">
-      <h1 class="heading">Các bài viết của bạn</h1>
-      <div class="box-container">
-         <table>
-            <thead>
-               <tr>
-                  <th>STT</th>
-                  <th>Ảnh</th>
-                  <th>Trạng thái</th>
-                  <th>Ngày đăng</th>
-                  <th>Thể loại</th>
-                  <th>Tiêu đề</th>
-                  <th>Nội dung</th>
-                  <th>Chỉnh sửa</th>
-                  <th>Xóa</th>
-                  <th>Xem</th>
-               </tr>
-            </thead>
-            <tbody>
-               <?php
-               $select_posts = $conn->prepare("SELECT * FROM `posts` WHERE admin_id = ?");
-               $select_posts->execute([$admin_id]);
-               if ($select_posts->rowCount() > 0) {
-                  $count = 1; // Biến để đếm số thứ tự
-                  while ($fetch_posts = $select_posts->fetch(PDO::FETCH_ASSOC)) {
-                     $post_id = $fetch_posts['id'];
+        <article class="admin-panel-card" style="margin-bottom:1.2rem;">
+            <form method="get" data-admin-ajax-form="1" style="display:flex;gap:.8rem;flex-wrap:wrap;align-items:center;">
+                <input type="text" name="q" class="box" placeholder="Tìm theo tiêu đề, nội dung" value="<?= htmlspecialchars($q); ?>">
 
-                     $count_post_comments = $conn->prepare("SELECT * FROM `comments` WHERE post_id = ?");
-                     $count_post_comments->execute([$post_id]);
-                     $total_post_comments = $count_post_comments->rowCount();
+                <select name="status" class="box ui-select">
+                    <option value="all" <?= $status === 'all' ? 'selected' : ''; ?>>Tất cả trạng thái</option>
+                    <option value="active" <?= $status === 'active' ? 'selected' : ''; ?>>Active</option>
+                    <option value="deactive" <?= $status === 'deactive' ? 'selected' : ''; ?>>Deactive</option>
+                </select>
 
-                     $count_post_likes = $conn->prepare("SELECT * FROM `likes` WHERE post_id = ?");
-                     $count_post_likes->execute([$post_id]);
-                     $total_post_likes = $count_post_likes->rowCount();
-               ?>
-                     <tr>
-                        <td><?= $count++; ?></td>
-                        <td>
-                           <?php if ($fetch_posts['image'] != '') { ?>
-                              <img src="../uploaded_img/<?= $fetch_posts['image']; ?>" class="image" alt="">
-                           <?php } ?>
-                        </td>
-                        <td>
-                           <div class="status" style="background-color:<?php if ($fetch_posts['status'] == 'active') {
-                                                                           echo 'limegreen';
-                                                                        } else {
-                                                                           echo 'coral';
-                                                                        }; ?>;"><?= $fetch_posts['status']; ?></div>
-                        </td>
-                        <td>
-                           <div class="date"><?= $fetch_posts['date']; ?></div>
-                        </td>
-                        <td>
-                           <?php
-                           // Lấy tag_id từ bài viết
-                           $tag_id_stmt = $conn->prepare("SELECT tag_id FROM `posts` WHERE id = ?");
-                           $tag_id_stmt->execute([$post_id]);
-                           $fetch_tag_id = $tag_id_stmt->fetch(PDO::FETCH_ASSOC);
+                <select name="category" class="box ui-select">
+                    <option value="all" <?= $category === 'all' ? 'selected' : ''; ?>>Tất cả danh mục</option>
+                    <?php foreach ($categories as $cat): ?>
+                        <option value="<?= htmlspecialchars($cat['name']); ?>" <?= $category === $cat['name'] ? 'selected' : ''; ?>>
+                            <?= htmlspecialchars($cat['name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
 
-                           // Kiểm tra xem $fetch_tag_id có phải là mảng không
-                           if ($fetch_tag_id && isset($fetch_tag_id['tag_id'])) {
-                              $tag_id = $fetch_tag_id['tag_id'];
+                <select name="sort" class="box ui-select">
+                    <option value="date" <?= $sort === 'date' ? 'selected' : ''; ?>>Sắp xếp theo ngày</option>
+                    <option value="id" <?= $sort === 'id' ? 'selected' : ''; ?>>Sắp xếp theo ID</option>
+                    <option value="title" <?= $sort === 'title' ? 'selected' : ''; ?>>Sắp xếp theo tiêu đề</option>
+                    <option value="status" <?= $sort === 'status' ? 'selected' : ''; ?>>Sắp xếp theo trạng thái</option>
+                    <option value="comments" <?= $sort === 'comments' ? 'selected' : ''; ?>>Sắp xếp theo bình luận</option>
+                    <option value="likes" <?= $sort === 'likes' ? 'selected' : ''; ?>>Sắp xếp theo lượt thích</option>
+                </select>
 
-                              // Lấy tên tag từ bảng tags
-                              $select_tag_stmt = $conn->prepare("SELECT name FROM `cart` WHERE category_id = ?");
-                              $select_tag_stmt->execute([$tag_id]);
-                              $fetch_tag = $select_tag_stmt->fetch(PDO::FETCH_ASSOC);
+                <select name="order" class="box ui-select">
+                    <option value="desc" <?= $order === 'DESC' ? 'selected' : ''; ?>>Giảm dần</option>
+                    <option value="asc" <?= $order === 'ASC' ? 'selected' : ''; ?>>Tăng dần</option>
+                </select>
 
-                              // Kiểm tra xem $fetch_tag có phải là mảng không
-                              if ($fetch_tag && isset($fetch_tag['name'])) {
-                                 echo htmlspecialchars($fetch_tag['name']);
-                              } else {
-                                 echo 'Tag không tồn tại';
-                              }
-                           } else {
-                              echo 'chưa có';
-                           }
-                           ?>
-                        </td>
+                <select name="per_page" class="box ui-select">
+                    <option value="10" <?= $perPage === 10 ? 'selected' : ''; ?>>10 / trang</option>
+                    <option value="20" <?= $perPage === 20 ? 'selected' : ''; ?>>20 / trang</option>
+                    <option value="50" <?= $perPage === 50 ? 'selected' : ''; ?>>50 / trang</option>
+                    <option value="100" <?= $perPage === 100 ? 'selected' : ''; ?>>100 / trang</option>
+                </select>
 
+                <input type="hidden" name="page" value="1">
+                <button type="submit" class="btn ui-btn">Lọc / Sắp xếp</button>
+                <a href="view_posts.php" data-admin-ajax-link="1" class="delete-btn ui-btn-danger" style="text-decoration:none;display:inline-flex;align-items:center;">Reset</a>
+                <button type="button" data-admin-refresh="1" class="option-btn ui-btn-warning">Làm mới</button>
+            </form>
+        </article>
 
-                        <td>
-                           <div class="title"><?= $fetch_posts['title']; ?></div>
-                        </td>
-                        <td>
-                           <div class="posts-content content-30"><?= $fetch_posts['content']; ?></div>
-                        </td>
-                        <td>
-                           <a href="edit_post.php?id=<?= $post_id; ?>" class="option-btn">Chỉnh sửa</a>
-                        </td>
-                        <td>
-                           <form method="post">
-                              <input type="hidden" name="post_id" value="<?= $post_id; ?>"> <!-- Thêm trường ẩn để chứa ID bài viết -->
-                              <button type="submit" name="delete" class="delete-btn" onclick="return confirm('Bạn có chắc chắn muốn xóa bài viết này không ?');">Xóa</button>
-                           </form>
-                        </td>
-                        <td>
-                           <a href="read_post.php?post_id=<?= $post_id; ?>" class="btn">Xem bài viết</a>
-                        </td>
-                     </tr>
-               <?php
-                  }
-               } else {
-                  echo '<tr><td colspan="8"><p class="empty">Chưa có bài viết được thêm! <a href="add_posts.php" class="btn" style="margin-top:1.5rem;">thêm bài viết</a></p></td></tr>';
-               }
-               ?>
-            </tbody>
-         </table>
-      </div>
-   </section>
+        <div class="box-container ui-card">
+            <form method="post" data-admin-ajax-post-form="1" onsubmit="return confirm('Bạn chắc chắn thực hiện thao tác hàng loạt?');">
+                <div style="display:flex;gap:.8rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem;">
+                    <label style="display:flex;align-items:center;gap:.4rem;">
+                        <input type="checkbox" id="checkAllPosts"> Chọn tất cả
+                    </label>
+                    <select name="bulk_action" class="box ui-select" required>
+                        <option value="">-- Chọn thao tác --</option>
+                        <option value="active">Đặt Active</option>
+                        <option value="inactive">Đặt Deactive</option>
+                        <option value="delete">Xóa bài viết</option>
+                    </select>
+                    <button type="submit" class="btn ui-btn">Thực hiện</button>
+                </div>
 
-   <!-- custom js file link  -->
-   <script src="../js/admin_script.js"></script>
+                <div class="ui-table-wrap">
+                    <table class="ui-table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>ID</th>
+                                <th>Ảnh</th>
+                                <th>Trạng thái</th>
+                                <th>Ngày</th>
+                                <th>Danh mục</th>
+                                <th>Tiêu đề</th>
+                                <th>Bình luận</th>
+                                <th>Lượt thích</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (!empty($posts)): ?>
+                                <?php foreach ($posts as $p): ?>
+                                    <tr>
+                                        <td><input type="checkbox" class="row-check-post" name="selected_post_ids[]" value="<?= (int)$p['id']; ?>"></td>
+                                        <td><?= (int)$p['id']; ?></td>
+                                        <td>
+                                            <?php if (!empty($p['image'])): ?>
+                                                <img src="../uploaded_img/<?= htmlspecialchars($p['image']); ?>" alt="post" style="max-width:70px;border-radius:8px;">
+                                            <?php else: ?>
+                                                -
+                                            <?php endif; ?>
+                                        </td>
+                                        <td><?= htmlspecialchars($p['status']); ?></td>
+                                        <td><?= htmlspecialchars((string)$p['date']); ?></td>
+                                        <td><?= htmlspecialchars((string)($p['category_name'] ?? '')); ?></td>
+                                        <td><?= htmlspecialchars((string)$p['title']); ?></td>
+                                        <td><?= (int)$p['comments_count']; ?></td>
+                                        <td><?= (int)$p['likes_count']; ?></td>
+                                        <td style="display:flex;gap:.4rem;flex-wrap:wrap;">
+                                            <a href="edit_post.php?id=<?= (int)$p['id']; ?>" class="option-btn ui-btn-warning">Sửa</a>
+                                            <a href="read_post.php?post_id=<?= (int)$p['id']; ?>" class="btn ui-btn">Xem</a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="10">Không có bài viết phù hợp bộ lọc.</td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
 
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:1rem;">
+                    <div>Trang <?= (int)$page; ?>/<?= (int)$totalPages; ?> - Tổng: <?= (int)$totalRows; ?> bài viết</div>
+                    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+                        <?php if ($page > 1): ?>
+                            <a data-admin-ajax-link="1" class="option-btn ui-btn-warning" href="<?= htmlspecialchars(postsPageUrl(1)); ?>">Đầu</a>
+                            <a data-admin-ajax-link="1" class="option-btn ui-btn-warning" href="<?= htmlspecialchars(postsPageUrl($page - 1)); ?>">Trước</a>
+                        <?php endif; ?>
+                        <?php if ($page < $totalPages): ?>
+                            <a data-admin-ajax-link="1" class="btn ui-btn" href="<?= htmlspecialchars(postsPageUrl($page + 1)); ?>">Sau</a>
+                            <a data-admin-ajax-link="1" class="btn ui-btn" href="<?= htmlspecialchars(postsPageUrl($totalPages)); ?>">Cuối</a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <script src="../js/admin_script.js"></script>
+    <script>
+        const checkAllPosts = document.getElementById('checkAllPosts');
+        if (checkAllPosts) {
+            checkAllPosts.setAttribute('data-bulk-check-all', '1');
+            checkAllPosts.setAttribute('data-target-selector', '.row-check-post');
+        }
+    </script>
 </body>
 
 </html>

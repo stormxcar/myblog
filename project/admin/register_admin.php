@@ -4,90 +4,166 @@ include '../components/connect.php';
 
 session_start();
 
-$admin_id = $_SESSION['admin_id'];
+$admin_id = $_SESSION['admin_id'] ?? null;
+if (!$admin_id) {
+    header('location:admin_login.php');
+    exit;
+}
 
-if(!isset($admin_id)){
-   header('location:admin_login.php');
-};
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    $name = trim((string)($_POST['name'] ?? ''));
+    $name = filter_var($name, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+    $rawPass = (string)($_POST['pass'] ?? '');
+    $rawConfirmPass = (string)($_POST['cpass'] ?? '');
+    $selectedRole = (string)($_POST['role'] ?? 'admin');
+    $selectedRole = in_array($selectedRole, ['admin', 'user'], true) ? $selectedRole : 'admin';
 
-if(isset($_POST['submit'])){
+    $emailRaw = trim((string)($_POST['email'] ?? ''));
+    $email = filter_var($emailRaw, FILTER_SANITIZE_EMAIL);
 
-   $name = $_POST['name'];
-   $name = filter_var($name, FILTER_SANITIZE_STRING);
-   $pass = sha1($_POST['pass']);
-   $pass = filter_var($pass, FILTER_SANITIZE_STRING);
-   $cpass = sha1($_POST['cpass']);
-   $cpass = filter_var($cpass, FILTER_SANITIZE_STRING);
+    if ($name === '' || $email === '' || $rawPass === '' || $rawConfirmPass === '') {
+        $message[] = 'Vui lòng nhập đầy đủ tên tài khoản, email và mật khẩu.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $message[] = 'Email không hợp lệ.';
+    } elseif (strlen($email) > 50) {
+        $message[] = 'Email tối đa 50 ký tự theo cấu trúc dữ liệu hiện tại.';
+    } else {
+        $select_user = $conn->prepare('SELECT id FROM users WHERE name = ? OR email = ? LIMIT 1');
+        $select_user->execute([$name, $email]);
 
-   $select_admin = $conn->prepare("SELECT * FROM `admin` WHERE name = ?");
-   $select_admin->execute([$name]);
-   
-   if($select_admin->rowCount() > 0){
-      $message[] = 'tên tài khoản đã tồn tại!';
-   }else{
-      if($pass != $cpass){
-         $message[] = 'Mật khẩu nhập lại không khớp!';
-      }else{
-         $insert_admin = $conn->prepare("INSERT INTO `admin`(name, password) VALUES(?,?)");
-         $insert_admin->execute([$name, $cpass]);
-         $message[] = 'Tài khoản admin mới đã được thêm!';
-      }
-   }
+        if ($select_user->rowCount() > 0) {
+            $message[] = 'Tên tài khoản hoặc email đã tồn tại.';
+        } else {
+            if ($rawPass !== $rawConfirmPass) {
+                $message[] = 'Mật khẩu nhập lại không khớp.';
+            } else {
+                $passwordHash = sha1($rawPass);
+                $passwordHash = filter_var($passwordHash, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+                $conn->beginTransaction();
+                try {
+                    $legacyAdminId = null;
 
+                    // Optional backward-compatibility: keep legacy admin table in sync only for role=admin.
+                    if ($selectedRole === 'admin' && blog_db_has_column($conn, 'admin', 'id') && blog_db_has_column($conn, 'admin', 'name') && blog_db_has_column($conn, 'admin', 'password')) {
+                        $insert_legacy = $conn->prepare('INSERT INTO admin(name, password) VALUES(?, ?)');
+                        $insert_legacy->execute([$name, $passwordHash]);
+                        $legacyAdminId = (int)$conn->lastInsertId();
+                    }
+
+                    $insertColumns = ['name', 'email', 'password'];
+                    $insertValues = [$name, $email, $passwordHash];
+
+                    if (blog_db_has_column($conn, 'users', 'banned')) {
+                        $insertColumns[] = 'banned';
+                        $insertValues[] = 0;
+                    }
+
+                    if (blog_db_has_column($conn, 'users', 'level_of_interaction')) {
+                        $insertColumns[] = 'level_of_interaction';
+                        $insertValues[] = 'Thấp';
+                    }
+
+                    if (blog_db_has_column($conn, 'users', 'reset_code')) {
+                        $insertColumns[] = 'reset_code';
+                        $insertValues[] = null;
+                    }
+
+                    if (blog_db_has_column($conn, 'users', 'role')) {
+                        $insertColumns[] = 'role';
+                        $insertValues[] = $selectedRole;
+                    }
+
+                    if (blog_db_has_column($conn, 'users', 'legacy_admin_id')) {
+                        $insertColumns[] = 'legacy_admin_id';
+                        $insertValues[] = $legacyAdminId;
+                    }
+
+                    $colsSql = implode(', ', $insertColumns);
+                    $holdersSql = implode(', ', array_fill(0, count($insertColumns), '?'));
+                    $insert_user = $conn->prepare("INSERT INTO users({$colsSql}) VALUES({$holdersSql})");
+                    $insert_user->execute($insertValues);
+
+                    $conn->commit();
+                    $_SESSION['message'] = $selectedRole === 'admin'
+                        ? 'Tài khoản admin mới đã được thêm.'
+                        : 'Tài khoản user mới đã được thêm.';
+                    header('location:users_accounts.php');
+                    exit;
+                } catch (Exception $e) {
+                    if ($conn->inTransaction()) {
+                        $conn->rollBack();
+                    }
+                    $message[] = 'Không thể tạo tài khoản mới: ' . $e->getMessage();
+                }
+            }
+        }
+    }
 }
 
 ?>
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
+
 <head>
-   <meta charset="UTF-8">
-   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>Đăng ký</title>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tạo tài khoản</title>
 
-   <!-- font awesome cdn link  -->
-   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
-
-   <!-- custom css file link  -->
-   <link rel="stylesheet" href="../css/admin_style_edit.css">
-
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 </head>
+
 <body>
 
-<?php include '../components/admin_header.php' ?>
+    <?php include '../components/admin_header.php' ?>
 
-<!-- register admin section starts  -->
+    <section class="form-container">
 
-<section class="form-container">
+        <form action="" method="POST">
+            <h3>Tạo tài khoản mới</h3>
+            <?php if (!empty($message) && is_array($message)): ?>
+                <div style="margin-bottom:1rem;padding:.9rem 1rem;border-radius:.6rem;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;">
+                    <?php foreach ($message as $msg): ?>
+                        <div><?= htmlspecialchars((string)$msg, ENT_QUOTES, 'UTF-8'); ?></div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+            <label for="admin_name">
+                <span>Tên tài khoản</span>
+                <input type="text" name="name" maxlength="20" required placeholder="Nhập tên tài khoản" class="box" value="<?= htmlspecialchars((string)($_POST['name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" oninput="this.value = this.value.replace(/\s/g, '')">
+            </label>
 
-   <form action="" method="POST">
-      <h3>Đăng ký mới</h3>
-      <label for="admin_name">
-      <span>Adminname</span>
-      <input type="text" name="name" maxlength="20" required placeholder="Nhập tên tài khoản" class="box" oninput="this.value = this.value.replace(/\s/g, '')">
-      </label>
-      
-      <label for="admin_pass">
-      <span>Mật khẩu</span>
-      <input type="password" name="pass" maxlength="20" required placeholder="Nhập mật khẩu" class="box" oninput="this.value = this.value.replace(/\s/g, '')">
-      </label>
-      
-      <label for="admin_pass_conf">
-      <span>Xác nhận mật khẩu</span>
-      <input type="password" name="cpass" maxlength="20" required placeholder="Nhập lại mật khẩu" class="box" oninput="this.value = this.value.replace(/\s/g, '')">
-      </label>
-      
-      <input type="submit" value="Đăng ký ngay" name="submit" class="btn">
-   </form>
+            <label for="admin_email">
+                <span>Email tài khoản</span>
+                <input type="email" name="email" maxlength="50" required placeholder="Nhập email tài khoản" class="box" value="<?= htmlspecialchars((string)($_POST['email'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" oninput="this.value = this.value.replace(/\s/g, '')">
+            </label>
 
-</section>
+            <label for="account_role">
+                <span>Vai trò tài khoản</span>
+                <select name="role" class="box" required>
+                    <option value="admin" <?= (($_POST['role'] ?? 'admin') === 'admin') ? 'selected' : ''; ?>>Admin</option>
+                    <option value="user" <?= (($_POST['role'] ?? 'admin') === 'user') ? 'selected' : ''; ?>>User</option>
+                </select>
+            </label>
 
-<!-- register admin section ends -->
+            <label for="admin_pass">
+                <span>Mật khẩu</span>
+                <input type="password" name="pass" maxlength="20" required placeholder="Nhập mật khẩu" class="box" oninput="this.value = this.value.replace(/\s/g, '')">
+            </label>
 
+            <label for="admin_pass_conf">
+                <span>Xác nhận mật khẩu</span>
+                <input type="password" name="cpass" maxlength="20" required placeholder="Nhập lại mật khẩu" class="box" oninput="this.value = this.value.replace(/\s/g, '')">
+            </label>
 
-<!-- custom js file link  -->
-<script src="../js/admin_script.js"></script>
+            <input type="submit" value="Tạo tài khoản" name="submit" class="btn">
+        </form>
+
+    </section>
+
+    <script src="../js/admin_script.js"></script>
 
 </body>
+
 </html>

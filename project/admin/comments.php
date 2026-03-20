@@ -1,112 +1,220 @@
 <?php
-
 include '../components/connect.php';
-
 session_start();
 
-$admin_id = $_SESSION['admin_id'];
-
-if (!isset($admin_id)) {
-   header('location:admin_login.php');
+$admin_id = $_SESSION['admin_id'] ?? null;
+if (!$admin_id) {
+    header('location:admin_login.php');
+    exit;
 }
 
-if (isset($_POST['delete_comment'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $bulkAction = $_POST['bulk_action'] ?? '';
+    $selected = $_POST['selected_comment_ids'] ?? [];
+    $selected = is_array($selected) ? array_map('intval', $selected) : [];
+    $selected = array_values(array_filter(array_unique($selected), function ($v) {
+        return $v > 0;
+    }));
 
-   $comment_id = $_POST['comment_id'];
-   $comment_id = filter_var($comment_id, FILTER_SANITIZE_STRING);
-   $delete_comment = $conn->prepare("DELETE FROM `comments` WHERE id = ?");
-   $delete_comment->execute([$comment_id]);
-   $message[] = 'comment delete!';
+    if ($bulkAction === 'delete' && !empty($selected)) {
+        $inSql = implode(',', array_fill(0, count($selected), '?'));
+        $sql = "DELETE FROM comments WHERE id IN ({$inSql})";
+        $stmt = $conn->prepare($sql);
+        $stmt->execute($selected);
+        $message[] = 'Đã xóa bình luận đã chọn.';
+    }
 }
 
+$q = trim($_GET['q'] ?? '');
+$sort = $_GET['sort'] ?? 'date';
+$order = strtolower($_GET['order'] ?? 'desc') === 'asc' ? 'ASC' : 'DESC';
+$perPage = (int)($_GET['per_page'] ?? 10);
+$perPage = in_array($perPage, [10, 20, 50, 100], true) ? $perPage : 10;
+$page = max(1, (int)($_GET['page'] ?? 1));
+
+$allowedSort = [
+    'id' => 'cm.id',
+    'date' => 'cm.date',
+    'user' => 'cm.user_name',
+    'post' => 'post_title'
+];
+$sortSql = $allowedSort[$sort] ?? 'cm.date';
+
+$where = [];
+$params = [];
+
+if ($q !== '') {
+    $where[] = '(cm.user_name LIKE ? OR cm.comment LIKE ? OR p.title LIKE ?)';
+    $qLike = '%' . $q . '%';
+    $params[] = $qLike;
+    $params[] = $qLike;
+    $params[] = $qLike;
+}
+
+$whereSql = !empty($where) ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+$countSql = "
+    SELECT COUNT(*)
+    FROM comments cm
+    LEFT JOIN posts p ON p.id = cm.post_id
+    {$whereSql}
+";
+$countStmt = $conn->prepare($countSql);
+$countStmt->execute($params);
+$totalRows = (int)$countStmt->fetchColumn();
+$totalPages = max(1, (int)ceil($totalRows / $perPage));
+if ($page > $totalPages) {
+    $page = $totalPages;
+}
+$offset = ($page - 1) * $perPage;
+
+$sql = "
+    SELECT
+        cm.id,
+        cm.post_id,
+        cm.user_name,
+        cm.comment,
+        cm.date,
+        p.title AS post_title
+    FROM comments cm
+    LEFT JOIN posts p ON p.id = cm.post_id
+    {$whereSql}
+    ORDER BY {$sortSql} {$order}
+    LIMIT {$perPage} OFFSET {$offset}
+";
+$stmt = $conn->prepare($sql);
+$stmt->execute($params);
+$comments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+function commentsPageUrl($targetPage)
+{
+    $query = $_GET;
+    $query['page'] = $targetPage;
+    return 'comments.php?' . http_build_query($query);
+}
 ?>
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 
 <head>
-   <meta charset="UTF-8">
-   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-   <title>users accounts</title>
-
-   <!-- font awesome cdn link  -->
-   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
-
-   <!-- custom css file link  -->
-   <link rel="stylesheet" href="../css/admin_style_edit.css">
-
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý bình luận</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 </head>
 
-<body>
+<body class="ui-page">
+    <?php include '../components/admin_header.php' ?>
 
-   <?php include '../components/admin_header.php' ?>
+    <section class="comments ui-container">
+        <h1 class="heading ui-title">Quản lý bình luận</h1>
 
-   <section class="comments">
+        <article class="admin-panel-card" style="margin-bottom:1.2rem;">
+            <form method="get" data-admin-ajax-form="1" style="display:flex;gap:.8rem;flex-wrap:wrap;align-items:center;">
+                <input type="text" name="q" class="box" placeholder="Tìm theo người dùng, nội dung, bài viết" value="<?= htmlspecialchars($q); ?>">
 
-      <h1 class="heading">Bình luận các bài viết</h1>
+                <select name="sort" class="box ui-select">
+                    <option value="date" <?= $sort === 'date' ? 'selected' : ''; ?>>Sắp xếp theo ngày</option>
+                    <option value="id" <?= $sort === 'id' ? 'selected' : ''; ?>>Sắp xếp theo ID</option>
+                    <option value="user" <?= $sort === 'user' ? 'selected' : ''; ?>>Sắp xếp theo người dùng</option>
+                    <option value="post" <?= $sort === 'post' ? 'selected' : ''; ?>>Sắp xếp theo bài viết</option>
+                </select>
 
-      <p class="comment-title">Bình luận bài viết</p>
-      <div class="box-container">
-         <?php
-         $select_comments = $conn->prepare("SELECT * FROM `comments` WHERE admin_id = ?");
-         $select_comments->execute([$admin_id]);
-         if ($select_comments->rowCount() > 0) {
-            while ($fetch_comments = $select_comments->fetch(PDO::FETCH_ASSOC)) {
-         ?>
-               <?php
-               $select_posts = $conn->prepare("SELECT * FROM `posts` WHERE id = ?");
-               $select_posts->execute([$fetch_comments['post_id']]);
-               while ($fetch_posts = $select_posts->fetch(PDO::FETCH_ASSOC)) {
-               ?>
-                  <div class="post-title"> Từ bài viết: <span><?= $fetch_posts['title']; ?></span> <a href="read_post.php?post_id=<?= $fetch_posts['id']; ?>">Xem bài viết</a></div>
-               <?php
-               }
-               ?>
-               <div class="box">
-                  <div class="user">
-                     <i class="fas fa-user"></i>
-                     <div class="user-info">
-                        <span><?= $fetch_comments['user_name']; ?></span>
-                        <div><?= $fetch_comments['date']; ?></div>
-                     </div>
-                  </div>
-                  <div class="text"><?= $fetch_comments['comment']; ?></div>
-                  <form action="" method="POST">
-                     <input type="hidden" name="comment_id" value="<?= $fetch_comments['id']; ?>">
-                     <button type="submit" class="inline-delete-btn" name="delete_comment" onclick="return confirm('Bạn có chắc xóa bình luận này không?');">Xóa bình luận</button>
-                  </form>
-               </div>
-         <?php
-            }
-         } else {
-            echo '<p class="empty">Chưa có bình luận nào được thêm!</p>';
-         }
-         ?>
-      </div>
+                <select name="order" class="box ui-select">
+                    <option value="desc" <?= $order === 'DESC' ? 'selected' : ''; ?>>Giảm dần</option>
+                    <option value="asc" <?= $order === 'ASC' ? 'selected' : ''; ?>>Tăng dần</option>
+                </select>
 
-   </section>
+                <select name="per_page" class="box ui-select">
+                    <option value="10" <?= $perPage === 10 ? 'selected' : ''; ?>>10 / trang</option>
+                    <option value="20" <?= $perPage === 20 ? 'selected' : ''; ?>>20 / trang</option>
+                    <option value="50" <?= $perPage === 50 ? 'selected' : ''; ?>>50 / trang</option>
+                    <option value="100" <?= $perPage === 100 ? 'selected' : ''; ?>>100 / trang</option>
+                </select>
 
+                <input type="hidden" name="page" value="1">
+                <button type="submit" class="btn ui-btn">Lọc / Sắp xếp</button>
+                <a href="comments.php" data-admin-ajax-link="1" class="delete-btn ui-btn-danger" style="text-decoration:none;display:inline-flex;align-items:center;">Reset</a>
+                <button type="button" data-admin-refresh="1" class="option-btn ui-btn-warning">Làm mới</button>
+            </form>
+        </article>
 
+        <div class="box-container ui-card">
+            <form method="post" data-admin-ajax-post-form="1" onsubmit="return confirm('Bạn chắc chắn xóa các bình luận đã chọn?');">
+                <div style="display:flex;gap:.8rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem;">
+                    <label style="display:flex;align-items:center;gap:.4rem;">
+                        <input type="checkbox" id="checkAllComments"> Chọn tất cả
+                    </label>
+                    <select name="bulk_action" class="box ui-select" required>
+                        <option value="">-- Chọn thao tác --</option>
+                        <option value="delete">Xóa bình luận</option>
+                    </select>
+                    <button type="submit" class="btn ui-btn">Thực hiện</button>
+                </div>
 
+                <div class="ui-table-wrap">
+                    <table class="ui-table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>ID</th>
+                                <th>Người dùng</th>
+                                <th>Bài viết</th>
+                                <th>Nội dung</th>
+                                <th>Ngày</th>
+                                <th>Xem bài viết</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (!empty($comments)): ?>
+                                <?php foreach ($comments as $c): ?>
+                                    <tr>
+                                        <td><input type="checkbox" class="row-check-comment" name="selected_comment_ids[]" value="<?= (int)$c['id']; ?>"></td>
+                                        <td><?= (int)$c['id']; ?></td>
+                                        <td><?= htmlspecialchars((string)$c['user_name']); ?></td>
+                                        <td><?= htmlspecialchars((string)($c['post_title'] ?? '')); ?></td>
+                                        <td><?= htmlspecialchars((string)$c['comment']); ?></td>
+                                        <td><?= htmlspecialchars((string)$c['date']); ?></td>
+                                        <td>
+                                            <a href="read_post.php?post_id=<?= (int)$c['post_id']; ?>" class="btn ui-btn">Xem</a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="7">Không có bình luận phù hợp bộ lọc.</td>
+                                </tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
 
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:1rem;">
+                    <div>Trang <?= (int)$page; ?>/<?= (int)$totalPages; ?> - Tổng: <?= (int)$totalRows; ?> bình luận</div>
+                    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+                        <?php if ($page > 1): ?>
+                            <a data-admin-ajax-link="1" class="option-btn ui-btn-warning" href="<?= htmlspecialchars(commentsPageUrl(1)); ?>">Đầu</a>
+                            <a data-admin-ajax-link="1" class="option-btn ui-btn-warning" href="<?= htmlspecialchars(commentsPageUrl($page - 1)); ?>">Trước</a>
+                        <?php endif; ?>
+                        <?php if ($page < $totalPages): ?>
+                            <a data-admin-ajax-link="1" class="btn ui-btn" href="<?= htmlspecialchars(commentsPageUrl($page + 1)); ?>">Sau</a>
+                            <a data-admin-ajax-link="1" class="btn ui-btn" href="<?= htmlspecialchars(commentsPageUrl($totalPages)); ?>">Cuối</a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </section>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-   <!-- custom js file link  -->
-   <script src="../js/admin_script.js"></script>
-
+    <script src="../js/admin_script.js"></script>
+    <script>
+        const checkAllComments = document.getElementById('checkAllComments');
+        if (checkAllComments) {
+            checkAllComments.setAttribute('data-bulk-check-all', '1');
+            checkAllComments.setAttribute('data-target-selector', '.row-check-comment');
+        }
+    </script>
 </body>
 
 </html>

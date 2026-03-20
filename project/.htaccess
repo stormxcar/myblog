@@ -5,17 +5,23 @@ Require all granted
 ErrorDocument 404 /static/404.php
 
 RewriteEngine On
-RewriteBase /
+# RewriteBase intentionally omitted for portability between local '/project/' and production '/'
 
 # Rewrite root URL (/) to /static/home.php
 RewriteRule ^$ static/home.php [L]
+
+# Clean routes for static pages without .php extension
+RewriteRule ^(home|posts|category|all_photos|search|contact|login|register|forgot_pass|reset_pass|update|new_post|user_likes|user_comments|author_posts|menu|introduce)/?$ static/$1.php [L,QSA,NC]
+
+# SEO post route: /post/my-title-123 (allow any URL-safe slug part)
+RewriteRule ^post/([^/]+)/?$ static/view_post.php?slug=$1 [L,QSA,NC]
 
 # Chuyển hướng tất cả URL đến static/ nếu không phải file/thư mục trong root
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ static/$1 [L]
 
-# Nếu không phải file hoặc thư mục, chuyển đến index.php (nếu cần)
+# Fallback: unknown route -> static 404 page
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^ index.php [L]
+RewriteRule ^ static/404.php [L]

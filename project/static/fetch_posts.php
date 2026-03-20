@@ -1,5 +1,6 @@
 <?php
 include '../components/connect.php';
+include '../components/seo_helpers.php';
 
 session_start();
 
@@ -25,18 +26,33 @@ $total_posts = $count_posts->fetchColumn();
 
 // Lấy bài viết cho danh mục
 if ($category === 'all') {
-   $select_posts_grid = $conn->prepare("SELECT p.*, c.name as category_name, ad.name as author_name FROM posts p
+   try {
+      $select_posts_grid = $conn->prepare("SELECT p.*, c.name as category_name, COALESCE(u.name, p.name, 'Admin') as author_name FROM posts p
                                           INNER JOIN cart c ON c.category_id = p.tag_id
-                                          INNER JOIN admin ad ON ad.id = p.admin_id
+                                          LEFT JOIN users u ON (u.legacy_admin_id = p.admin_id OR u.id = p.admin_id) AND u.role = 'admin'
                                           WHERE p.status = ? ORDER BY p.id DESC LIMIT 4");
-   $select_posts_grid->execute(['active']);
-} else {
-   $select_posts_grid = $conn->prepare("SELECT p.*, c.name as category_name, ad.name as author_name FROM posts p
+      $select_posts_grid->execute(['active']);
+   } catch (Exception $e) {
+      $select_posts_grid = $conn->prepare("SELECT p.*, c.name as category_name, COALESCE(p.name, 'Admin') as author_name FROM posts p
                                           INNER JOIN cart c ON c.category_id = p.tag_id
-                                          INNER JOIN admin ad ON ad.id = p.admin_id
+                                          WHERE p.status = ? ORDER BY p.id DESC LIMIT 4");
+      $select_posts_grid->execute(['active']);
+   }
+} else {
+   try {
+      $select_posts_grid = $conn->prepare("SELECT p.*, c.name as category_name, COALESCE(u.name, p.name, 'Admin') as author_name FROM posts p
+                                          INNER JOIN cart c ON c.category_id = p.tag_id
+                                          LEFT JOIN users u ON (u.legacy_admin_id = p.admin_id OR u.id = p.admin_id) AND u.role = 'admin'
                                           WHERE p.status = ? AND c.name = ?
                                           ORDER BY p.id DESC LIMIT 4");
-   $select_posts_grid->execute(['active', $category]);
+      $select_posts_grid->execute(['active', $category]);
+   } catch (Exception $e) {
+      $select_posts_grid = $conn->prepare("SELECT p.*, c.name as category_name, COALESCE(p.name, 'Admin') as author_name FROM posts p
+                                          INNER JOIN cart c ON c.category_id = p.tag_id
+                                          WHERE p.status = ? AND c.name = ?
+                                          ORDER BY p.id DESC LIMIT 4");
+      $select_posts_grid->execute(['active', $category]);
+   }
 }
 
 if ($select_posts_grid->rowCount() > 0) {
@@ -56,7 +72,7 @@ if ($select_posts_grid->rowCount() > 0) {
 
       $confirm_save = $conn->prepare("SELECT * FROM `favorite_posts` WHERE user_id = ? AND post_id = ?");
       $confirm_save->execute([$user_id, $post_id]);
-      ?>
+?>
       <form class="box_byPost_category" method="post">
          <input type="hidden" name="post_id" value="<?= $post_id; ?>">
          <input type="hidden" name="admin_id" value="<?= $fetch_posts['admin_id']; ?>">
@@ -80,20 +96,20 @@ if ($select_posts_grid->rowCount() > 0) {
          <?php
          }
          ?>
-         <a href="view_post.php?post_id=<?= $post_id; ?>" class="post-title"><?= $fetch_posts['title']; ?></a>
-         <a href="view_post.php?post_id=<?= $post_id; ?>" class="post-content">
-            <?php 
-                if(strlen($fetch_posts['content']) > 50){
-                    echo substr($fetch_posts['content'], 0, 50) . '...';
-                }else{
-                    echo $fetch_posts['content'];
-                }
+         <a href="<?= post_path($post_id); ?>" class="post-title"><?= $fetch_posts['title']; ?></a>
+         <a href="<?= post_path($post_id); ?>" class="post-content">
+            <?php
+            if (strlen($fetch_posts['content']) > 50) {
+               echo substr($fetch_posts['content'], 0, 50) . '...';
+            } else {
+               echo $fetch_posts['content'];
+            }
             ?>
          </a>
-         <a href="view_post.php?post_id=<?= $post_id; ?>" class="inline-btn">Đọc thêm</a>
+         <a href="<?= post_path($post_id); ?>" class="inline-btn">Đọc thêm</a>
          <a href="category.php?category=<?= $fetch_posts['category_name']; ?>" class="post-cat"> <i class="fas fa-tag"></i> <span><?= $fetch_posts['category_name']; ?></span></a>
          <div class="icons">
-            <a href="view_post.php?post_id=<?= $post_id; ?>"><i class="fas fa-comment"></i><span>(<?= $total_post_comments; ?>)</span></a>
+            <a href="<?= post_path($post_id); ?>"><i class="fas fa-comment"></i><span>(<?= $total_post_comments; ?>)</span></a>
             <button type="submit" name="like_post"><i class="fas fa-heart" style="<?php if ($confirm_likes->rowCount() > 0) {
                                                                                        echo 'color:var(--red);';
                                                                                     } ?>  "></i><span>(<?= $total_post_likes; ?>)</span>
@@ -101,7 +117,7 @@ if ($select_posts_grid->rowCount() > 0) {
             <button><i class="fa-solid fa-share-from-square"></i></button>
          </div>
       </form>
-      <?php
+<?php
    }
 } else {
    echo '<p class="empty">Không tìm thấy bài đăng nào cho thể loại này!</p>';

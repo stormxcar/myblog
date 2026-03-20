@@ -23,26 +23,6 @@ SET time_zone = "+00:00";
 
 -- --------------------------------------------------------
 
---
--- Cấu trúc bảng cho bảng `admin`
---
-
-CREATE TABLE `admin` (
-  `id` int(100) NOT NULL,
-  `name` varchar(20) NOT NULL,
-  `password` varchar(50) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Đang đổ dữ liệu cho bảng `admin`
---
-
-INSERT INTO `admin` (`id`, `name`, `password`) VALUES
-(1, 'admin', '6216f8a75fd5bb3d5f22b6f9958cdede3fc086c2'),
-(2613, 'kha', '7c222fb2927d828af22f592134e8932480637c0d'),
-(2614, 'nguyen', '7c222fb2927d828af22f592134e8932480637c0d'),
-(2615, 'bao', '7c222fb2927d828af22f592134e8932480637c0d');
-
 -- --------------------------------------------------------
 
 --
@@ -167,6 +147,7 @@ CREATE TABLE `posts` (
   `admin_id` int(100) NOT NULL,
   `name` varchar(100) NOT NULL,
   `title` varchar(100) NOT NULL,
+  `slug` varchar(255) DEFAULT NULL,
   `content` varchar(10000) NOT NULL,
   `category` varchar(50) NOT NULL,
   `image` varchar(100) NOT NULL,
@@ -191,6 +172,11 @@ INSERT INTO `posts` (`id`, `admin_id`, `name`, `title`, `content`, `category`, `
 (20, 1, 'admin', 'Top 5 cầu thủ xuất sắc nhất lịch sử bóng đá', 'Kể từ khi thành lập vào năm 1992, Premier League đã là ngôi nhà của một số cầu thủ bóng đá vĩ đại nhất mọi thời đại.\n\nTừ những cái tên xuất sắc hồi Premier League mới được khai sinh như Eric Cantona đến những người đoạt Quả bóng Vàng sau này như Cristiano Ronaldo và những siêu sao thời hiện đại như Mohamed Salah, người hâm mộ bóng đá Anh đã được xem các biểu tượng của môn thể thao vua trong hơn ba thập kỷ vừa qua. \n\nĐể xem xét ai mới là cầu thủ Premier League vĩ đại nhất trong lịch sử thực sự rất khó, và nó phụ thuộc vào quan điểm của mỗi người. Sau đây chúng ta cùng tham khảo về lựa chọn 5 cái tên đứng đầu mà trang 90min.com đưa ra. \n\n5. Kevin De Bruyne - Chelsea, Manchester City\n\n\n\n De Bruyne là chân kiến tạo hàng đầu tại Premier League suốt nhiều năm qua. \n\nKhó có thể phàn nàn về vị trí này của siêu sao người Bỉ, bởi anh là một trong những cầu thủ đoạt nhiều thành tích vô địch Ngoại hạng Anh nhất trong lịch sử giải đấu. Xuất thân là một cầu thủ trẻ được Chelsea mua về, sau đó dạt sang Bundesliga chơi bóng một thời gian trước khi trở lại đảo quốc sương mù và bùng nổ ở đây. \n\nDe Bruyne là nhân vật chủ chốt của Man City trong giai đoạn hưng thịnh nhất lịch sử đội bóng này kể từ khi huấn luyện viên Pep Guardiola tới nắm quyền. Anh đã trở thành một trong 3 cầu thủ từng liên tiếp giành được giải thưởng Cầu thủ xuất sắc nhất năm của PFA. Cùng với The Citizens, De Bruyne đã sở hữu 5 chức vô địch Premier League.\n\n4. Alan Shearer - Blackburn Rovers, Newcastle\n\n\n\n Shearer trong màu áo câu lạc nộ Newcastle. \n\nCó một thống kê đã định nghĩa di sản của Alan Shearer tại giải đấu cao nhất xứ sở sương mù - số bàn thắng. Ông chính là cầu thủ có nhiều pha lập công nhất mọi thời đại trong lịch sử Premier League. 260 bàn thắng của cựu tuyển thủ Anh trong màu áo hai câu lạc bộ là Blackburn Rovers và Newcastle chưa thể bị phá vỡ cho tới lúc này.\n\nĐỉnh cao trong sự nghiệp của Shearer là ở mùa giải 1994/95, khi ông ghi tới 34 bàn cùng 13 đường kiến tạo cho các đồng đội để giúp Blackburn giành chức vô địch sau vòng đấu cuối cùng. Một huyền thoại thực sự của làng bóng đá Anh nói chung và Ngoại hạng Anh nói riêng. \n\n3. Wayne Rooney - Everton, Manchester United\n\n\n\n Rooney là hình mẫu để mọi cầu thủ Man United sau này noi theo. \n\n \n\nTài năng của Wayne Rooney là không có gì phải bàn cãi. Cho tới khi treo giày, anh chính là cầu thủ dẫn đầu danh sách ghi bàn của Man United và đội tuyển Anh. Khởi nghiệp với tư cách là một thần đồng ở Everton, cống hiến những gì đẹp nhất cho Quỷ đỏ rồi trở lại mái nhà xưa và giải nghệ, Rooney đã đi một hành trình rất dài. \n\nAnh từng cùng với Cristiano Ronaldo và Carlos Tevez hợp thành tam tấu đáng sợ ở mùa giải 2007/08. Sau này, khi cả hai ngôi sao kể trên rời đi, Rooney vẫn ở lại miệt mài cống hiến. Có thể nói, cựu huyền thoại này chính là hình mẫu về sự trung thành, tinh thần chiến đấu bất diệt và duy trì sự ổn định trong một thời gian dài.\n\n2. Cristiano Ronaldo - Manchester United\n\n\n\n Ronaldo ở lần thứ hai chơi cho Man United trước khi chuyển tới Trung Đông. \n\nKhông có bất cứ ai phàn nàn về việc siêu sao người Bồ Đào Nha lọt vào danh sách này. Tiền đạo đang chơi cho Al Nassr tại Saudi Pro League chính là một trong những cầu thủ ghi bàn hàng đầu trong lịch sử Premier League. Nếu xét trên bình diện của môn thể thao vua, anh còn là một trong những cầu thủ vĩ đại nhất lịch sử. \n\nTuy đỉnh cao của Ronaldo là ở trong màu áo câu lạc bộ Real Madrid, nơi mà anh từng giành được tới 4 Quả bóng vàng, nhưng có lẽ người hâm mộ vẫn nhớ nhất tới danh hiệu Quả bóng vàng đầu tiên mà tuyển thủ Bồ Đào Nha giành được năm 2008 sau khi giúp Man United lên ngôi tại Ngoại hạng Anh và Champions League.\n\n1. Thierry Henry - Arsenal\n\n\n\n Henry từng giúp Arsenal làm mưa làm gió ở Ngoại hạng Anh. \n\nRonaldo là &#34;cầu thủ vĩ đại nhất từng chơi ở Premier League&#34;, nhưng Thierry Henry mới là &#34;cầu thủ Premier League vĩ đại nhất mọi thời đại&#34; ở giải đấu này. Điều này có nghĩa là Cristiano Ronaldo có sự nghiệp tổng thể tốt hơn nhưng xét riêng tại Ngoại hạng Anh thì Henry mới là người giỏi nhất. \n\nChứng kiến Henry lướt qua các hậu vệ đối phương bằng tốc độ như một cơn gió để ghi những bàn thắng tuyệt đẹp là may mắn cho các cổ động viên Pháo thủ trong suốt những năm cuối thập niên 1990 và đầu thập niên 2000. Huyền thoại Arsenal đã có 5 mùa giải liên tiếp ghi từ 20 bàn trở nên, giành 4 Chiếc giày vàng Premier League, 2 Chiếc giày vàng châu Âu và nhiều danh hiệu tập thể. \n\n \n', 'Thể thao', 'thumb_thethao.jpg', '2024-07-01', 'active', 86),
 (24, 1, 'admin', 'Tuổi thanh xuân của tôi có gì ?', 'Tuổi thanh xu&acirc;n, qu&atilde;ng thời gian đẹp đẽ nhất của đời người, l&agrave; những năm th&aacute;ng cấp 3 đầy ắp kỷ niệm trong t&ocirc;i - một nam sinh qu&ecirc; l&ecirc;n th&agrave;nh phố học. Nơi đ&acirc;y, t&ocirc;i đ&atilde; trải qua những th&aacute;ng ng&agrave;y rực rỡ với bạn b&egrave;, thầy c&ocirc; v&agrave; những chuyến đi đầy th&uacute; vị, vẽ n&ecirc;n bức tranh tuổi trẻ đầy m&agrave;u sắc v&agrave; đ&aacute;ng nhớ.\r\n\r\nVốn sinh ra v&agrave; lớn l&ecirc;n ở một v&ugrave;ng qu&ecirc; b&igrave;nh dị, t&ocirc;i mang theo sự h&aacute;o hức xen lẫn bỡ ngỡ khi đặt ch&acirc;n l&ecirc;n th&agrave;nh phố phồn hoa. May mắn thay, t&ocirc;i nhanh ch&oacute;ng h&ograve;a nhập với m&ocirc;i trường mới nhờ sự gi&uacute;p đỡ nhiệt t&igrave;nh của thầy c&ocirc; v&agrave; bạn b&egrave;. Nơi đ&acirc;y, t&ocirc;i được tiếp x&uacute;c với m&ocirc;i trường học tập hiện đại, cơ sở vật chất đầy đủ v&agrave; đội ngũ gi&aacute;o vi&ecirc;n giỏi chuy&ecirc;n, tận t&acirc;m.\r\n\r\nHơn cả kiến thức, t&ocirc;i c&ograve;n c&oacute; v&ocirc; số t&igrave;nh bạn đẹp đẽ. C&ugrave;ng nhau học tập, &ocirc;n thi, chia sẻ những niềm vui nỗi buồn, ch&uacute;ng t&ocirc;i đ&atilde; gắn kết với nhau như những người anh em, người chị em ruột thịt. Những giờ ra chơi, ch&uacute;ng t&ocirc;i c&ugrave;ng nhau rong ruổi khắp c&aacute;c con phố, kh&aacute;m ph&aacute; những địa điểm mới lạ, c&ugrave;ng nhau ăn những m&oacute;n ngon v&agrave; chia sẻ những c&acirc;u chuyện đời thường.\r\n\r\nĐặc biệt, t&ocirc;i kh&ocirc;ng thể n&agrave;o qu&ecirc;n những chuyến đi c&ugrave;ng bạn b&egrave; trong những dịp nghỉ lễ. Ch&uacute;ng t&ocirc;i đ&atilde; c&ugrave;ng nhau đến thăm những danh lam thắng cảnh nổi tiếng, trải nghiệm những hoạt động th&uacute; vị v&agrave; c&oacute; được những kỷ niệm kh&oacute; phai. Những chuyến đi ấy kh&ocirc;ng chỉ gi&uacute;p ch&uacute;ng t&ocirc;i kh&aacute;m ph&aacute; thế giới xung quanh m&agrave; c&ograve;n gi&uacute;p ch&uacute;ng t&ocirc;i gắn kết với nhau hơn, thấu hiểu nhau hơn v&agrave; tạo n&ecirc;n những k&yacute; ức đẹp đẽ cho tuổi thanh xu&acirc;n.\r\n\r\nNh&igrave;n lại qu&atilde;ng thời gian cấp 3, t&ocirc;i cảm thấy v&ocirc; c&ugrave;ng biết ơn v&agrave; tr&acirc;n trọng những g&igrave; m&igrave;nh đ&atilde; c&oacute;. Nơi đ&acirc;y đ&atilde; cho t&ocirc;i kiến thức, cho t&ocirc;i t&igrave;nh bạn v&agrave; cho t&ocirc;i những kỷ niệm đẹp đẽ nhất của tuổi thanh xu&acirc;n.\r\n\r\nTuy giờ đ&acirc;y t&ocirc;i đ&atilde; trưởng th&agrave;nh v&agrave; c&oacute; cuộc sống ri&ecirc;ng, nhưng những k&yacute; ức về thời cấp 3 sẽ m&atilde;i m&atilde;i l&agrave; một phần kh&ocirc;ng thể thiếu trong cuộc đời t&ocirc;i. Đ&oacute; l&agrave; khoảng thời gian rực rỡ, đầy ắp tiếng cười v&agrave; những kỷ niệm đẹp đẽ m&agrave; t&ocirc;i sẽ lu&ocirc;n tr&acirc;n trọng v&agrave; g&igrave;n giữ.\r\n', 'vui ve', 'Ảnh Bìa Facabook.jpg', '2024-07-21', 'active', 2),
 (29, 1, 'admin', 'Bức tranh màu sắc', '<p><strong>THI&Ecirc;N NHI&Ecirc;N</strong></p>\r\n\r\n<p><em><strong>h&ugrave;ng vĩ v&ocirc; c&ugrave;ng tận ....</strong></em></p>\r\n\r\n<p><img alt=\"A scenic view of a mountain range with a lake in the foreground\" src=\"https://images.unsplash.com/photo-1738936339590-ea1fc8bd9732?fm=jpg&amp;q=60&amp;w=3000&amp;ixlib=rb-4.0.3&amp;ixid=M3wxMjA3fDB8MHxmZWF0dXJlZC1waG90b3MtZmVlZHwxMnx8fGVufDB8fHx8fA%3D%3D\" /></p>\r\n', 'Du lịch và phượt', 'IMG_1613877917094_1613885739670.jpg', '2025-02-10', 'active', 79);
+
+-- Backfill slug for existing posts in this dump
+UPDATE `posts`
+SET `slug` = CONCAT('post-', `id`)
+WHERE `slug` IS NULL OR `slug` = '';
 
 -- --------------------------------------------------------
 
@@ -249,7 +235,9 @@ CREATE TABLE `users` (
   `avatar` blob DEFAULT NULL,
   `banned` tinyint(1) NOT NULL DEFAULT 0,
   `level_of_interaction` enum('Cao','Ổn định','Thấp') DEFAULT 'Thấp',
-  `reset_code` varchar(32) DEFAULT NULL
+  `reset_code` varchar(32) DEFAULT NULL,
+  `role` enum('user','admin') NOT NULL DEFAULT 'user',
+  `legacy_admin_id` int(100) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -282,10 +270,18 @@ INSERT INTO `users` (`id`, `name`, `email`, `password`, `avatar`, `banned`, `lev
 --
 
 --
+-- Chuyển dữ liệu admin cũ sang users (role = admin)
+--
+INSERT INTO `users` (`name`, `email`, `password`, `avatar`, `banned`, `level_of_interaction`, `reset_code`, `role`, `legacy_admin_id`) VALUES
+('admin', 'admin+legacy1@local.blog', '6216f8a75fd5bb3d5f22b6f9958cdede3fc086c2', NULL, 0, 'Thấp', NULL, 'admin', 1),
+('kha', 'kha+legacy2613@local.blog', '7c222fb2927d828af22f592134e8932480637c0d', NULL, 0, 'Thấp', NULL, 'admin', 2613),
+('nguyen', 'nguyen+legacy2614@local.blog', '7c222fb2927d828af22f592134e8932480637c0d', NULL, 0, 'Thấp', NULL, 'admin', 2614),
+('bao', 'bao+legacy2615@local.blog', '7c222fb2927d828af22f592134e8932480637c0d', NULL, 0, 'Thấp', NULL, 'admin', 2615);
+
+--
 -- Chỉ mục cho bảng `admin`
 --
-ALTER TABLE `admin`
-  ADD PRIMARY KEY (`id`);
+-- Đã gộp vào bảng users
 
 --
 -- Chỉ mục cho bảng `cart`
@@ -320,6 +316,8 @@ ALTER TABLE `likes`
 --
 ALTER TABLE `posts`
   ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uniq_posts_slug` (`slug`),
+  ADD KEY `idx_posts_slug` (`slug`),
   ADD KEY `fk_tag_id` (`tag_id`);
 
 --
@@ -332,7 +330,9 @@ ALTER TABLE `settings`
 -- Chỉ mục cho bảng `users`
 --
 ALTER TABLE `users`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uniq_users_legacy_admin_id` (`legacy_admin_id`),
+  ADD KEY `idx_users_role` (`role`);
 
 --
 -- AUTO_INCREMENT cho các bảng đã đổ
@@ -341,8 +341,7 @@ ALTER TABLE `users`
 --
 -- AUTO_INCREMENT cho bảng `admin`
 --
-ALTER TABLE `admin`
-  MODIFY `id` int(100) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2616;
+-- Đã gộp vào bảng users
 
 --
 -- AUTO_INCREMENT cho bảng `cart`
@@ -394,7 +393,18 @@ ALTER TABLE `users`
 -- Các ràng buộc cho bảng `cart`
 --
 ALTER TABLE `cart`
-  ADD CONSTRAINT `fk_admin_id` FOREIGN KEY (`admin_id`) REFERENCES `admin` (`id`);
+  ADD CONSTRAINT `fk_admin_id` FOREIGN KEY (`admin_id`) REFERENCES `users` (`legacy_admin_id`);
+
+--
+-- View tương thích cho code cũ đang dùng bảng `admin`
+--
+CREATE OR REPLACE VIEW `admin` AS
+SELECT
+  `legacy_admin_id` AS `id`,
+  `name`,
+  `password`
+FROM `users`
+WHERE `role` = 'admin' AND `legacy_admin_id` IS NOT NULL;
 
 --
 -- Các ràng buộc cho bảng `favorite_posts`

@@ -7,6 +7,7 @@
 ## Tính năng chính
 
 ### Dành cho người dùng (User)
+
 - **Đọc bài viết:** Xem danh sách bài viết mới nhất, bài viết nổi bật hoặc theo danh mục.
 - **Tìm kiếm:** Tìm kiếm bài viết theo từ khóa.
 - **Phân trang:** Danh sách bài viết được phân trang để dễ dàng theo dõi.
@@ -15,6 +16,7 @@
 - **Tương tác:** Thích, Chia sẻ bài viết .
 
 ### Dành cho quản trị viên (Admin)
+
 - **Quản lý bài viết:**
   - Thêm, sửa, xóa bài viết.
   - Phân loại bài viết theo danh mục.
@@ -32,9 +34,27 @@
 ---
 
 ## Công nghệ sử dụng
+
 - **Front-end:** HTML, CSS, JavaScript.
 - **Back-end:** PHP thuần.
 - **Cơ sở dữ liệu:** MySQL.
 - **Công cụ hỗ trợ:** XAMPP (với phpMyAdmin) hoặc WAMP/MAMP.
+
+---
+
+## Tailwind Migration
+
+- Lộ trình tách dần CSS legacy đã được ghi tại: `project/docs/tailwind-migration-plan.md`
+- Mục tiêu là chuyển đổi theo từng pha, giảm rủi ro vỡ giao diện và tránh xung đột CSS diện rộng.
+
+---
+
+## AI Summary (tùy chọn)
+
+Trang web có tích hợp tính năng tóm tắt bài viết bằng AI (Gemini) để hỗ trợ đọc nhanh:
+
+- Tự động sinh bản tóm tắt ngắn hoặc chi tiết.
+- Bảo vệ API key và tách logic gọi AI vào backend.
+- Cơ chế fallback khi AI lỗi bằng tóm tắt nội bộ (vẫn đảm bảo UX).
 
 ---
