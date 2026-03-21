@@ -77,9 +77,9 @@ if ($avatar && isset($avatar['avatar']) && $avatar['avatar'] !== null && $avatar
 <?php if (!defined('BLOG_LAYOUT_ASSETS')): ?>
    <link rel="stylesheet" href="../css/output.css">
    <link rel="stylesheet" href="../css/ui-system.css">
-   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+   <link rel="stylesheet" href="../css/gooey-toast.css">
 <?php endif; ?>
-<script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+<script src="../js/gooey-toast.js"></script>
 <script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
 <script>
    window.SEARCH_SUGGEST_URL = 'search_suggest.php';
@@ -96,8 +96,10 @@ if ($avatar && isset($avatar['avatar']) && $avatar['avatar'] !== null && $avatar
       aiPostSummary: <?= json_encode(site_url('static/post_ai_summary_api.php'), JSON_UNESCAPED_UNICODE); ?>,
       communityCreate: <?= json_encode(site_url('static/community_create_api.php'), JSON_UNESCAPED_UNICODE); ?>,
       communityFeedList: <?= json_encode(site_url('static/community_feed_list_api.php'), JSON_UNESCAPED_UNICODE); ?>,
+      communitySavedList: <?= json_encode(site_url('static/community_saved_list_api.php'), JSON_UNESCAPED_UNICODE); ?>,
       photosList: <?= json_encode(site_url('static/all_photos_list_api.php'), JSON_UNESCAPED_UNICODE); ?>,
       communityReact: <?= json_encode(site_url('static/community_react.php'), JSON_UNESCAPED_UNICODE); ?>,
+      communityAction: <?= json_encode(site_url('static/community_action_api.php'), JSON_UNESCAPED_UNICODE); ?>,
       communityCommentAdd: <?= json_encode(site_url('static/community_comment_add.php'), JSON_UNESCAPED_UNICODE); ?>,
       communityManage: <?= json_encode(site_url('static/community_post_manage_api.php'), JSON_UNESCAPED_UNICODE); ?>,
       commentVote: <?= json_encode(site_url('static/comment_vote.php'), JSON_UNESCAPED_UNICODE); ?>,
@@ -213,6 +215,9 @@ if ($avatar && isset($avatar['avatar']) && $avatar['avatar'] !== null && $avatar
                      <a href="<?= get_user_link('community_manage'); ?>" class="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         Quản lý bài cộng đồng
                      </a>
+                     <a href="<?= get_user_link('community_saved'); ?>" class="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        Bài cộng đồng đã lưu
+                     </a>
                      <div class="border-t border-gray-200 dark:border-gray-700"></div>
                      <a href="<?= get_user_link('user_likes'); ?>" class="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         Bài viết yêu thích
@@ -297,6 +302,9 @@ if ($avatar && isset($avatar['avatar']) && $avatar['avatar'] !== null && $avatar
                   </a>
                   <a href="<?= get_user_link('community_manage'); ?>" class="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                      Quản lý bài cộng đồng
+                  </a>
+                  <a href="<?= get_user_link('community_saved'); ?>" class="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                     Bài cộng đồng đã lưu
                   </a>
                   <a href="<?= get_user_link('user_likes'); ?>" class="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                      Bài viết yêu thích
@@ -400,26 +408,11 @@ if (isset($_SESSION['flash_type'])) {
    <script>
       (function() {
          const toasts = <?= json_encode($toast_items, JSON_UNESCAPED_UNICODE); ?>;
-         const colors = {
-            success: '#16a34a',
-            error: '#dc2626',
-            warning: '#d97706',
-            info: '#2563eb'
-         };
-
          toasts.forEach((item, index) => {
             setTimeout(() => {
-               Toastify({
-                  text: item.text,
-                  duration: 4500,
-                  gravity: 'top',
-                  position: 'right',
-                  close: true,
-                  stopOnFocus: true,
-                  style: {
-                     background: colors[item.type] || colors.info
-                  }
-               }).showToast();
+               if (typeof showNotification === 'function') {
+                  showNotification(item.text, item.type || 'info');
+               }
             }, index * 250);
          });
       })();

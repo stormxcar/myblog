@@ -70,7 +70,8 @@ if (!function_exists('community_load_post_maps')) {
             'mediaByPost' => [],
             'linksByPost' => [],
             'commentsByPost' => [],
-            'likedPostMap' => [],
+            'reactionByPost' => [],
+            'savedByPost' => [],
             'topicsByPost' => [],
         ];
 
@@ -122,14 +123,80 @@ if (!function_exists('community_load_post_maps')) {
 
         if ($userId > 0) {
             $likeParams = array_merge($postIds, [$userId]);
-            $likeStmt = $conn->prepare("SELECT post_id FROM community_post_reactions WHERE post_id IN ({$placeholders}) AND user_id = ?");
+            $likeStmt = $conn->prepare("SELECT post_id, reaction FROM community_post_reactions WHERE post_id IN ({$placeholders}) AND user_id = ?");
             $likeStmt->execute($likeParams);
             foreach ($likeStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-                $result['likedPostMap'][(int)$row['post_id']] = true;
+                $result['reactionByPost'][(int)$row['post_id']] = (int)($row['reaction'] ?? 0);
+            }
+
+            $savedStmt = $conn->prepare("SELECT post_id FROM community_saved_posts WHERE post_id IN ({$placeholders}) AND user_id = ?");
+            $savedStmt->execute($likeParams);
+            foreach ($savedStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $result['savedByPost'][(int)$row['post_id']] = true;
             }
         }
 
         return $result;
+    }
+}
+
+if (!function_exists('community_fetch_saved_posts_page')) {
+    function community_fetch_saved_posts_page($conn, $userId, $page = 1, $limit = 8, $topicSlug = '')
+    {
+        $userId = (int)$userId;
+        $page = max(1, (int)$page);
+        $limit = max(1, min(20, (int)$limit));
+        $offset = ($page - 1) * $limit;
+        $topicSlug = trim((string)$topicSlug);
+
+        if ($userId <= 0) {
+            return [
+                'posts' => [],
+                'has_more' => false,
+                'next_page' => null,
+                'current_page' => $page,
+            ];
+        }
+
+        $topicJoin = '';
+        $topicWhere = '';
+        if ($topicSlug !== '') {
+            $topicJoin = ' INNER JOIN community_post_topics cpt ON cpt.post_id = p.id INNER JOIN community_topics ct ON ct.id = cpt.topic_id ';
+            $topicWhere = ' AND ct.slug = :topic_slug ';
+        }
+
+        $sql = "SELECT DISTINCT p.*
+            FROM community_saved_posts sp
+            INNER JOIN community_posts p ON p.id = sp.post_id
+            {$topicJoin}
+            WHERE sp.user_id = :user_id
+            AND (p.status = 'published' OR p.user_id = :owner_id)
+            {$topicWhere}
+            ORDER BY sp.created_at DESC
+            LIMIT :fetch_limit OFFSET :fetch_offset";
+
+        $stmt = $conn->prepare($sql);
+        $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
+        $stmt->bindValue(':owner_id', $userId, PDO::PARAM_INT);
+        if ($topicSlug !== '') {
+            $stmt->bindValue(':topic_slug', $topicSlug, PDO::PARAM_STR);
+        }
+        $stmt->bindValue(':fetch_limit', $limit + 1, PDO::PARAM_INT);
+        $stmt->bindValue(':fetch_offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $hasMore = count($rows) > $limit;
+        if ($hasMore) {
+            array_pop($rows);
+        }
+
+        return [
+            'posts' => $rows,
+            'has_more' => $hasMore,
+            'next_page' => $hasMore ? $page + 1 : null,
+            'current_page' => $page,
+        ];
     }
 }
 
@@ -146,11 +213,23 @@ if (!function_exists('community_render_feed_posts_html')) {
             $postMedia = $maps['mediaByPost'][$postId] ?? [];
             $postLinks = $maps['linksByPost'][$postId] ?? [];
             $postComments = $maps['commentsByPost'][$postId] ?? [];
-            $isLiked = !empty($maps['likedPostMap'][$postId]);
+            $topics = $maps['topicsByPost'][$postId] ?? [];
+            $primaryTopicSlug = (string)($topics[0]['slug'] ?? 'community');
+            $subredditName = 'r/' . ($primaryTopicSlug !== '' ? $primaryTopicSlug : 'community');
+            $postTitleRaw = trim((string)($post['post_title'] ?? ''));
+            $postTitle = $postTitleRaw !== '' ? $postTitleRaw : (function_exists('community_extract_title') ? community_extract_title((string)$post['content']) : 'Bai dang cong dong');
+            $postTitle = html_entity_decode((string)$postTitle, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $postBodyRaw = function_exists('community_extract_body') ? community_extract_body((string)$post['content']) : $contentRaw;
+            $reaction = (int)($maps['reactionByPost'][$postId] ?? 0);
+            $isUpvoted = $reaction === 1;
+            $isDownvoted = $reaction === -1;
             $isOwner = $userId > 0 && (int)$post['user_id'] === $userId;
+            $isSaved = !empty($maps['savedByPost'][$postId]);
+            $theme = function_exists('community_resolve_topic_theme') ? community_resolve_topic_theme($primaryTopicSlug) : ['card' => 'bg-gray-100 dark:bg-gray-800/70', 'badge' => 'bg-main/10 text-main', 'accent' => 'text-main'];
 
-            $safeContentHtml = nl2br(htmlspecialchars($contentRaw, ENT_QUOTES, 'UTF-8'));
-            $safeContentHtml = preg_replace_callback('/(^|[\s>])#([\p{L}\p{N}_-]{2,60})/u', function ($matches) {
+            $isFeedPage = isset($_SERVER['PHP_SELF']) && strpos((string)$_SERVER['PHP_SELF'], 'community_feed.php') !== false;
+            $safeContentHtml = nl2br(htmlspecialchars($postBodyRaw, ENT_QUOTES, 'UTF-8'));
+            $safeContentHtml = preg_replace_callback('/(^|[\s>])#([\p{L}\p{N}_-]{2,60})/u', function ($matches) use ($isFeedPage) {
                 $prefix = (string)($matches[1] ?? '');
                 $topicName = (string)($matches[2] ?? '');
                 $topicSlug = function_exists('community_slugify_topic') ? community_slugify_topic($topicName) : '';
@@ -158,9 +237,25 @@ if (!function_exists('community_render_feed_posts_html')) {
                     return $matches[0];
                 }
 
-                $topicUrl = 'community_feed.php?topic=' . rawurlencode($topicSlug);
+                $topicUrl = $isFeedPage ? ('community_feed.php?topic=' . rawurlencode($topicSlug)) : ('community_saved.php?topic=' . rawurlencode($topicSlug));
                 return $prefix . '<a href="' . htmlspecialchars($topicUrl, ENT_QUOTES, 'UTF-8') . '" class="text-main hover:underline font-medium">#' . htmlspecialchars($topicName, ENT_QUOTES, 'UTF-8') . '</a>';
             }, $safeContentHtml) ?? $safeContentHtml;
+
+            $safeTitleHtml = htmlspecialchars($postTitle, ENT_QUOTES, 'UTF-8');
+            $safeTitleHtml = preg_replace_callback('/(^|\s)#([\p{L}\p{N}_-]{2,60})/u', function ($matches) {
+                $prefix = (string)($matches[1] ?? '');
+                $topicName = (string)($matches[2] ?? '');
+                $topicSlug = function_exists('community_slugify_topic') ? community_slugify_topic($topicName) : '';
+                if ($topicSlug === '') {
+                    return $matches[0];
+                }
+
+                $topicUrl = 'community_saved.php?topic=' . rawurlencode($topicSlug);
+                if (isset($_SERVER['PHP_SELF']) && strpos((string)$_SERVER['PHP_SELF'], 'community_feed.php') !== false) {
+                    $topicUrl = 'community_feed.php?topic=' . rawurlencode($topicSlug);
+                }
+                return $prefix . '<a href="' . htmlspecialchars($topicUrl, ENT_QUOTES, 'UTF-8') . '" class="text-main hover:underline">#' . htmlspecialchars($topicName, ENT_QUOTES, 'UTF-8') . '</a>';
+            }, $safeTitleHtml) ?? $safeTitleHtml;
 
             $topLevelComments = [];
             $replyByParent = [];
@@ -176,8 +271,8 @@ if (!function_exists('community_render_feed_posts_html')) {
                 }
             }
 ?>
-            <article id="community-post-<?= $postId; ?>" class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden my-5">
-                <div class="p-4 sm:p-5 border-b border-gray-200 dark:border-gray-700">
+            <article id="community-post-<?= $postId; ?>" class="community-post-card <?= htmlspecialchars((string)$theme['card'], ENT_QUOTES, 'UTF-8'); ?> rounded-2xl shadow-md overflow-visible my-5 hover:shadow-xl transition-shadow duration-300">
+                <div class="p-4 sm:p-5 border-b border-black/5 dark:border-white/10">
                     <div class="flex items-center justify-between gap-3">
                         <div class="flex items-center gap-3 min-w-0">
                             <div class="w-10 h-10 rounded-full bg-main text-white font-semibold flex items-center justify-center shrink-0">
@@ -185,36 +280,37 @@ if (!function_exists('community_render_feed_posts_html')) {
                             </div>
                             <div class="min-w-0">
                                 <p class="font-semibold text-gray-900 dark:text-white truncate"><?= htmlspecialchars($author, ENT_QUOTES, 'UTF-8'); ?></p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400"><?= htmlspecialchars(community_time_ago((string)$post['created_at']), ENT_QUOTES, 'UTF-8'); ?></p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 truncate"><span class="font-semibold <?= htmlspecialchars((string)$theme['accent'], ENT_QUOTES, 'UTF-8'); ?>"><?= htmlspecialchars($subredditName, ENT_QUOTES, 'UTF-8'); ?></span> • <?= htmlspecialchars(community_time_ago((string)$post['created_at']), ENT_QUOTES, 'UTF-8'); ?></p>
                             </div>
                         </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-[11px] sm:text-xs px-4 py-1 rounded-full bg-main/10 text-main font-semibold whitespace-nowrap">
+                        <div class="flex items-center gap-2 shrink-0">
+                            <span class="text-[11px] sm:text-xs px-4 py-1 rounded-full font-semibold whitespace-nowrap <?= htmlspecialchars((string)$theme['badge'], ENT_QUOTES, 'UTF-8'); ?>">
                                 <?= htmlspecialchars(community_visibility_badge((string)$post['privacy'], (string)$post['status']), ENT_QUOTES, 'UTF-8'); ?>
                             </span>
-                            <?php if ($isOwner): ?>
-                                <div class="relative" data-community-owner-wrap>
-                                    <button type="button" class="w-8 h-8 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white transition-colors" data-community-owner-trigger aria-label="Tuy chon bai viet">
-                                        <i class="fas fa-ellipsis-v"></i>
-                                    </button>
-                                    <div class="hidden absolute right-0 top-10 z-20 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl overflow-hidden" data-community-owner-menu>
-                                        <a href="community_manage.php" class="flex items-center gap-2 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                                            <i class="fas fa-pen text-main"></i>
-                                            <span>Chỉnh sửa</span>
-                                        </a>
-                                        <button type="button" class="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" data-community-delete-btn data-post-id="<?= $postId; ?>">
-                                            <i class="fas fa-trash"></i>
-                                            <span>Xóa bài viết</span>
-                                        </button>
-                                    </div>
+                            <div class="relative" data-community-action-wrap>
+                                <button type="button" class="w-8 h-8 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white transition-colors" data-community-action-trigger aria-label="Menu bai viet">
+                                    <i class="fas fa-ellipsis"></i>
+                                </button>
+                                <div class="hidden absolute right-0 top-10 z-30 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl overflow-hidden" data-community-action-menu>
+                                    <button type="button" class="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700" data-community-action="save" data-post-id="<?= $postId; ?>" data-saved="<?= $isSaved ? '1' : '0'; ?>"><?= $isSaved ? 'Bo luu bai viet' : 'Luu bai viet'; ?></button>
+                                    <button type="button" class="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700" data-community-action="hide" data-post-id="<?= $postId; ?>">An bai viet</button>
+                                    <button type="button" class="w-full text-left px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20" data-community-action="report" data-post-id="<?= $postId; ?>">Bao cao bai viet</button>
+                                    <?php if ($isOwner): ?>
+                                        <div class="border-t border-gray-100 dark:border-gray-700"></div>
+                                        <a href="community_manage.php" class="block px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Chinh sua bai viet</a>
+                                        <button type="button" class="w-full text-left px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20" data-community-delete-btn data-post-id="<?= $postId; ?>">Xoa bai viet</button>
+                                    <?php endif; ?>
                                 </div>
-                            <?php endif; ?>
+                            </div>
                         </div>
                     </div>
+                    <h2 class="text-lg sm:text-xl font-bold leading-tight text-gray-900 dark:text-white mt-3 break-words"><?= $safeTitleHtml; ?></h2>
                 </div>
 
                 <div class="p-4 sm:p-5 space-y-4">
-                    <div class="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-line break-words text-sm sm:text-base"><?= $safeContentHtml; ?></div>
+                    <?php if (trim((string)$safeContentHtml) !== ''): ?>
+                        <div class="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-line break-words text-sm sm:text-base"><?= $safeContentHtml; ?></div>
+                    <?php endif; ?>
 
                     <?php if (!empty($postMedia)): ?>
                         <?php
@@ -222,37 +318,29 @@ if (!function_exists('community_render_feed_posts_html')) {
                         foreach ($postMedia as $mediaRow) {
                             $allMediaUrls[] = site_url('uploaded_img/' . ltrim((string)$mediaRow['file_path'], '/'));
                         }
-                        $visibleMedia = array_slice($allMediaUrls, 0, 4);
-                        $remainingMediaCount = max(0, count($allMediaUrls) - count($visibleMedia));
                         $allMediaJson = htmlspecialchars(json_encode($allMediaUrls, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8');
-                        $totalVisible = count($visibleMedia);
-                        $gridClass = $totalVisible === 1
-                            ? 'community-media-preview grid grid-cols-1 max-w-3xl mx-auto gap-2 sm:gap-3'
-                            : 'community-media-preview grid grid-cols-2 gap-2 sm:gap-3';
                         ?>
 
-                        <div class="<?= $gridClass; ?>" data-community-gallery data-gallery-post-id="<?= $postId; ?>" data-gallery-images="<?= $allMediaJson; ?>">
-                            <?php foreach ($visibleMedia as $imageIndex => $imageUrl): ?>
-                                <?php
-                                $itemClass = 'h-32 sm:h-40';
-                                if ($totalVisible === 1) {
-                                    $itemClass = 'h-64 sm:h-72';
-                                } elseif ($totalVisible >= 3 && $imageIndex === 0) {
-                                    $itemClass = 'col-span-2 h-44 sm:h-52';
-                                }
-                                ?>
-                                <div class="media-item rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 relative <?= $itemClass; ?>" data-gallery-index="<?= (int)$imageIndex; ?>">
-                                    <div class="community-image-spinner absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
-                                        <i class="fas fa-spinner fa-spin text-gray-400"></i>
+                        <div class="community-carousel rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden" data-community-carousel data-post-id="<?= $postId; ?>" data-gallery-images="<?= $allMediaJson; ?>">
+                            <div class="community-carousel-track" data-community-carousel-track>
+                                <?php foreach ($allMediaUrls as $imageIndex => $imageUrl): ?>
+                                    <div class="community-carousel-slide media-item" data-gallery-index="<?= (int)$imageIndex; ?>">
+                                        <div class="community-image-spinner absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
+                                            <i class="fas fa-spinner fa-spin text-gray-400"></i>
+                                        </div>
+                                        <img src="<?= htmlspecialchars($imageUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="community media" loading="lazy" class="w-full h-72 sm:h-96 object-cover bg-gray-100 dark:bg-gray-700 cursor-zoom-in community-gallery-image opacity-0 transition-opacity duration-300" data-community-lazy-image>
                                     </div>
-                                    <img src="<?= htmlspecialchars($imageUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="community media" loading="lazy" class="w-full h-full object-cover bg-gray-100 dark:bg-gray-700 cursor-zoom-in community-gallery-image opacity-0 transition-opacity duration-300" data-community-lazy-image>
-                                    <?php if ($imageIndex === 3 && $remainingMediaCount > 0): ?>
-                                        <button type="button" class="absolute inset-0 bg-black/45 hover:bg-black/55 text-white text-sm sm:text-base font-bold flex items-center justify-center transition-colors" data-community-open-gallery data-gallery-images="<?= $allMediaJson; ?>" data-gallery-start-index="3">
-                                            +<?= (int)$remainingMediaCount; ?>
-                                        </button>
-                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            </div>
+                            <?php if (count($allMediaUrls) > 1): ?>
+                                <button type="button" class="community-carousel-nav is-prev" data-community-carousel-prev aria-label="Previous image"><i class="fas fa-chevron-left"></i></button>
+                                <button type="button" class="community-carousel-nav is-next" data-community-carousel-next aria-label="Next image"><i class="fas fa-chevron-right"></i></button>
+                                <div class="community-carousel-dots" data-community-carousel-dots>
+                                    <?php foreach ($allMediaUrls as $imageIndex => $imageUrl): ?>
+                                        <button type="button" class="community-carousel-dot <?= $imageIndex === 0 ? 'is-active' : ''; ?>" data-community-carousel-dot data-dot-index="<?= (int)$imageIndex; ?>" aria-label="Den anh <?= (int)$imageIndex + 1; ?>"></button>
+                                    <?php endforeach; ?>
                                 </div>
-                            <?php endforeach; ?>
+                            <?php endif; ?>
                         </div>
                     <?php endif; ?>
 
@@ -274,23 +362,28 @@ if (!function_exists('community_render_feed_posts_html')) {
                     <?php endif; ?>
                 </div>
 
-                <div class="px-4 sm:px-5 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/40 text-sm text-gray-600 dark:text-gray-300 space-y-3">
+                <div class="px-4 sm:px-5 py-3 border-t border-black/5 dark:border-white/10 bg-white/45 dark:bg-gray-900/30 text-sm text-gray-600 dark:text-gray-300 space-y-3 rounded-b-2xl">
                     <div class="flex items-center gap-4 sm:gap-5 flex-wrap">
-                        <button type="button" class="inline-flex items-center gap-1 hover:text-rose-500 transition-colors <?= $isLiked ? 'text-rose-500' : ''; ?>" data-community-like-btn data-post-id="<?= $postId; ?>" data-liked="<?= $isLiked ? '1' : '0'; ?>" aria-pressed="<?= $isLiked ? 'true' : 'false'; ?>">
-                            <i class="fas fa-heart <?= $isLiked ? 'text-rose-500' : ''; ?> transition-colors" data-community-like-icon></i>
-                            <span id="community-like-count-<?= $postId; ?>"><?= (int)$post['total_reactions']; ?></span>
+                        <button type="button" class="inline-flex items-center gap-2 hover:text-emerald-600 transition-colors <?= $isUpvoted ? 'text-emerald-600' : ''; ?>" data-community-vote-btn data-vote="up" data-post-id="<?= $postId; ?>" aria-pressed="<?= $isUpvoted ? 'true' : 'false'; ?>">
+                            <i class="fas fa-arrow-up" data-community-upvote-icon></i>
+                            <span id="community-upvote-count-<?= $postId; ?>"><?= (int)($post['total_upvotes'] ?? 0); ?></span>
                         </button>
-                        <button type="button" class="inline-flex items-center gap-1 hover:text-main transition-colors" onclick="toggleCommunityComments(<?= $postId; ?>)">
+                        <span class="inline-flex items-center px-2.5 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold" id="community-score-count-<?= $postId; ?>"><?= (int)($post['vote_score'] ?? 0); ?></span>
+                        <button type="button" class="inline-flex items-center gap-2 hover:text-rose-600 transition-colors <?= $isDownvoted ? 'text-rose-600' : ''; ?>" data-community-vote-btn data-vote="down" data-post-id="<?= $postId; ?>" aria-pressed="<?= $isDownvoted ? 'true' : 'false'; ?>">
+                            <i class="fas fa-arrow-down" data-community-downvote-icon></i>
+                            <span id="community-downvote-count-<?= $postId; ?>"><?= (int)($post['total_downvotes'] ?? 0); ?></span>
+                        </button>
+                        <button type="button" class="inline-flex items-center gap-2 hover:text-main transition-colors" onclick="toggleCommunityComments(<?= $postId; ?>)">
                             <i class="fas fa-comment"></i>
                             <span id="community-comment-count-<?= $postId; ?>"><?= (int)$post['total_comments']; ?></span>
                         </button>
-                        <button type="button" class="inline-flex items-center gap-1 hover:text-sky-600 transition-colors" onclick="shareCommunityPost(<?= $postId; ?>)">
+                        <button type="button" class="inline-flex items-center gap-2 hover:text-sky-600 transition-colors" onclick="shareCommunityPost(<?= $postId; ?>)">
                             <i class="fas fa-share-nodes"></i>
-                            <span>Chia se</span>
+                            <span>Chia sẻ</span>
                         </button>
                     </div>
 
-                    <div id="community-comments-panel-<?= $postId; ?>" class="hidden pt-3 border-t border-gray-200 dark:border-gray-700">
+                    <div id="community-comments-panel-<?= $postId; ?>" class="hidden pt-3 border-t border-black/5 dark:border-white/10">
                         <div id="community-comments-list-<?= $postId; ?>" class="space-y-2">
                             <?php if (!empty($topLevelComments)): ?>
                                 <?php foreach ($topLevelComments as $commentRow): ?>

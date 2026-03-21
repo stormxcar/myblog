@@ -210,7 +210,7 @@ if (isset($_POST['add_comment'])) {
                         'parent_comment_id' => $parent_comment_id,
                         'user_name' => $user_name,
                         'comment' => $comment,
-                        'date' => date('d/m/Y H:i')
+                        'date' => date('d/m/Y')
                     ]
                 ]);
                 exit;
@@ -328,13 +328,16 @@ if ($user_id !== '') {
 }
 
 if (!function_exists('render_comment_branch')) {
-    function render_comment_branch($nodesByParent, $parentId, $user_id, $get_id, $depth = 0)
+    function render_comment_branch($nodesByParent, $parentId, $user_id, $get_id, $depth = 0, $topLevelIds = null)
     {
         if (!isset($nodesByParent[$parentId])) {
             return;
         }
 
         foreach ($nodesByParent[$parentId] as $fetch_comments) {
+            if ($parentId === 0 && is_array($topLevelIds) && !in_array((int)$fetch_comments['id'], $topLevelIds, true)) {
+                continue;
+            }
             $commentId = (int)$fetch_comments['id'];
             $isOwner = (string)$fetch_comments['user_id'] === (string)$user_id;
             $badge = blog_user_badge($fetch_comments['interaction_score'] ?? 0);
@@ -350,7 +353,7 @@ if (!function_exists('render_comment_branch')) {
                 echo '<span class="ml-2 px-2 py-1 text-xs bg-main text-white rounded-full">Bạn</span>';
             }
             echo '</div>';
-            echo '<div class="flex items-center space-x-2"><span class="text-sm text-gray-500 dark:text-gray-400">' . htmlspecialchars(date('d/m/Y H:i', strtotime((string)$fetch_comments['date'])), ENT_QUOTES, 'UTF-8') . '</span>';
+            echo '<div class="flex items-center space-x-2"><span class="text-sm text-gray-500 dark:text-gray-400">' . htmlspecialchars(date('d/m/Y', strtotime((string)$fetch_comments['date'])), ENT_QUOTES, 'UTF-8') . '</span>';
             if ($isOwner) {
                 echo '<div class="relative">';
                 echo '<button onclick="toggleCommentMenu(' . $commentId . ')" class="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"><i class="fas fa-ellipsis-v text-gray-400"></i></button>';
@@ -498,7 +501,7 @@ render_breadcrumb($breadcrumb_items);
                                         </a>
                                         <div class="text-gray-500 dark:text-gray-400 text-sm">
                                             <i class="fas fa-clock mr-1"></i>
-                                            <?= date('d/m/Y H:i', strtotime($fetch_posts['date'])); ?>
+                                            <?= date('d/m/Y', strtotime($fetch_posts['date'])); ?>
                                         </div>
                                     </div>
                                 </div>
@@ -618,7 +621,6 @@ render_breadcrumb($breadcrumb_items);
                     </div>
                 </div>
                 <p id="aiSummaryText" class="text-sm text-gray-700 dark:text-gray-300 leading-6 whitespace-pre-line"><?= htmlspecialchars($aiSummary, ENT_QUOTES, 'UTF-8'); ?></p>
-                <p id="aiSummaryMeta" class="mt-3 text-xs text-gray-500 dark:text-gray-400">Nguồn: tóm tắt nội bộ (mặc định ban đầu)</p>
                 <div id="aiSummaryDebugWrap" class="hidden mt-3 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 p-3 text-xs dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
                     <p class="font-semibold mb-1">Chi tiết lỗi Gemini</p>
                     <pre id="aiSummaryDebug" class="whitespace-pre-wrap break-words"></pre>
@@ -639,6 +641,19 @@ render_breadcrumb($breadcrumb_items);
                     <!-- Comments List -->
                     <div id="commentsList" class="space-y-6 order-1">
                         <?php
+                        $commentsPerPage = 10;
+                        $commentsPage = max(1, (int)($_GET['comments_page'] ?? 1));
+
+                        $select_total_comments = $conn->prepare("SELECT COUNT(*) FROM `comments` WHERE post_id = ? AND parent_comment_id IN (0, NULL)");
+                        $select_total_comments->execute([$get_id]);
+                        $totalTopLevel = (int)$select_total_comments->fetchColumn();
+                        $pagesCount = max(1, (int)ceil($totalTopLevel / $commentsPerPage));
+                        if ($commentsPage > $pagesCount) {
+                            $commentsPage = $pagesCount;
+                        }
+
+                        $offset = ($commentsPage - 1) * $commentsPerPage;
+
                         $select_comments = $conn->prepare("SELECT c.*, COALESCE(u.level_of_interaction, 0) AS interaction_score,
                     COALESCE((SELECT SUM(v.vote) FROM comment_votes v WHERE v.comment_id = c.id), 0) AS vote_score,
                     COALESCE((SELECT SUM(CASE WHEN v.vote = 1 THEN 1 ELSE 0 END) FROM comment_votes v WHERE v.comment_id = c.id), 0) AS up_count,
@@ -661,7 +676,19 @@ render_breadcrumb($breadcrumb_items);
                                 $nodesByParent[$parentId][] = $commentRow;
                             }
 
-                            render_comment_branch($nodesByParent, 0, $user_id, $get_id, 0);
+                            $topLevelIds = array_column($nodesByParent[0] ?? [], 'id');
+                            $pageTopLevelIds = array_slice($topLevelIds, $offset, $commentsPerPage);
+                            render_comment_branch($nodesByParent, 0, $user_id, $get_id, 0, array_map('intval', $pageTopLevelIds));
+
+                            if ($pagesCount > 1) {
+                                echo '<div class="mt-6 flex justify-center space-x-2">';
+                                for ($p = 1; $p <= $pagesCount; $p++) {
+                                    $active = $p === $commentsPage ? 'bg-main text-white' : 'bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-200';
+                                    $url = '?id=' . (int)$get_id . '&comments_page=' . $p;
+                                    echo '<a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" class="px-3 py-1 rounded-lg border border-gray-300 dark:border-gray-700 ' . $active . '">' . $p . '</a>';
+                                }
+                                echo '</div>';
+                            }
                         } else {
                             echo '<div id="commentEmptyState" class="text-center py-8">';
                             echo '<i class="fas fa-comment-slash text-4xl text-gray-300 dark:text-gray-600 mb-4"></i>';
@@ -730,7 +757,7 @@ render_breadcrumb($breadcrumb_items);
                                 <?php endwhile; ?>
                             </div>
                         <?php else: ?>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Chua du du lieu de de xuat ca nhan hoa.</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Chưa đủ dữ liệu cho bạn.</p>
                         <?php endif; ?>
                     </div>
                 </aside>
@@ -941,7 +968,13 @@ render_breadcrumb($breadcrumb_items);
                     body: body.toString()
                 });
 
-                const data = await res.json();
+                const text = await res.text();
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (parseError) {
+                    throw new Error('Kết quả trả về không phải JSON: ' + parseError.message + ' | Raw: ' + text.slice(0, 256));
+                }
                 if (!data || !data.ok) {
                     throw new Error(data && data.message ? data.message : 'Không thể tạo tóm tắt lúc này.');
                 }
@@ -1102,7 +1135,38 @@ render_breadcrumb($breadcrumb_items);
             actionRow.appendChild(toggleBtn);
         }
 
+        function initReplyLoadMore() {
+            document.querySelectorAll('[id^="replies-"]').forEach(function(container) {
+                const replies = Array.from(container.children).filter(function(child) {
+                    return child.nodeType === Node.ELEMENT_NODE;
+                });
+                if (replies.length <= 2) {
+                    return;
+                }
+
+                replies.slice(2).forEach(function(child) {
+                    child.classList.add('hidden');
+                });
+
+                const parentId = container.id.replace('replies-', '');
+                const showMoreBtn = document.createElement('button');
+                showMoreBtn.type = 'button';
+                showMoreBtn.className = 'px-3 py-1 text-xs text-main border border-main rounded-lg hover:bg-main/10 transition';
+                showMoreBtn.textContent = 'Xem thêm ' + (replies.length - 2) + ' phản hồi';
+
+                showMoreBtn.addEventListener('click', function() {
+                    replies.slice(2).forEach(function(child) {
+                        child.classList.remove('hidden');
+                    });
+                    showMoreBtn.remove();
+                });
+
+                container.insertAdjacentElement('afterend', showMoreBtn);
+            });
+        }
+
         if (commentForm && commentsList) {
+            initReplyLoadMore();
             commentForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
 

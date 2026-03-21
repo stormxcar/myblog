@@ -42,9 +42,72 @@ render_breadcrumb($breadcrumb_items);
             overflow: hidden;
         }
 
-        [data-community-like-btn][data-liked="1"],
-        [data-community-like-btn][data-liked="1"] [data-community-like-icon] {
-            color: rgb(244 63 94);
+        .community-carousel {
+            position: relative;
+        }
+
+        .community-carousel-track {
+            display: flex;
+            width: 100%;
+            transition: transform 0.35s ease;
+        }
+
+        .community-carousel-slide {
+            position: relative;
+            min-width: 100%;
+        }
+
+        .community-carousel-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 36px;
+            height: 36px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.55);
+            background: rgba(15, 23, 42, 0.55);
+            color: #fff;
+            z-index: 4;
+            transition: background-color 0.2s ease;
+        }
+
+        .community-carousel-nav:hover {
+            background: rgba(15, 23, 42, 0.85);
+        }
+
+        .community-carousel-nav.is-prev {
+            left: 10px;
+        }
+
+        .community-carousel-nav.is-next {
+            right: 10px;
+        }
+
+        .community-carousel-dots {
+            position: absolute;
+            left: 50%;
+            bottom: 10px;
+            transform: translateX(-50%);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            z-index: 4;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: rgba(2, 6, 23, 0.45);
+        }
+
+        .community-carousel-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.6);
+            transition: transform 0.2s ease, background-color 0.2s ease;
+        }
+
+        .community-carousel-dot.is-active {
+            background: #ffffff;
+            transform: scale(1.18);
         }
 
         #community-gallery-modal.open {
@@ -141,7 +204,7 @@ render_breadcrumb($breadcrumb_items);
 
         <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             <div class="w-full lg:col-span-7 xl:col-span-8">
-                <div id="community-feed-list" class="space-y-6 max-w-4xl mx-auto w-full" data-next-page="<?= $firstBundle['next_page'] === null ? '' : (int)$firstBundle['next_page']; ?>" data-has-more="<?= $firstBundle['has_more'] ? '1' : '0'; ?>" data-topic="<?= htmlspecialchars($activeTopicSlug, ENT_QUOTES, 'UTF-8'); ?>">
+                <div id="community-feed-list" class="space-y-6 mx-auto w-full" style="max-width:850px;" data-next-page="<?= $firstBundle['next_page'] === null ? '' : (int)$firstBundle['next_page']; ?>" data-has-more="<?= $firstBundle['has_more'] ? '1' : '0'; ?>" data-topic="<?= htmlspecialchars($activeTopicSlug, ENT_QUOTES, 'UTF-8'); ?>">
                     <?php if (!empty($firstBundle['posts'])): ?>
                         <?= $firstPostsHtml; ?>
                     <?php else: ?>
@@ -155,7 +218,7 @@ render_breadcrumb($breadcrumb_items);
                     <?php endif; ?>
                 </div>
 
-                <div id="community-feed-skeleton" class="hidden mt-4 space-y-4 max-w-4xl mx-auto w-full" aria-hidden="true">
+                <div id="community-feed-skeleton" class="hidden mt-4 space-y-4 mx-auto w-full" style="max-width:850px;" aria-hidden="true">
                     <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-5 animate-pulse">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700"></div>
@@ -185,11 +248,11 @@ render_breadcrumb($breadcrumb_items);
                     </section>
                 </div>
 
-                <div id="community-feed-loading" class="hidden mt-4 text-center text-sm text-gray-500 dark:text-gray-400 max-w-4xl mx-auto w-full">
+                <div id="community-feed-loading" class="hidden mt-4 text-center text-sm text-gray-500 dark:text-gray-400 mx-auto w-full" style="max-width:850px;">
                     <i class="fas fa-spinner fa-spin mr-2"></i>Đang tải thêm bài viết...
                 </div>
-                <div id="community-feed-end" class="hidden mt-4 text-center text-xs text-gray-500 dark:text-gray-400 max-w-4xl mx-auto w-full">Bạn đã xem hết bài viết.</div>
-                <div id="community-feed-sentinel" class="h-8 max-w-4xl mx-auto w-full"></div>
+                <div id="community-feed-end" class="hidden mt-4 text-center text-xs text-gray-500 dark:text-gray-400 mx-auto w-full" style="max-width:850px;">Bạn đã xem hết bài viết.</div>
+                <div id="community-feed-sentinel" class="h-8 mx-auto w-full" style="max-width:850px;"></div>
             </div>
 
             <aside class="space-y-4 lg:sticky lg:top-24 lg:col-span-5 xl:col-span-4">
@@ -266,6 +329,7 @@ render_breadcrumb($breadcrumb_items);
     </div>
 </div>
 
+<script src="../js/community-feed-shared.js"></script>
 <script>
     (function() {
         const feedList = document.getElementById('community-feed-list');
@@ -292,6 +356,7 @@ render_breadcrumb($breadcrumb_items);
         let galleryImages = [];
         let currentGalleryIndex = 0;
         let currentZoom = 1;
+        const shared = window.CommunityFeedShared ? window.CommunityFeedShared.create({}) : null;
 
         if (!feedList) {
             return;
@@ -311,6 +376,13 @@ render_breadcrumb($breadcrumb_items);
                 return window.BLOG_ENDPOINTS.communityManage;
             }
             return 'community_post_manage_api.php';
+        };
+
+        const getActionEndpoint = () => {
+            if (window.BLOG_ENDPOINTS && window.BLOG_ENDPOINTS.communityAction) {
+                return window.BLOG_ENDPOINTS.communityAction;
+            }
+            return 'community_action_api.php';
         };
 
         const setLoading = (value) => {
@@ -478,6 +550,11 @@ render_breadcrumb($breadcrumb_items);
 
                 if (payload.html) {
                     feedList.insertAdjacentHTML('beforeend', String(payload.html));
+                    if (shared) {
+                        shared.initCarousels(feedList);
+                    } else {
+                        initCarousels(feedList);
+                    }
                 }
                 feedList.setAttribute('data-next-page', payload.next_page ? String(payload.next_page) : '');
                 setHasMore(!!payload.has_more);
@@ -489,8 +566,9 @@ render_breadcrumb($breadcrumb_items);
             }
         }
 
-        async function toggleLike(button) {
+        async function submitVote(button) {
             const postId = Number(button.getAttribute('data-post-id') || '0');
+            const voteType = String(button.getAttribute('data-vote') || 'up');
             if (!postId) {
                 return;
             }
@@ -502,6 +580,7 @@ render_breadcrumb($breadcrumb_items);
                     'community_react.php';
                 const fd = new FormData();
                 fd.set('post_id', String(postId));
+                fd.set('vote', voteType);
 
                 const res = await fetch(endpoint, {
                     method: 'POST',
@@ -520,26 +599,187 @@ render_breadcrumb($breadcrumb_items);
                         }, 500);
                         return;
                     }
-                    showNotification((payload && payload.message) || 'Khong the thich bai viet.', 'error');
+                    showNotification((payload && payload.message) || 'Khong the vote bai viet.', 'error');
                     return;
                 }
 
-                const countEl = document.getElementById('community-like-count-' + postId);
-                if (countEl) {
-                    countEl.textContent = String(payload.total_reactions || 0);
+                const upBtn = document.querySelector('[data-community-vote-btn][data-vote="up"][data-post-id="' + postId + '"]');
+                const downBtn = document.querySelector('[data-community-vote-btn][data-vote="down"][data-post-id="' + postId + '"]');
+                const upCountEl = document.getElementById('community-upvote-count-' + postId);
+                const downCountEl = document.getElementById('community-downvote-count-' + postId);
+                const scoreEl = document.getElementById('community-score-count-' + postId);
+
+                if (upCountEl) {
+                    upCountEl.textContent = String(payload.total_upvotes || 0);
                 }
-                const liked = !!payload.liked;
-                button.classList.toggle('text-rose-500', liked);
-                button.setAttribute('data-liked', liked ? '1' : '0');
-                button.setAttribute('aria-pressed', liked ? 'true' : 'false');
-                const likeIcon = button.querySelector('[data-community-like-icon]');
-                if (likeIcon) {
-                    likeIcon.classList.toggle('text-rose-500', liked);
+                if (downCountEl) {
+                    downCountEl.textContent = String(payload.total_downvotes || 0);
+                }
+                if (scoreEl) {
+                    scoreEl.textContent = String(payload.vote_score || 0);
+                }
+
+                const reaction = Number(payload.reaction || 0);
+                if (upBtn) {
+                    const activeUp = reaction === 1;
+                    upBtn.classList.toggle('text-emerald-600', activeUp);
+                    upBtn.setAttribute('aria-pressed', activeUp ? 'true' : 'false');
+                }
+                if (downBtn) {
+                    const activeDown = reaction === -1;
+                    downBtn.classList.toggle('text-rose-600', activeDown);
+                    downBtn.setAttribute('aria-pressed', activeDown ? 'true' : 'false');
                 }
             } catch (err) {
-                showNotification('Loi ket noi khi thich bai viet.', 'error');
+                showNotification('Loi ket noi khi vote bai viet.', 'error');
             } finally {
                 button.disabled = false;
+            }
+        }
+
+        function initCarousels(root) {
+            const scope = root || document;
+            scope.querySelectorAll('[data-community-carousel]').forEach(function(carousel) {
+                if (carousel.dataset.carouselBound === '1') {
+                    return;
+                }
+                carousel.dataset.carouselBound = '1';
+
+                const track = carousel.querySelector('[data-community-carousel-track]');
+                if (!track) {
+                    return;
+                }
+
+                const slides = Array.from(track.children);
+                if (!slides.length) {
+                    return;
+                }
+
+                let index = 0;
+                const dots = Array.from(carousel.querySelectorAll('[data-community-carousel-dot]'));
+                const update = function() {
+                    track.style.transform = 'translateX(-' + (index * 100) + '%)';
+                    dots.forEach(function(dot, dotIndex) {
+                        dot.classList.toggle('is-active', dotIndex === index);
+                    });
+                };
+
+                const prevBtn = carousel.querySelector('[data-community-carousel-prev]');
+                const nextBtn = carousel.querySelector('[data-community-carousel-next]');
+
+                if (prevBtn) {
+                    prevBtn.addEventListener('click', function(event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        index = (index - 1 + slides.length) % slides.length;
+                        update();
+                    });
+                }
+
+                if (nextBtn) {
+                    nextBtn.addEventListener('click', function(event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        index = (index + 1) % slides.length;
+                        update();
+                    });
+                }
+
+                dots.forEach(function(dot) {
+                    dot.addEventListener('click', function(event) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        const nextIndex = Number(dot.getAttribute('data-dot-index') || '0');
+                        index = Math.max(0, Math.min(nextIndex, slides.length - 1));
+                        update();
+                    });
+                });
+
+                update();
+            });
+        }
+
+        async function handleCardAction(action, postId, actionButton) {
+            if (!action || !postId) {
+                return;
+            }
+
+            if (action === 'hide') {
+                const postEl = document.getElementById('community-post-' + postId);
+                if (postEl) {
+                    postEl.remove();
+                }
+                showNotification('Da an bai viet khoi bang tin.', 'info');
+                return;
+            }
+
+            if (action === 'save') {
+                try {
+                    const fd = new FormData();
+                    fd.set('action', 'save');
+                    fd.set('post_id', String(postId));
+                    const res = await fetch(getActionEndpoint(), {
+                        method: 'POST',
+                        body: fd,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin'
+                    });
+                    const payload = await res.json();
+                    if (!payload || payload.ok !== true) {
+                        if (payload && payload.login_required && payload.login_url) {
+                            showNotification(payload.message || 'Ban can dang nhap.', 'warning');
+                            setTimeout(function() {
+                                window.location.href = payload.login_url;
+                            }, 500);
+                            return;
+                        }
+                        showNotification((payload && payload.message) || 'Khong the luu bai viet.', 'error');
+                        return;
+                    }
+
+                    if (actionButton) {
+                        const isSaved = Number(payload.saved || 0) === 1;
+                        actionButton.setAttribute('data-saved', isSaved ? '1' : '0');
+                        actionButton.textContent = isSaved ? 'Bo luu bai viet' : 'Luu bai viet';
+                    }
+                    showNotification(payload.message || 'Da cap nhat bai viet da luu.', 'success');
+                } catch (err) {
+                    showNotification('Loi ket noi khi luu bai viet.', 'error');
+                }
+                return;
+            }
+
+            if (action === 'report') {
+                try {
+                    const fd = new FormData();
+                    fd.set('action', 'report');
+                    fd.set('post_id', String(postId));
+                    const res = await fetch(getActionEndpoint(), {
+                        method: 'POST',
+                        body: fd,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin'
+                    });
+                    const payload = await res.json();
+                    if (!payload || payload.ok !== true) {
+                        if (payload && payload.login_required && payload.login_url) {
+                            showNotification(payload.message || 'Ban can dang nhap.', 'warning');
+                            setTimeout(function() {
+                                window.location.href = payload.login_url;
+                            }, 500);
+                            return;
+                        }
+                        showNotification((payload && payload.message) || 'Khong the bao cao bai viet.', 'error');
+                        return;
+                    }
+                    showNotification(payload.message || 'Da gui bao cao.', 'warning');
+                } catch (err) {
+                    showNotification('Loi ket noi khi bao cao bai viet.', 'error');
+                }
             }
         }
 
@@ -670,6 +910,10 @@ render_breadcrumb($breadcrumb_items);
         }
 
         document.addEventListener('click', function(event) {
+            if (shared && shared.handleClick(event)) {
+                return;
+            }
+
             const ownerTrigger = event.target.closest('[data-community-owner-trigger]');
             if (ownerTrigger) {
                 event.preventDefault();
@@ -696,27 +940,51 @@ render_breadcrumb($breadcrumb_items);
                 });
             }
 
-            const likeButton = event.target.closest('[data-community-like-btn]');
-            if (likeButton) {
+            const actionTrigger = event.target.closest('[data-community-action-trigger]');
+            if (actionTrigger) {
                 event.preventDefault();
-                toggleLike(likeButton);
+                const wrap = actionTrigger.closest('[data-community-action-wrap]');
+                const menu = wrap ? wrap.querySelector('[data-community-action-menu]') : null;
+                if (!menu) {
+                    return;
+                }
+                document.querySelectorAll('[data-community-action-menu]').forEach(function(otherMenu) {
+                    if (otherMenu !== menu) {
+                        otherMenu.classList.add('hidden');
+                    }
+                });
+                menu.classList.toggle('hidden');
+                return;
+            }
+
+            if (!event.target.closest('[data-community-action-wrap]')) {
+                document.querySelectorAll('[data-community-action-menu]').forEach(function(menu) {
+                    menu.classList.add('hidden');
+                });
+            }
+
+            const actionButton = event.target.closest('[data-community-action]');
+            if (actionButton) {
+                event.preventDefault();
+                const action = String(actionButton.getAttribute('data-community-action') || '');
+                const postId = Number(actionButton.getAttribute('data-post-id') || '0');
+                handleCardAction(action, postId, actionButton);
+                return;
+            }
+
+            const voteButton = event.target.closest('[data-community-vote-btn]');
+            if (voteButton) {
+                event.preventDefault();
+                submitVote(voteButton);
+                return;
             }
 
             const mediaImage = event.target.closest('[data-community-lazy-image]');
             if (mediaImage) {
-                const galleryRoot = mediaImage.closest('[data-community-gallery]');
+                const galleryRoot = mediaImage.closest('[data-community-carousel]');
                 const images = parseGalleryImages(galleryRoot ? galleryRoot.getAttribute('data-gallery-images') : '');
                 const imageWrap = mediaImage.closest('[data-gallery-index]');
                 const startIndex = imageWrap ? Number(imageWrap.getAttribute('data-gallery-index') || '0') : 0;
-                openGalleryModal(images, startIndex);
-                return;
-            }
-
-            const openGalleryBtn = event.target.closest('[data-community-open-gallery]');
-            if (openGalleryBtn) {
-                event.preventDefault();
-                const images = parseGalleryImages(openGalleryBtn.getAttribute('data-gallery-images'));
-                const startIndex = Number(openGalleryBtn.getAttribute('data-gallery-start-index') || '0');
                 openGalleryModal(images, startIndex);
                 return;
             }
@@ -893,6 +1161,12 @@ render_breadcrumb($breadcrumb_items);
                 threshold: 0.01
             });
             observer.observe(sentinel);
+        }
+
+        if (shared) {
+            shared.initCarousels(feedList);
+        } else {
+            initCarousels(feedList);
         }
     })();
 

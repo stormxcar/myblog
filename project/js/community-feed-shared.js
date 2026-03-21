@@ -1,0 +1,499 @@
+(function () {
+  if (window.CommunityFeedShared) {
+    return;
+  }
+
+  const REASONS = [
+    "Spam hoặc quảng cáo",
+    "Nội dung quấy rối / thù ghét",
+    "Thông tin sai lệch",
+    "Nội dung bạo lực / phản cảm",
+    "Vi phạm bản quyền",
+    "Lừa đảo hoặc mạo danh",
+  ];
+
+  function ensureReportModal() {
+    let modal = document.getElementById("community-report-modal");
+    if (modal) {
+      return modal;
+    }
+
+    const style = document.createElement("style");
+    style.textContent =
+      ".community-report-tag{border:1px solid #cbd5e1;border-radius:9999px;padding:.45rem .8rem;font-size:.84rem;}" +
+      ".community-report-tag.is-active{background:#e0f2fe;border-color:#38bdf8;color:#0c4a6e;}";
+    document.head.appendChild(style);
+
+    modal = document.createElement("div");
+    modal.id = "community-report-modal";
+    modal.className = "hidden fixed inset-0 z-[10060] bg-black/50 p-4";
+    modal.innerHTML =
+      '<div class="min-h-full w-full flex items-center justify-center">' +
+      '<div class="w-full max-w-lg bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-2xl p-5 sm:p-6">' +
+      '<h3 class="text-lg font-bold text-gray-900 dark:text-white">Chọn lý do báo cáo</h3>' +
+      '<p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Hãy chọn lý do phù hợp nhất cho bài viết này.</p>' +
+      '<div id="community-report-reason-tags" class="mt-4 flex flex-wrap gap-2"></div>' +
+      '<label class="mt-4 block text-sm font-semibold text-gray-800 dark:text-gray-200">Hoặc nhập lý do khác</label>' +
+      '<textarea id="community-report-custom-reason" rows="3" maxlength="1000" class="form-textarea mt-2" placeholder="Nhập lý do bạn muốn báo cáo..."></textarea>' +
+      '<div class="mt-5 flex items-center justify-end gap-2">' +
+      '<button type="button" id="community-report-cancel" class="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">Hủy</button>' +
+      '<button type="button" id="community-report-confirm" class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">Gửi báo cáo</button>' +
+      "</div></div></div>";
+
+    document.body.appendChild(modal);
+    return modal;
+  }
+
+  function openReportReasonPicker() {
+    const modal = ensureReportModal();
+    const tagsWrap = modal.querySelector("#community-report-reason-tags");
+    const customInput = modal.querySelector("#community-report-custom-reason");
+    const cancelBtn = modal.querySelector("#community-report-cancel");
+    const confirmBtn = modal.querySelector("#community-report-confirm");
+
+    tagsWrap.innerHTML = "";
+    customInput.value = "";
+    let activeReason = "";
+
+    REASONS.forEach(function (reason) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "community-report-tag";
+      btn.textContent = reason;
+      btn.addEventListener("click", function () {
+        activeReason = reason;
+        customInput.value = "";
+        tagsWrap
+          .querySelectorAll(".community-report-tag")
+          .forEach(function (tagBtn) {
+            tagBtn.classList.remove("is-active");
+          });
+        btn.classList.add("is-active");
+      });
+      tagsWrap.appendChild(btn);
+    });
+
+    modal.classList.remove("hidden");
+
+    return new Promise(function (resolve) {
+      const cleanup = function () {
+        modal.classList.add("hidden");
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = "Gửi báo cáo";
+        cancelBtn.removeEventListener("click", onCancel);
+        confirmBtn.removeEventListener("click", onConfirm);
+      };
+
+      const onCancel = function () {
+        cleanup();
+        resolve(null);
+      };
+
+      const onConfirm = function () {
+        const customReason = String(customInput.value || "").trim();
+        const reason = customReason || activeReason;
+        if (!reason) {
+          if (typeof showNotification === "function") {
+            showNotification(
+              "Vui lòng chọn hoặc nhập lý do báo cáo.",
+              "warning",
+            );
+          }
+          return;
+        }
+        cleanup();
+        resolve(reason);
+      };
+
+      cancelBtn.addEventListener("click", onCancel);
+      confirmBtn.addEventListener("click", onConfirm);
+    });
+  }
+
+  function create(options) {
+    const opts = options || {};
+
+    const getActionEndpoint = function () {
+      if (typeof opts.getActionEndpoint === "function") {
+        return opts.getActionEndpoint();
+      }
+      if (window.BLOG_ENDPOINTS && window.BLOG_ENDPOINTS.communityAction) {
+        return window.BLOG_ENDPOINTS.communityAction;
+      }
+      return "community_action_api.php";
+    };
+
+    const getReactEndpoint = function () {
+      if (typeof opts.getReactEndpoint === "function") {
+        return opts.getReactEndpoint();
+      }
+      if (window.BLOG_ENDPOINTS && window.BLOG_ENDPOINTS.communityReact) {
+        return window.BLOG_ENDPOINTS.communityReact;
+      }
+      return "community_react.php";
+    };
+
+    const onPostRemoved = function (postId) {
+      if (typeof opts.onPostRemoved === "function") {
+        opts.onPostRemoved(postId);
+      }
+    };
+
+    function initCarousels(root) {
+      const scope = root || document;
+      scope
+        .querySelectorAll("[data-community-carousel]")
+        .forEach(function (carousel) {
+          if (carousel.dataset.carouselBound === "1") {
+            return;
+          }
+          carousel.dataset.carouselBound = "1";
+
+          const track = carousel.querySelector(
+            "[data-community-carousel-track]",
+          );
+          if (!track) {
+            return;
+          }
+
+          const slides = Array.from(track.children);
+          if (!slides.length) {
+            return;
+          }
+
+          let index = 0;
+          const dots = Array.from(
+            carousel.querySelectorAll("[data-community-carousel-dot]"),
+          );
+          const update = function () {
+            track.style.transform = "translateX(-" + index * 100 + "%)";
+            dots.forEach(function (dot, dotIndex) {
+              dot.classList.toggle("is-active", dotIndex === index);
+            });
+          };
+
+          const prevBtn = carousel.querySelector(
+            "[data-community-carousel-prev]",
+          );
+          const nextBtn = carousel.querySelector(
+            "[data-community-carousel-next]",
+          );
+
+          if (prevBtn) {
+            prevBtn.addEventListener("click", function (event) {
+              event.preventDefault();
+              event.stopPropagation();
+              index = (index - 1 + slides.length) % slides.length;
+              update();
+            });
+          }
+
+          if (nextBtn) {
+            nextBtn.addEventListener("click", function (event) {
+              event.preventDefault();
+              event.stopPropagation();
+              index = (index + 1) % slides.length;
+              update();
+            });
+          }
+
+          dots.forEach(function (dot) {
+            dot.addEventListener("click", function (event) {
+              event.preventDefault();
+              event.stopPropagation();
+              const nextIndex = Number(
+                dot.getAttribute("data-dot-index") || "0",
+              );
+              index = Math.max(0, Math.min(nextIndex, slides.length - 1));
+              update();
+            });
+          });
+
+          update();
+        });
+    }
+
+    async function submitVote(button) {
+      const postId = Number(button.getAttribute("data-post-id") || "0");
+      const voteType = String(button.getAttribute("data-vote") || "up");
+      if (!postId) {
+        return;
+      }
+
+      button.disabled = true;
+      try {
+        const fd = new FormData();
+        fd.set("post_id", String(postId));
+        fd.set("vote", voteType);
+
+        const res = await fetch(getReactEndpoint(), {
+          method: "POST",
+          body: fd,
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+          },
+          credentials: "same-origin",
+        });
+
+        const payload = await res.json();
+        if (!payload || payload.ok !== true) {
+          if (payload && payload.login_required && payload.login_url) {
+            if (typeof showNotification === "function") {
+              showNotification(
+                payload.message || "Bạn cần đăng nhập.",
+                "warning",
+              );
+            }
+            setTimeout(function () {
+              window.location.href = payload.login_url;
+            }, 500);
+            return;
+          }
+          if (typeof showNotification === "function") {
+            showNotification(
+              (payload && payload.message) || "Không thể vote bài viết.",
+              "error",
+            );
+          }
+          return;
+        }
+
+        const upBtn = document.querySelector(
+          '[data-community-vote-btn][data-vote="up"][data-post-id="' +
+            postId +
+            '"]',
+        );
+        const downBtn = document.querySelector(
+          '[data-community-vote-btn][data-vote="down"][data-post-id="' +
+            postId +
+            '"]',
+        );
+        const upCountEl = document.getElementById(
+          "community-upvote-count-" + postId,
+        );
+        const downCountEl = document.getElementById(
+          "community-downvote-count-" + postId,
+        );
+        const scoreEl = document.getElementById(
+          "community-score-count-" + postId,
+        );
+
+        if (upCountEl) {
+          upCountEl.textContent = String(payload.total_upvotes || 0);
+        }
+        if (downCountEl) {
+          downCountEl.textContent = String(payload.total_downvotes || 0);
+        }
+        if (scoreEl) {
+          scoreEl.textContent = String(payload.vote_score || 0);
+        }
+
+        const reaction = Number(payload.reaction || 0);
+        if (upBtn) {
+          upBtn.classList.toggle("text-emerald-600", reaction === 1);
+          upBtn.setAttribute("aria-pressed", reaction === 1 ? "true" : "false");
+        }
+        if (downBtn) {
+          downBtn.classList.toggle("text-rose-600", reaction === -1);
+          downBtn.setAttribute(
+            "aria-pressed",
+            reaction === -1 ? "true" : "false",
+          );
+        }
+      } catch (err) {
+        if (typeof showNotification === "function") {
+          showNotification("Lỗi kết nối khi vote bài viết.", "error");
+        }
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function handleCardAction(action, postId, actionButton) {
+      if (!action || !postId) {
+        return;
+      }
+
+      if (action === "hide") {
+        const postEl = document.getElementById("community-post-" + postId);
+        if (postEl) {
+          postEl.remove();
+          onPostRemoved(postId);
+        }
+        if (typeof showNotification === "function") {
+          showNotification("Đã ẩn bài viết.", "info");
+        }
+        return;
+      }
+
+      if (action === "save") {
+        try {
+          const fd = new FormData();
+          fd.set("action", "save");
+          fd.set("post_id", String(postId));
+
+          const res = await fetch(getActionEndpoint(), {
+            method: "POST",
+            body: fd,
+            headers: {
+              "X-Requested-With": "XMLHttpRequest",
+            },
+            credentials: "same-origin",
+          });
+          const payload = await res.json();
+
+          if (!payload || payload.ok !== true) {
+            if (typeof showNotification === "function") {
+              showNotification(
+                (payload && payload.message) || "Không thể lưu bài viết.",
+                "error",
+              );
+            }
+            return;
+          }
+
+          if (actionButton) {
+            const isSaved = Number(payload.saved || 0) === 1;
+            actionButton.setAttribute("data-saved", isSaved ? "1" : "0");
+            actionButton.textContent = isSaved
+              ? "Bỏ lưu bài viết"
+              : "Lưu bài viết";
+          }
+
+          if (typeof showNotification === "function") {
+            showNotification(
+              payload.message || "Đã cập nhật bài viết đã lưu.",
+              "success",
+            );
+          }
+        } catch (err) {
+          if (typeof showNotification === "function") {
+            showNotification("Lỗi kết nối khi lưu bài viết.", "error");
+          }
+        }
+        return;
+      }
+
+      if (action === "report") {
+        const reason = await openReportReasonPicker();
+        if (!reason) {
+          return;
+        }
+
+        try {
+          const fd = new FormData();
+          fd.set("action", "report");
+          fd.set("post_id", String(postId));
+          fd.set("reason", reason);
+
+          const res = await fetch(getActionEndpoint(), {
+            method: "POST",
+            body: fd,
+            headers: {
+              "X-Requested-With": "XMLHttpRequest",
+            },
+            credentials: "same-origin",
+          });
+          const payload = await res.json();
+
+          if (!payload || payload.ok !== true) {
+            if (typeof showNotification === "function") {
+              showNotification(
+                (payload && payload.message) || "Không thể báo cáo bài viết.",
+                "error",
+              );
+            }
+            return;
+          }
+
+          if (typeof showNotification === "function") {
+            showNotification(payload.message || "Đã gửi báo cáo.", "warning");
+          }
+        } catch (err) {
+          if (typeof showNotification === "function") {
+            showNotification("Lỗi kết nối khi báo cáo bài viết.", "error");
+          }
+        }
+      }
+    }
+
+    function handleClick(event) {
+      const actionTrigger = event.target.closest(
+        "[data-community-action-trigger]",
+      );
+      if (actionTrigger) {
+        event.preventDefault();
+        const wrap = actionTrigger.closest("[data-community-action-wrap]");
+        const menu = wrap
+          ? wrap.querySelector("[data-community-action-menu]")
+          : null;
+        if (!menu) {
+          return false;
+        }
+        document
+          .querySelectorAll("[data-community-action-menu]")
+          .forEach(function (otherMenu) {
+            if (otherMenu !== menu) {
+              otherMenu.classList.add("hidden");
+            }
+          });
+        menu.classList.toggle("hidden");
+        return true;
+      }
+
+      if (!event.target.closest("[data-community-action-wrap]")) {
+        document
+          .querySelectorAll("[data-community-action-menu]")
+          .forEach(function (menu) {
+            menu.classList.add("hidden");
+          });
+      }
+
+      const actionButton = event.target.closest("[data-community-action]");
+      if (actionButton) {
+        event.preventDefault();
+        const action = String(
+          actionButton.getAttribute("data-community-action") || "",
+        );
+        const postId = Number(actionButton.getAttribute("data-post-id") || "0");
+        handleCardAction(action, postId, actionButton);
+        return true;
+      }
+
+      const voteButton = event.target.closest("[data-community-vote-btn]");
+      if (voteButton) {
+        event.preventDefault();
+        submitVote(voteButton);
+        return true;
+      }
+
+      return false;
+    }
+
+    function bindDelegation(root) {
+      const target = root || document;
+      if (target.dataset && target.dataset.communitySharedBound === "1") {
+        return;
+      }
+      if (target.dataset) {
+        target.dataset.communitySharedBound = "1";
+      }
+
+      target.addEventListener("click", function (event) {
+        handleClick(event);
+      });
+    }
+
+    return {
+      initCarousels: initCarousels,
+      submitVote: submitVote,
+      handleCardAction: handleCardAction,
+      handleClick: handleClick,
+      bindDelegation: bindDelegation,
+    };
+  }
+
+  window.CommunityFeedShared = {
+    create: create,
+  };
+})();

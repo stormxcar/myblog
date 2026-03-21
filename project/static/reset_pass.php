@@ -81,7 +81,7 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
 
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <link rel="stylesheet" href="../css/gooey-toast.css">
 
     <!-- Tailwind CSS -->
     <link href="../css/output.css" rel="stylesheet">
@@ -275,7 +275,7 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
     </button>
 
     <!-- Enhanced JavaScript -->
-    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <script src="../js/gooey-toast.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const toastMessage = <?= json_encode($toastMessage, JSON_UNESCAPED_UNICODE); ?>;

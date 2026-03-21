@@ -1,0 +1,96 @@
+.gooey-toast-root {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 12000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.gooey-toast {
+  pointer-events: auto;
+  min-width: 280px;
+  max-width: min(92vw, 460px);
+  border-radius: 16px;
+  color: #fff;
+  padding: 14px 16px;
+  font-size: 15px;
+  line-height: 1.4;
+  font-weight: 600;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.25);
+  backdrop-filter: blur(8px);
+  transform: translateX(24px) scale(0.96);
+  opacity: 0;
+  animation: gooey-toast-in 0.34s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.gooey-toast::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 22px;
+  filter: blur(16px);
+  opacity: 0.35;
+  z-index: -1;
+  background: inherit;
+}
+
+.gooey-toast--success {
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+}
+
+.gooey-toast--error {
+  background: linear-gradient(135deg, #dc2626, #ef4444);
+}
+
+.gooey-toast--warning {
+  background: linear-gradient(135deg, #ca8a04, #f59e0b);
+}
+
+.gooey-toast--info {
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+}
+
+.gooey-toast__close {
+  margin-left: 12px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.gooey-toast__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gooey-toast.is-leaving {
+  animation: gooey-toast-out 0.24s ease forwards;
+}
+
+@keyframes gooey-toast-in {
+  from {
+    transform: translateX(24px) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes gooey-toast-out {
+  from {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(30px) scale(0.96);
+    opacity: 0;
+  }
+}

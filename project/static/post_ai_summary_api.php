@@ -1,4 +1,29 @@
 <?php
+// Ensure production API responses are JSON-only; suppress all HTML warnings or notices.
+ini_set('display_errors', '0');
+ini_set('display_startup_errors', '0');
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE & ~E_WARNING);
+ob_start();
+
+set_error_handler(function ($errno, $errstr, $errfile, $errline) {
+    throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
+});
+set_exception_handler(function ($e) {
+    if (!headers_sent()) {
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    http_response_code(500);
+    echo json_encode([
+        'ok' => false,
+        'message' => 'Lỗi máy chủ: ' . $e->getMessage(),
+        'debug' => [
+            'line' => $e->getLine(),
+            'file' => $e->getFile()
+        ]
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+});
+
 include '../components/connect.php';
 include '../components/feature_engine.php';
 
@@ -8,6 +33,12 @@ header('Content-Type: application/json; charset=utf-8');
 
 function ai_summary_json_response(array $payload, int $statusCode = 200): void
 {
+    if (ob_get_length()) {
+        ob_clean();
+    }
+    if (!headers_sent()) {
+        header('Content-Type: application/json; charset=utf-8');
+    }
     http_response_code($statusCode);
     echo json_encode($payload, JSON_UNESCAPED_UNICODE);
     exit;

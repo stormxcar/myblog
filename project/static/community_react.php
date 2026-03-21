@@ -23,13 +23,15 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $userId = (int)($_SESSION['user_id'] ?? 0);
 if ($userId <= 0) {
-    react_fail('Vui long dang nhap de thich bai viet.', 401, [
+    react_fail('Vui long dang nhap de vote bai viet.', 401, [
         'login_required' => true,
         'login_url' => 'login.php'
     ]);
 }
 
 $postId = (int)($_POST['post_id'] ?? 0);
+$voteType = trim((string)($_POST['vote'] ?? 'up'));
+$voteValue = $voteType === 'down' ? -1 : 1;
 if ($postId <= 0) {
     react_fail('Du lieu bai viet khong hop le.');
 }
@@ -45,18 +47,25 @@ if ((string)$post['status'] !== 'published' && (int)$post['user_id'] !== $userId
     react_fail('Ban khong co quyen tuong tac bai viet nay.', 403);
 }
 
-$existsStmt = $conn->prepare('SELECT id FROM community_post_reactions WHERE post_id = ? AND user_id = ? LIMIT 1');
+$existsStmt = $conn->prepare('SELECT id, reaction FROM community_post_reactions WHERE post_id = ? AND user_id = ? LIMIT 1');
 $existsStmt->execute([$postId, $userId]);
 $existing = $existsStmt->fetch(PDO::FETCH_ASSOC);
 
 if ($existing) {
-    $deleteStmt = $conn->prepare('DELETE FROM community_post_reactions WHERE post_id = ? AND user_id = ?');
-    $deleteStmt->execute([$postId, $userId]);
-    $liked = false;
+    $currentReaction = (int)($existing['reaction'] ?? 0);
+    if ($currentReaction === $voteValue) {
+        $deleteStmt = $conn->prepare('DELETE FROM community_post_reactions WHERE post_id = ? AND user_id = ?');
+        $deleteStmt->execute([$postId, $userId]);
+        $currentReaction = 0;
+    } else {
+        $updateStmt = $conn->prepare('UPDATE community_post_reactions SET reaction = ? WHERE post_id = ? AND user_id = ?');
+        $updateStmt->execute([$voteValue, $postId, $userId]);
+        $currentReaction = $voteValue;
+    }
 } else {
-    $insertStmt = $conn->prepare('INSERT INTO community_post_reactions (post_id, user_id, reaction) VALUES (?, ?, 1)');
-    $insertStmt->execute([$postId, $userId]);
-    $liked = true;
+    $insertStmt = $conn->prepare('INSERT INTO community_post_reactions (post_id, user_id, reaction) VALUES (?, ?, ?)');
+    $insertStmt->execute([$postId, $userId, $voteValue]);
+    $currentReaction = $voteValue;
 
     $actorStmt = $conn->prepare('SELECT name FROM users WHERE id = ? LIMIT 1');
     $actorStmt->execute([$userId]);
@@ -67,9 +76,9 @@ if ($existing) {
         blog_push_notification(
             $conn,
             $ownerId,
-            'community_like',
-            'Bai cong dong vua duoc thich',
-            $actorName . ' vua thich bai dang cong dong cua ban.',
+            'community_vote',
+            'Bai cong dong vua duoc vote',
+            $actorName . ' vua vote bai dang cong dong cua ban.',
             site_url('static/community_feed.php#community-post-' . $postId)
         );
     }
@@ -77,14 +86,28 @@ if ($existing) {
 
 community_sync_post_counters($conn, $postId);
 
-$countStmt = $conn->prepare('SELECT total_reactions FROM community_posts WHERE id = ? LIMIT 1');
-$countStmt->execute([$postId]);
-$totalReactions = (int)$countStmt->fetchColumn();
+$stats = [];
+try {
+    $countStmt = $conn->prepare('SELECT total_reactions, total_upvotes, total_downvotes, vote_score FROM community_posts WHERE id = ? LIMIT 1');
+    $countStmt->execute([$postId]);
+    $stats = $countStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+} catch (Exception $e) {
+    $countStmt = $conn->prepare('SELECT total_reactions FROM community_posts WHERE id = ? LIMIT 1');
+    $countStmt->execute([$postId]);
+    $stats = ['total_reactions' => (int)$countStmt->fetchColumn()];
+}
+$totalReactions = (int)($stats['total_reactions'] ?? 0);
+$totalUpvotes = (int)($stats['total_upvotes'] ?? 0);
+$totalDownvotes = (int)($stats['total_downvotes'] ?? 0);
+$voteScore = (int)($stats['vote_score'] ?? 0);
 
 echo json_encode([
     'ok' => true,
-    'liked' => $liked,
+    'reaction' => $currentReaction,
     'post_id' => $postId,
     'total_reactions' => $totalReactions,
-    'message' => $liked ? 'Da thich bai viet.' : 'Da bo thich bai viet.'
+    'total_upvotes' => $totalUpvotes,
+    'total_downvotes' => $totalDownvotes,
+    'vote_score' => $voteScore,
+    'message' => $currentReaction === 1 ? 'Da upvote bai viet.' : ($currentReaction === -1 ? 'Da downvote bai viet.' : 'Da bo vote bai viet.')
 ], JSON_UNESCAPED_UNICODE);

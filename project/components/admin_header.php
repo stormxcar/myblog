@@ -3,9 +3,8 @@
 ?>
 
 <link rel="stylesheet" href="../css/admin-modern.css">
-
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
-<script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+<link rel="stylesheet" href="../css/gooey-toast.css">
+<script src="../js/gooey-toast.js"></script>
 
 <header class="header">
 
@@ -36,6 +35,7 @@
       <a href="view_posts.php" class="<?= $is_active(['view_posts.php', 'edit_post.php', 'read_post.php']); ?>"><i class="fas fa-file-lines"></i> <span>Quản lý bài viết</span></a>
       <a href="comments.php" class="<?= $is_active(['comments.php']); ?>"><i class="fas fa-comments"></i> <span>Bình luận</span></a>
       <a href="community_posts.php" class="<?= $is_active(['community_posts.php']); ?>"><i class="fas fa-users-viewfinder"></i> <span>Cộng đồng</span></a>
+      <a href="community_reports.php" class="<?= $is_active(['community_reports.php']); ?>"><i class="fas fa-flag"></i> <span>Báo cáo cộng đồng</span></a>
       <a href="users_accounts.php" class="<?= $is_active(['users_accounts.php', 'admin_accounts.php', 'register_admin.php']); ?>"><i class="fas fa-users"></i> <span>Tài khoản</span></a>
       <a href="add_cart.php" class="<?= $is_active(['add_cart.php']); ?>"><i class="fas fa-tags"></i> <span>Danh mục</span></a>
       <a href="setting.php" class="<?= $is_active(['setting.php']); ?>"><i class="fa-solid fa-gear"></i> <span>Cài đặt</span></a>
@@ -72,17 +72,9 @@ if (!empty($_SESSION['message'])) {
          const toasts = <?= json_encode($admin_toasts, JSON_UNESCAPED_UNICODE); ?>;
          toasts.forEach((item, index) => {
             setTimeout(() => {
-               Toastify({
-                  text: item.text,
-                  duration: 4500,
-                  gravity: 'top',
-                  position: 'right',
-                  close: true,
-                  stopOnFocus: true,
-                  style: {
-                     background: '#2563eb'
-                  }
-               }).showToast();
+               if (typeof showNotification === 'function') {
+                  showNotification(item.text, item.type || 'info');
+               }
             }, index * 250);
          });
       })();

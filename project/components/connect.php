@@ -1,9 +1,16 @@
 <?php
 require __DIR__ . '/../../vendor/autoload.php';
 
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+// In production (Heroku), suppress HTML warning output to avoid invalid JSON responses.
+if (getenv('DYNO') !== false) {
+    ini_set('display_errors', '0');
+    ini_set('display_startup_errors', '0');
+    error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE & ~E_WARNING);
+} else {
+    ini_set('display_errors', '1');
+    ini_set('display_startup_errors', '1');
+    error_reporting(E_ALL);
+}
 
 try {
     // Load environment variables
@@ -55,11 +62,17 @@ try {
 
     // Create PDO connection with optimized settings
     $dsn = "mysql:host=$servername;port=$port;dbname=$dbname;charset=utf8mb4";
+
+    // Use the appropriate constant depending on PHP version to support 8.5+ and fallback for older versions.
+    $initCommandKey = (class_exists('Pdo\\Mysql') && defined('Pdo\\Mysql::ATTR_INIT_COMMAND'))
+        ? \Pdo\Mysql::ATTR_INIT_COMMAND
+        : PDO::MYSQL_ATTR_INIT_COMMAND;
+
     $conn = new PDO($dsn, $username, $password, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES => false,
-        PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
+        $initCommandKey => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
     ]);
 
     // Set timezone to match server

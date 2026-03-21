@@ -38,14 +38,25 @@ if ($userId <= 0) {
     ]);
 }
 
-$content = trim((string)($_POST['content'] ?? ''));
+$titleRaw = (string)($_POST['title'] ?? '');
+$title = trim((string)html_entity_decode(strip_tags($titleRaw), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+$title = preg_replace('/\s+/u', ' ', (string)$title);
+$postType = trim((string)($_POST['post_type'] ?? 'text'));
+$postType = in_array($postType, ['text', 'media', 'link'], true) ? $postType : 'text';
+
+$contentRaw = (string)($_POST['content'] ?? '');
+$content = trim((string)preg_replace('/\s+/u', ' ', strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", $contentRaw))));
 $linksRaw = (string)($_POST['links'] ?? '');
 $privacy = (string)($_POST['privacy'] ?? 'public');
 $privacy = in_array($privacy, ['public', 'followers', 'private'], true) ? $privacy : 'public';
 $status = $privacy === 'private' ? 'draft' : 'published';
 
-if ($content === '') {
-    community_json_fail('Noi dung bai viet khong duoc de trong.');
+if ($title === '') {
+    community_json_fail('Tieu de bai viet khong duoc de trong.');
+}
+
+if (mb_strlen($title, 'UTF-8') > 300) {
+    community_json_fail('Tieu de toi da 300 ky tu.');
 }
 
 if (mb_strlen($content, 'UTF-8') > 5000) {
@@ -153,6 +164,20 @@ if (isset($_FILES['images']) && is_array($_FILES['images']['name'])) {
     }
 }
 
+if ($postType === 'text' && $content === '') {
+    community_json_fail('Bai dang van ban can phan noi dung chinh.');
+}
+if ($postType === 'media' && empty($storedMedia)) {
+    community_json_fail('Bai dang hinh anh can it nhat 1 anh.');
+}
+if ($postType === 'link' && empty($links)) {
+    community_json_fail('Bai dang lien ket can it nhat 1 URL.');
+}
+
+if ($content === '') {
+    $content = $title;
+}
+
 $userStmt = $conn->prepare('SELECT name FROM users WHERE id = ? LIMIT 1');
 $userStmt->execute([$userId]);
 $user = $userStmt->fetch(PDO::FETCH_ASSOC);
@@ -163,8 +188,8 @@ if (!$user) {
 try {
     $conn->beginTransaction();
 
-    $insertPost = $conn->prepare('INSERT INTO community_posts (user_id, user_name, content, privacy, status, total_reactions, total_comments) VALUES (?, ?, ?, ?, ?, 0, 0)');
-    $insertPost->execute([$userId, (string)$user['name'], $content, $privacy, $status]);
+    $insertPost = $conn->prepare('INSERT INTO community_posts (user_id, user_name, post_title, post_type, content, privacy, status, total_reactions, total_comments) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)');
+    $insertPost->execute([$userId, (string)$user['name'], $title, $postType, $content, $privacy, $status]);
     $postId = (int)$conn->lastInsertId();
 
     if (!empty($storedMedia)) {

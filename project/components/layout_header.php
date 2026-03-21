@@ -59,7 +59,7 @@ $og_image = isset($page_og_image) && !empty($page_og_image)
     <link rel="stylesheet" href="../css/output.css">
     <link rel="stylesheet" href="../css/ui-system.css">
     <link rel="stylesheet" href="../css/blog-modern.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <link rel="stylesheet" href="../css/gooey-toast.css">
 
     <!-- External Libraries -->
     <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css">
@@ -71,6 +71,7 @@ $og_image = isset($page_og_image) && !empty($page_og_image)
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
     <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/swiper@10/swiper-element-bundle.min.js"></script>
+    <script src="../js/gooey-toast.js"></script>
 
     <!-- Custom Scripts -->
     <script src="../js/blog-global.js" defer></script>

@@ -12,10 +12,15 @@ if (!function_exists('community_ensure_tables')) {
             `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
             `user_id` INT UNSIGNED NOT NULL,
             `user_name` VARCHAR(120) NOT NULL,
+            `post_title` VARCHAR(300) NOT NULL,
+            `post_type` ENUM('text','media','link') NOT NULL DEFAULT 'text',
             `content` TEXT NOT NULL,
             `privacy` ENUM('public','followers','private') NOT NULL DEFAULT 'public',
             `status` ENUM('published','draft','hidden','deleted') NOT NULL DEFAULT 'published',
             `total_reactions` INT UNSIGNED NOT NULL DEFAULT 0,
+            `total_upvotes` INT UNSIGNED NOT NULL DEFAULT 0,
+            `total_downvotes` INT UNSIGNED NOT NULL DEFAULT 0,
+            `vote_score` INT NOT NULL DEFAULT 0,
             `total_comments` INT UNSIGNED NOT NULL DEFAULT 0,
             `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -30,6 +35,29 @@ if (!function_exists('community_ensure_tables')) {
             $conn->exec("ALTER TABLE `community_posts` MODIFY COLUMN `status` ENUM('published','draft','hidden','deleted') NOT NULL DEFAULT 'published'");
         } catch (Exception $e) {
             // Ignore ALTER failures in restricted environments; table can still operate with existing enum.
+        }
+
+        $ensureColumn = function ($column, $sql) use ($conn) {
+            try {
+                if (function_exists('blog_db_has_column') && blog_db_has_column($conn, 'community_posts', $column)) {
+                    return;
+                }
+                $conn->exec($sql);
+            } catch (Exception $e) {
+                // Ignore schema drift errors; this runs as a best-effort migration.
+            }
+        };
+
+        $ensureColumn('total_upvotes', "ALTER TABLE `community_posts` ADD COLUMN `total_upvotes` INT UNSIGNED NOT NULL DEFAULT 0 AFTER `total_reactions`");
+        $ensureColumn('total_downvotes', "ALTER TABLE `community_posts` ADD COLUMN `total_downvotes` INT UNSIGNED NOT NULL DEFAULT 0 AFTER `total_upvotes`");
+        $ensureColumn('vote_score', "ALTER TABLE `community_posts` ADD COLUMN `vote_score` INT NOT NULL DEFAULT 0 AFTER `total_downvotes`");
+        $ensureColumn('post_title', "ALTER TABLE `community_posts` ADD COLUMN `post_title` VARCHAR(300) NOT NULL DEFAULT '' AFTER `user_name`");
+        $ensureColumn('post_type', "ALTER TABLE `community_posts` ADD COLUMN `post_type` ENUM('text','media','link') NOT NULL DEFAULT 'text' AFTER `post_title`");
+
+        try {
+            $conn->exec("UPDATE community_posts SET post_title = TRIM(SUBSTRING_INDEX(content, '\\n', 1)) WHERE post_title = '' OR post_title IS NULL");
+        } catch (Exception $e) {
+            // Best-effort backfill only.
         }
 
         $conn->exec("CREATE TABLE IF NOT EXISTS `community_post_media` (
@@ -105,6 +133,31 @@ if (!function_exists('community_ensure_tables')) {
             KEY `idx_community_post_topics_topic_id` (`topic_id`),
             CONSTRAINT `fk_community_post_topics_post` FOREIGN KEY (`post_id`) REFERENCES `community_posts` (`id`) ON DELETE CASCADE,
             CONSTRAINT `fk_community_post_topics_topic` FOREIGN KEY (`topic_id`) REFERENCES `community_topics` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        $conn->exec("CREATE TABLE IF NOT EXISTS `community_saved_posts` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `post_id` INT UNSIGNED NOT NULL,
+            `user_id` INT UNSIGNED NOT NULL,
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uniq_community_saved_post_user` (`post_id`, `user_id`),
+            KEY `idx_community_saved_posts_user_id` (`user_id`),
+            CONSTRAINT `fk_community_saved_posts_post` FOREIGN KEY (`post_id`) REFERENCES `community_posts` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        $conn->exec("CREATE TABLE IF NOT EXISTS `community_post_reports` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `post_id` INT UNSIGNED NOT NULL,
+            `user_id` INT UNSIGNED NOT NULL,
+            `reason` VARCHAR(1000) DEFAULT NULL,
+            `status` ENUM('pending','reviewed','dismissed') NOT NULL DEFAULT 'pending',
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uniq_community_post_report_user` (`post_id`, `user_id`),
+            KEY `idx_community_post_reports_post_id` (`post_id`),
+            KEY `idx_community_post_reports_status` (`status`),
+            CONSTRAINT `fk_community_post_reports_post` FOREIGN KEY (`post_id`) REFERENCES `community_posts` (`id`) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
         $initialized = true;
@@ -363,16 +416,30 @@ if (!function_exists('community_sync_post_counters')) {
             return;
         }
 
-        $reactionStmt = $conn->prepare('SELECT COUNT(*) FROM community_post_reactions WHERE post_id = ?');
+        $reactionStmt = $conn->prepare('SELECT
+            COALESCE(SUM(CASE WHEN reaction = 1 THEN 1 ELSE 0 END), 0) AS upvotes,
+            COALESCE(SUM(CASE WHEN reaction = -1 THEN 1 ELSE 0 END), 0) AS downvotes,
+            COALESCE(SUM(reaction), 0) AS vote_score,
+            COUNT(*) AS total_reactions
+            FROM community_post_reactions WHERE post_id = ?');
         $reactionStmt->execute([$postId]);
-        $totalReactions = (int)$reactionStmt->fetchColumn();
+        $reactionRow = $reactionStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $totalUpvotes = (int)($reactionRow['upvotes'] ?? 0);
+        $totalDownvotes = (int)($reactionRow['downvotes'] ?? 0);
+        $voteScore = (int)($reactionRow['vote_score'] ?? 0);
+        $totalReactions = (int)($reactionRow['total_reactions'] ?? 0);
 
         $commentStmt = $conn->prepare("SELECT COUNT(*) FROM community_post_comments WHERE post_id = ? AND status = 'active'");
         $commentStmt->execute([$postId]);
         $totalComments = (int)$commentStmt->fetchColumn();
 
-        $updateStmt = $conn->prepare('UPDATE community_posts SET total_reactions = ?, total_comments = ? WHERE id = ?');
-        $updateStmt->execute([$totalReactions, $totalComments, $postId]);
+        try {
+            $updateStmt = $conn->prepare('UPDATE community_posts SET total_reactions = ?, total_upvotes = ?, total_downvotes = ?, vote_score = ?, total_comments = ? WHERE id = ?');
+            $updateStmt->execute([$totalReactions, $totalUpvotes, $totalDownvotes, $voteScore, $totalComments, $postId]);
+        } catch (Exception $e) {
+            $fallbackStmt = $conn->prepare('UPDATE community_posts SET total_reactions = ?, total_comments = ? WHERE id = ?');
+            $fallbackStmt->execute([$totalReactions, $totalComments, $postId]);
+        }
     }
 }
 
@@ -438,7 +505,100 @@ if (!function_exists('community_time_ago')) {
         if ($delta < 86400) {
             return floor($delta / 3600) . ' gio truoc';
         }
+        if ($delta < 604800) {
+            return floor($delta / 86400) . ' ngay truoc';
+        }
+        if ($delta < 2592000) {
+            return floor($delta / 604800) . ' tuan truoc';
+        }
+        if ($delta < 31536000) {
+            return floor($delta / 2592000) . ' thang truoc';
+        }
 
-        return floor($delta / 86400) . ' ngay truoc';
+        return floor($delta / 31536000) . ' nam truoc';
+    }
+}
+
+if (!function_exists('community_extract_title')) {
+    function community_extract_title($content)
+    {
+        $raw = trim((string)html_entity_decode((string)$content, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        if ($raw === '') {
+            return 'Bai dang cong dong';
+        }
+
+        $lines = preg_split('/\R/u', $raw) ?: [];
+        $title = trim((string)($lines[0] ?? ''));
+        if ($title === '') {
+            $title = preg_replace('/\s+/u', ' ', strip_tags($raw));
+        }
+        $title = trim((string)$title);
+        if ($title === '') {
+            return 'Bai dang cong dong';
+        }
+
+        return mb_substr($title, 0, 120, 'UTF-8');
+    }
+}
+
+if (!function_exists('community_extract_body')) {
+    function community_extract_body($content)
+    {
+        $content = trim((string)$content);
+        if ($content === '') {
+            return '';
+        }
+
+        $lines = preg_split('/\r\n|\r|\n/', $content);
+        if (!is_array($lines) || empty($lines)) {
+            return $content;
+        }
+
+        $firstLine = trim((string)$lines[0]);
+        $title = community_extract_title($content);
+
+        $normalize = function ($text) {
+            $text = trim((string)$text);
+            $text = preg_replace('/\s+/u', ' ', $text);
+            $text = preg_replace('/["\'“”‘’.,:;!?()\[\]{}]+/u', '', (string)$text);
+            return mb_strtolower((string)$text, 'UTF-8');
+        };
+
+        if ($firstLine !== '' && $normalize($firstLine) === $normalize($title)) {
+            array_shift($lines);
+        }
+
+        $body = trim(implode("\n", $lines));
+        return $body === '' ? $content : $body;
+    }
+}
+
+if (!function_exists('community_resolve_topic_theme')) {
+    function community_resolve_topic_theme($slug)
+    {
+        $slug = trim((string)$slug);
+        $themes = [
+            'technology' => ['card' => 'bg-slate-100 dark:bg-slate-800/70', 'badge' => 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200', 'accent' => 'text-sky-600'],
+            'tech' => ['card' => 'bg-slate-100 dark:bg-slate-800/70', 'badge' => 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200', 'accent' => 'text-sky-600'],
+            'ai' => ['card' => 'bg-indigo-50 dark:bg-indigo-950/30', 'badge' => 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200', 'accent' => 'text-indigo-600'],
+            'business' => ['card' => 'bg-amber-50 dark:bg-amber-950/30', 'badge' => 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200', 'accent' => 'text-amber-600'],
+            'news' => ['card' => 'bg-yellow-50 dark:bg-yellow-950/30', 'badge' => 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-200', 'accent' => 'text-yellow-600'],
+            'lifestyle' => ['card' => 'bg-pink-50 dark:bg-pink-950/30', 'badge' => 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-200', 'accent' => 'text-pink-600'],
+            'fashion' => ['card' => 'bg-fuchsia-50 dark:bg-fuchsia-950/30', 'badge' => 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-200', 'accent' => 'text-fuchsia-600'],
+            'food' => ['card' => 'bg-orange-50 dark:bg-orange-950/30', 'badge' => 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200', 'accent' => 'text-orange-600'],
+            'travel' => ['card' => 'bg-emerald-50 dark:bg-emerald-950/30', 'badge' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200', 'accent' => 'text-emerald-600'],
+            'education' => ['card' => 'bg-cyan-50 dark:bg-cyan-950/30', 'badge' => 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-200', 'accent' => 'text-cyan-600'],
+            'sports' => ['card' => 'bg-lime-50 dark:bg-lime-950/30', 'badge' => 'bg-lime-100 text-lime-700 dark:bg-lime-900/40 dark:text-lime-200', 'accent' => 'text-lime-700'],
+            'music' => ['card' => 'bg-violet-50 dark:bg-violet-950/30', 'badge' => 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200', 'accent' => 'text-violet-600'],
+            'gaming' => ['card' => 'bg-purple-50 dark:bg-purple-950/30', 'badge' => 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-200', 'accent' => 'text-purple-600'],
+            'health' => ['card' => 'bg-teal-50 dark:bg-teal-950/30', 'badge' => 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-200', 'accent' => 'text-teal-600'],
+            'design' => ['card' => 'bg-rose-50 dark:bg-rose-950/30', 'badge' => 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200', 'accent' => 'text-rose-600'],
+        ];
+
+        if ($slug !== '' && isset($themes[$slug])) {
+            return $themes[$slug];
+        }
+
+        return ['card' => 'bg-gray-100 dark:bg-gray-800/70', 'badge' => 'bg-main/10 text-main', 'accent' => 'text-main'];
     }
 }

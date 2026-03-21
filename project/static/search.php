@@ -185,7 +185,7 @@ render_breadcrumb($breadcrumb_items);
                                     <input type="hidden" name="search_box" value="<?= htmlspecialchars($search_query) ?>">
 
                                     <!-- Post Header -->
-                                    <div class="p-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-600">
+                                    <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-600">
                                         <div class="flex items-center space-x-3">
                                             <div class="w-10 h-10 bg-main rounded-full flex items-center justify-center text-white text-sm font-semibold">
                                                 <?= strtoupper(substr($fetch_posts['name'], 0, 1)) ?>
@@ -208,7 +208,7 @@ render_breadcrumb($breadcrumb_items);
 
                                     <!-- Post Image -->
                                     <?php if ($fetch_posts['image'] != '') : ?>
-                                        <div class="relative overflow-hidden h-48 rounded-lg mx-4 mt-4">
+                                        <div class="relative overflow-hidden h-48 rounded-lg mt-4">
                                             <img src="../uploaded_img/<?= $fetch_posts['image']; ?>"
                                                 alt="<?= $fetch_posts['title']; ?>"
                                                 class="blog-card-image">
@@ -217,7 +217,7 @@ render_breadcrumb($breadcrumb_items);
                                     <?php endif; ?>
 
                                     <!-- Post Content -->
-                                    <div class="p-4 flex-1 flex flex-col">
+                                    <div class="py-4 flex-1 flex flex-col">
                                         <h3 class="text-xl font-bold text-gray-900 dark:text-white hover:text-main transition-colors mb-3 line-clamp-2">
                                             <a href="<?= post_path($post_id); ?>" class="hover:text-main transition-colors">
                                                 <?= $highlighted_title ?>
@@ -242,7 +242,7 @@ render_breadcrumb($breadcrumb_items);
                                     </div>
 
                                     <!-- Post Actions -->
-                                    <div class="p-4 border-t border-gray-200 dark:border-gray-600 flex items-center justify-between">
+                                    <div class="py-4 border-t border-gray-200 dark:border-gray-600 flex items-center justify-between">
                                         <a href="<?= post_path($post_id); ?>"
                                             class="flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-main transition-colors text-sm">
                                             <i class="fas fa-comment"></i>

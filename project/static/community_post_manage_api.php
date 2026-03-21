@@ -61,12 +61,21 @@ if ($action === 'delete') {
 }
 
 $content = trim((string)($_POST['content'] ?? ''));
+$titleRaw = (string)($_POST['title'] ?? '');
+$title = trim((string)html_entity_decode(strip_tags($titleRaw), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+$title = preg_replace('/\s+/u', ' ', (string)$title);
 $privacy = (string)($_POST['privacy'] ?? 'public');
 $privacy = in_array($privacy, ['public', 'followers', 'private'], true) ? $privacy : 'public';
 $status = $privacy === 'private' ? 'draft' : 'published';
 
 if ($content === '') {
     manage_fail('Noi dung bai viet khong duoc de trong.');
+}
+if ($title === '') {
+    manage_fail('Tieu de bai viet khong duoc de trong.');
+}
+if (mb_strlen($title, 'UTF-8') > 300) {
+    manage_fail('Tieu de toi da 300 ky tu.');
 }
 if (mb_strlen($content, 'UTF-8') > 5000) {
     manage_fail('Noi dung toi da 5000 ky tu.');
@@ -78,8 +87,8 @@ if (count($links) > 5) {
     $links = array_slice($links, 0, 5);
 }
 
-$updateStmt = $conn->prepare('UPDATE community_posts SET content = ?, privacy = ?, status = ? WHERE id = ?');
-$updateStmt->execute([$content, $privacy, $status, $postId]);
+$updateStmt = $conn->prepare('UPDATE community_posts SET post_title = ?, content = ?, privacy = ?, status = ? WHERE id = ?');
+$updateStmt->execute([$title, $content, $privacy, $status, $postId]);
 
 $deleteLinks = $conn->prepare('DELETE FROM community_post_links WHERE post_id = ?');
 $deleteLinks->execute([$postId]);

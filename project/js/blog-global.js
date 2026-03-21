@@ -190,24 +190,8 @@ function initNotification() {
 }
 
 function showNotification(message, type = "info") {
-  // Check if Toastify is available (used in home.php and other pages)
-  if (typeof Toastify !== "undefined") {
-    const colors = {
-      success: "#10B981",
-      error: "#EF4444",
-      warning: "#F59E0B",
-      info: "#3B82F6",
-    };
-
-    Toastify({
-      text: message,
-      duration: 4000,
-      gravity: "top",
-      position: "right",
-      style: { background: colors[type] || colors.info },
-      stopOnFocus: true,
-      className: "custom-toast",
-    }).showToast();
+  if (window.GooeyToast && typeof window.GooeyToast.show === "function") {
+    window.GooeyToast.show(String(message || ""), type || "info", 4400);
   } else {
     const colors = {
       success: "#10B981",

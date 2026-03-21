@@ -33,6 +33,7 @@ $user_links = [
     'new_post' => $base_path . 'new_post.php',
     'community_create' => $base_path . 'community_create.php',
     'community_manage' => $base_path . 'community_manage.php',
+    'community_saved' => $base_path . 'community_saved.php',
     'user_likes' => $base_path . 'user_likes.php',
     'user_comments' => $base_path . 'user_comments.php',
     'view_post' => $base_path . 'view_post.php',
