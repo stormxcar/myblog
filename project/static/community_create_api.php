@@ -42,14 +42,37 @@ $titleRaw = (string)($_POST['title'] ?? '');
 $title = trim((string)html_entity_decode(strip_tags($titleRaw), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
 $title = preg_replace('/\s+/u', ' ', (string)$title);
 $postType = trim((string)($_POST['post_type'] ?? 'text'));
-$postType = in_array($postType, ['text', 'media', 'link'], true) ? $postType : 'text';
+$postType = in_array($postType, ['text', 'media', 'link', 'poll'], true) ? $postType : 'text';
 
 $contentRaw = (string)($_POST['content'] ?? '');
-$content = trim((string)preg_replace('/\s+/u', ' ', strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", $contentRaw))));
+$contentPlain = (string)strip_tags(str_replace(['<br>', '<br/>', '<br />'], "\n", $contentRaw));
+$contentLines = preg_split('/\r\n|\r|\n/', $contentPlain);
+$normalizedLines = [];
+if (is_array($contentLines)) {
+    foreach ($contentLines as $line) {
+        $line = trim((string)$line);
+        if ($line !== '') {
+            $normalizedLines[] = $line;
+        }
+    }
+}
+$content = trim(implode("\n", $normalizedLines));
 $linksRaw = (string)($_POST['links'] ?? '');
 $privacy = (string)($_POST['privacy'] ?? 'public');
 $privacy = in_array($privacy, ['public', 'followers', 'private'], true) ? $privacy : 'public';
 $status = $privacy === 'private' ? 'draft' : 'published';
+
+$pollQuestion = trim((string)($_POST['poll_question'] ?? ''));
+$pollQuestion = preg_replace('/\s+/u', ' ', $pollQuestion);
+$pollOptions = [];
+for ($i = 1; $i <= 4; $i++) {
+    $option = trim((string)($_POST['poll_option_' . $i] ?? ''));
+    $option = preg_replace('/\s+/u', ' ', $option);
+    if ($option !== '') {
+        $pollOptions[] = mb_substr($option, 0, 255, 'UTF-8');
+    }
+}
+$pollOptions = array_values(array_unique($pollOptions));
 
 if ($title === '') {
     community_json_fail('Tieu de bai viet khong duoc de trong.');
@@ -168,8 +191,18 @@ if ($postType === 'media' && empty($storedMedia)) {
 if ($postType === 'link' && empty($links)) {
     community_json_fail('Bai dang lien ket can it nhat 1 URL.');
 }
+if ($postType === 'poll') {
+    if ($pollQuestion === '') {
+        community_json_fail('Poll can cau hoi.');
+    }
+    if (count($pollOptions) < 2) {
+        community_json_fail('Poll can it nhat 2 lua chon.');
+    }
+}
 
-if ($content === '') {
+if ($postType === 'poll') {
+    $content = $content !== '' ? $content : $pollQuestion;
+} elseif ($content === '') {
     $content = $title;
 }
 
@@ -206,6 +239,13 @@ try {
                 $meta['description'],
                 $meta['preview_image']
             ]);
+        }
+    }
+
+    if ($postType === 'poll' && !empty($pollOptions)) {
+        $insertPollOption = $conn->prepare('INSERT INTO community_poll_options (post_id, option_text, sort_order) VALUES (?, ?, ?)');
+        foreach ($pollOptions as $idx => $optionText) {
+            $insertPollOption->execute([$postId, $optionText, $idx]);
         }
     }
 

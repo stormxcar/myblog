@@ -73,6 +73,8 @@ if (!function_exists('community_load_post_maps')) {
             'reactionByPost' => [],
             'savedByPost' => [],
             'topicsByPost' => [],
+            'badgesByUser' => [],
+            'pollByPost' => [],
         ];
 
         if (empty($postIds)) {
@@ -121,6 +123,31 @@ if (!function_exists('community_load_post_maps')) {
             $result['commentsByPost'][$pid][] = $commentRow;
         }
 
+        $pollOptionStmt = $conn->prepare("SELECT o.id, o.post_id, o.option_text, o.sort_order, COALESCE(v.vote_count, 0) AS vote_count
+            FROM community_poll_options o
+            LEFT JOIN (
+                SELECT option_id, COUNT(*) AS vote_count
+                FROM community_poll_votes
+                WHERE post_id IN ({$placeholders})
+                GROUP BY option_id
+            ) v ON v.option_id = o.id
+            WHERE o.post_id IN ({$placeholders})
+            ORDER BY o.post_id ASC, o.sort_order ASC, o.id ASC");
+        $pollOptionStmt->execute(array_merge($postIds, $postIds));
+        foreach ($pollOptionStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $pid = (int)$row['post_id'];
+            if (!isset($result['pollByPost'][$pid])) {
+                $result['pollByPost'][$pid] = ['options' => [], 'total_votes' => 0, 'user_option_id' => 0];
+            }
+            $optionVotes = (int)($row['vote_count'] ?? 0);
+            $result['pollByPost'][$pid]['options'][] = [
+                'id' => (int)$row['id'],
+                'option_text' => (string)($row['option_text'] ?? ''),
+                'vote_count' => $optionVotes,
+            ];
+            $result['pollByPost'][$pid]['total_votes'] += $optionVotes;
+        }
+
         if ($userId > 0) {
             $likeParams = array_merge($postIds, [$userId]);
             $likeStmt = $conn->prepare("SELECT post_id, reaction FROM community_post_reactions WHERE post_id IN ({$placeholders}) AND user_id = ?");
@@ -134,6 +161,23 @@ if (!function_exists('community_load_post_maps')) {
             foreach ($savedStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                 $result['savedByPost'][(int)$row['post_id']] = true;
             }
+
+            $pollVoteStmt = $conn->prepare("SELECT post_id, option_id FROM community_poll_votes WHERE post_id IN ({$placeholders}) AND user_id = ?");
+            $pollVoteStmt->execute($likeParams);
+            foreach ($pollVoteStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $pid = (int)$row['post_id'];
+                if (!isset($result['pollByPost'][$pid])) {
+                    $result['pollByPost'][$pid] = ['options' => [], 'total_votes' => 0, 'user_option_id' => 0];
+                }
+                $result['pollByPost'][$pid]['user_option_id'] = (int)($row['option_id'] ?? 0);
+            }
+        }
+
+        $authorIds = array_values(array_unique(array_map(function ($row) {
+            return (int)($row['user_id'] ?? 0);
+        }, $posts)));
+        if (!empty($authorIds) && function_exists('community_build_user_badges_map')) {
+            $result['badgesByUser'] = community_build_user_badges_map($conn, $authorIds);
         }
 
         return $result;
@@ -226,6 +270,8 @@ if (!function_exists('community_render_feed_posts_html')) {
             $isOwner = $userId > 0 && (int)$post['user_id'] === $userId;
             $isSaved = !empty($maps['savedByPost'][$postId]);
             $theme = function_exists('community_resolve_topic_theme') ? community_resolve_topic_theme($primaryTopicSlug) : ['card' => 'bg-gray-100 dark:bg-gray-800/70', 'badge' => 'bg-main/10 text-main', 'accent' => 'text-main'];
+            $authorBadges = $maps['badgesByUser'][(int)$post['user_id']] ?? [];
+            $dbPoll = $maps['pollByPost'][$postId] ?? ['options' => [], 'total_votes' => 0, 'user_option_id' => 0];
 
             $isFeedPage = isset($_SERVER['PHP_SELF']) && strpos((string)$_SERVER['PHP_SELF'], 'community_feed.php') !== false;
             $safeContentHtml = nl2br(htmlspecialchars($postBodyRaw, ENT_QUOTES, 'UTF-8'));
@@ -257,6 +303,50 @@ if (!function_exists('community_render_feed_posts_html')) {
                 return $prefix . '<a href="' . htmlspecialchars($topicUrl, ENT_QUOTES, 'UTF-8') . '" class="text-main hover:underline">#' . htmlspecialchars($topicName, ENT_QUOTES, 'UTF-8') . '</a>';
             }, $safeTitleHtml) ?? $safeTitleHtml;
 
+            $pollData = null;
+            if (preg_match('/\[POLL\](.*?)\[\/POLL\]/is', $postBodyRaw, $pollMatch)) {
+                $pollBlock = trim((string)($pollMatch[1] ?? ''));
+                $pollLines = preg_split('/\r\n|\r|\n/', $pollBlock);
+                $pollQuestion = '';
+                $pollOptions = [];
+                if (is_array($pollLines)) {
+                    foreach ($pollLines as $line) {
+                        $line = trim((string)$line);
+                        if ($line === '') {
+                            continue;
+                        }
+                        if ($pollQuestion === '') {
+                            $pollQuestion = $line;
+                            continue;
+                        }
+                        $line = preg_replace('/^[-*]\s*/', '', $line);
+                        if ($line !== '') {
+                            $pollOptions[] = $line;
+                        }
+                    }
+                }
+                if ($pollQuestion !== '' && count($pollOptions) >= 2) {
+                    $pollData = [
+                        'question' => $pollQuestion,
+                        'options' => array_slice($pollOptions, 0, 6),
+                    ];
+                }
+
+                $postBodyRaw = trim((string)preg_replace('/\[POLL\].*?\[\/POLL\]/is', '', $postBodyRaw));
+                $safeContentHtml = nl2br(htmlspecialchars($postBodyRaw, ENT_QUOTES, 'UTF-8'));
+                $safeContentHtml = preg_replace_callback('/(^|[\s>])#([\p{L}\p{N}_-]{2,60})/u', function ($matches) use ($isFeedPage) {
+                    $prefix = (string)($matches[1] ?? '');
+                    $topicName = (string)($matches[2] ?? '');
+                    $topicSlug = function_exists('community_slugify_topic') ? community_slugify_topic($topicName) : '';
+                    if ($topicSlug === '') {
+                        return $matches[0];
+                    }
+
+                    $topicUrl = $isFeedPage ? ('community_feed.php?topic=' . rawurlencode($topicSlug)) : ('community_saved.php?topic=' . rawurlencode($topicSlug));
+                    return $prefix . '<a href="' . htmlspecialchars($topicUrl, ENT_QUOTES, 'UTF-8') . '" class="text-main hover:underline font-medium">#' . htmlspecialchars($topicName, ENT_QUOTES, 'UTF-8') . '</a>';
+                }, $safeContentHtml) ?? $safeContentHtml;
+            }
+
             $topLevelComments = [];
             $replyByParent = [];
             foreach ($postComments as $commentRow) {
@@ -281,6 +371,13 @@ if (!function_exists('community_render_feed_posts_html')) {
                             <div class="min-w-0">
                                 <p class="font-semibold text-gray-900 dark:text-white truncate"><?= htmlspecialchars($author, ENT_QUOTES, 'UTF-8'); ?></p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400 truncate"><span class="font-semibold <?= htmlspecialchars((string)$theme['accent'], ENT_QUOTES, 'UTF-8'); ?>"><?= htmlspecialchars($subredditName, ENT_QUOTES, 'UTF-8'); ?></span> • <?= htmlspecialchars(community_time_ago((string)$post['created_at']), ENT_QUOTES, 'UTF-8'); ?></p>
+                                <?php if (!empty($authorBadges)): ?>
+                                    <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                                        <?php foreach ($authorBadges as $badge): ?>
+                                            <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold <?= htmlspecialchars((string)($badge['class'] ?? 'bg-main/10 text-main'), ENT_QUOTES, 'UTF-8'); ?>"><?= htmlspecialchars((string)($badge['label'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
@@ -309,6 +406,44 @@ if (!function_exists('community_render_feed_posts_html')) {
 
                 <div class="p-4 sm:p-5 space-y-4">
                     <h3 class="text-lg sm:text-xl font-normal leading-tight text-gray-900 dark:text-white break-words"><?= $safeTitleHtml; ?></h3>
+
+
+
+                    <?php if (!empty($dbPoll['options'])): ?>
+                        <div class="rounded-xl border border-main/25 bg-main/5 p-3" data-community-poll-wrap data-post-id="<?= $postId; ?>">
+                            <p class="text-xs uppercase tracking-wide font-semibold text-main mb-1">Poll</p>
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white mb-2"><?= htmlspecialchars((string)$postTitle, ENT_QUOTES, 'UTF-8'); ?></p>
+                            <div class="space-y-2" data-community-poll-options>
+                                <?php foreach ((array)$dbPoll['options'] as $pollOption): ?>
+                                    <?php
+                                    $optionId = (int)($pollOption['id'] ?? 0);
+                                    $optionVotes = (int)($pollOption['vote_count'] ?? 0);
+                                    $isSelected = $optionId > 0 && $optionId === (int)($dbPoll['user_option_id'] ?? 0);
+                                    $totalVotes = max(1, (int)($dbPoll['total_votes'] ?? 0));
+                                    $ratio = (int)round(($optionVotes / $totalVotes) * 100);
+                                    ?>
+                                    <button type="button" class="w-full text-left px-3 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-main text-sm <?= $isSelected ? 'border-main bg-main/10 font-semibold' : ''; ?>" data-community-poll-option data-post-id="<?= $postId; ?>" data-option-id="<?= $optionId; ?>" data-selected="<?= $isSelected ? '1' : '0'; ?>">
+                                        <span class="block text-gray-800 dark:text-gray-100"><?= htmlspecialchars((string)($pollOption['option_text'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
+                                        <span class="mt-1 block text-[11px] text-gray-500 dark:text-gray-400" data-community-poll-option-meta data-vote-count="<?= $optionVotes; ?>"><?= $optionVotes; ?> vote(s) • <?= $ratio; ?>%</span>
+                                    </button>
+                                <?php endforeach; ?>
+                            </div>
+                            <p class="mt-2 text-[11px] text-gray-500 dark:text-gray-400">Tổng phiếu: <span data-community-poll-total><?= (int)($dbPoll['total_votes'] ?? 0); ?></span></p>
+                        </div>
+                    <?php elseif (!empty($pollData)): ?>
+                        <div class="rounded-xl border border-main/25 bg-main/5 p-3">
+                            <p class="text-xs uppercase tracking-wide font-semibold text-main mb-1">Poll nhanh</p>
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white mb-2"><?= htmlspecialchars((string)$pollData['question'], ENT_QUOTES, 'UTF-8'); ?></p>
+                            <div class="space-y-2">
+                                <?php foreach ((array)$pollData['options'] as $pollIdx => $pollOption): ?>
+                                    <button type="button" class="w-full text-left px-3 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-main text-sm" data-community-poll-option data-post-id="<?= $postId; ?>" data-poll-option="<?= (int)$pollIdx; ?>">
+                                        <?= htmlspecialchars((string)$pollOption, ENT_QUOTES, 'UTF-8'); ?>
+                                    </button>
+                                <?php endforeach; ?>
+                            </div>
+                            <p class="mt-2 text-[11px] text-gray-500 dark:text-gray-400">Bình chọn nhanh trên thiết bị này để tăng tương tác.</p>
+                        </div>
+                    <?php endif; ?>
 
                     <?php if (!empty($postMedia)): ?>
                         <?php

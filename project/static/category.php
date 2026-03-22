@@ -18,19 +18,37 @@ if (!function_exists('renderCategoryCardsHtml')) {
     function renderCategoryCardsHtml($conn, $postsRows, $user_id)
     {
         ob_start();
+        $likedByPost = [];
+        $savedByPost = [];
+
+        $postIds = array_values(array_unique(array_map(function ($row) {
+            return (int)($row['id'] ?? 0);
+        }, (array)$postsRows)));
+
+        if ($user_id !== '' && !empty($postIds)) {
+            $placeholders = implode(',', array_fill(0, count($postIds), '?'));
+            $params = array_merge([(int)$user_id], $postIds);
+
+            $likedStmt = $conn->prepare("SELECT post_id FROM `likes` WHERE user_id = ? AND post_id IN ({$placeholders})");
+            $likedStmt->execute($params);
+            foreach ($likedStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $likedByPost[(int)$row['post_id']] = true;
+            }
+
+            $savedStmt = $conn->prepare("SELECT post_id FROM `favorite_posts` WHERE user_id = ? AND post_id IN ({$placeholders})");
+            $savedStmt->execute($params);
+            foreach ($savedStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $savedByPost[(int)$row['post_id']] = true;
+            }
+        }
+
         if (!empty($postsRows)) {
             foreach ($postsRows as $fetch_posts) {
                 $post_id = (int)$fetch_posts['id'];
                 $decodedTitle = html_entity_decode((string)$fetch_posts['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8');
                 $decodedSnippet = html_entity_decode(strip_tags((string)$fetch_posts['content']), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-
-                $confirm_likes = $conn->prepare("SELECT 1 FROM `likes` WHERE user_id = ? AND post_id = ? LIMIT 1");
-                $confirm_likes->execute([$user_id, $post_id]);
-                $isLiked = $confirm_likes->rowCount() > 0;
-
-                $confirm_save = $conn->prepare("SELECT 1 FROM `favorite_posts` WHERE user_id = ? AND post_id = ? LIMIT 1");
-                $confirm_save->execute([$user_id, $post_id]);
-                $isSaved = $confirm_save->rowCount() > 0;
+                $isLiked = !empty($likedByPost[$post_id]);
+                $isSaved = !empty($savedByPost[$post_id]);
 ?>
                 <article class="card dark:bg-gray-700 group blog-card-shared hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
                     <form method="post" class="h-full flex flex-col">
@@ -62,6 +80,8 @@ if (!function_exists('renderCategoryCardsHtml')) {
                             <div class="relative overflow-hidden h-48 rounded-lg mt-4">
                                 <img src="<?= htmlspecialchars(blog_post_image_src((string)$fetch_posts['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>"
                                     alt="<?= htmlspecialchars($decodedTitle, ENT_QUOTES, 'UTF-8'); ?>"
+                                    loading="lazy"
+                                    decoding="async"
                                     class="blog-card-image">
                                 <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
                             </div>

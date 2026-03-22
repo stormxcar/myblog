@@ -13,7 +13,7 @@ if (!function_exists('community_ensure_tables')) {
             `user_id` INT UNSIGNED NOT NULL,
             `user_name` VARCHAR(120) NOT NULL,
             `post_title` VARCHAR(300) NOT NULL,
-            `post_type` ENUM('text','media','link') NOT NULL DEFAULT 'text',
+            `post_type` ENUM('text','media','link','poll') NOT NULL DEFAULT 'text',
             `content` TEXT NOT NULL,
             `privacy` ENUM('public','followers','private') NOT NULL DEFAULT 'public',
             `status` ENUM('published','draft','hidden','deleted') NOT NULL DEFAULT 'published',
@@ -33,6 +33,7 @@ if (!function_exists('community_ensure_tables')) {
         try {
             $conn->exec("ALTER TABLE `community_posts` MODIFY COLUMN `privacy` ENUM('public','followers','private') NOT NULL DEFAULT 'public'");
             $conn->exec("ALTER TABLE `community_posts` MODIFY COLUMN `status` ENUM('published','draft','hidden','deleted') NOT NULL DEFAULT 'published'");
+            $conn->exec("ALTER TABLE `community_posts` MODIFY COLUMN `post_type` ENUM('text','media','link','poll') NOT NULL DEFAULT 'text'");
         } catch (Exception $e) {
             // Ignore ALTER failures in restricted environments; table can still operate with existing enum.
         }
@@ -52,7 +53,7 @@ if (!function_exists('community_ensure_tables')) {
         $ensureColumn('total_downvotes', "ALTER TABLE `community_posts` ADD COLUMN `total_downvotes` INT UNSIGNED NOT NULL DEFAULT 0 AFTER `total_upvotes`");
         $ensureColumn('vote_score', "ALTER TABLE `community_posts` ADD COLUMN `vote_score` INT NOT NULL DEFAULT 0 AFTER `total_downvotes`");
         $ensureColumn('post_title', "ALTER TABLE `community_posts` ADD COLUMN `post_title` VARCHAR(300) NOT NULL DEFAULT '' AFTER `user_name`");
-        $ensureColumn('post_type', "ALTER TABLE `community_posts` ADD COLUMN `post_type` ENUM('text','media','link') NOT NULL DEFAULT 'text' AFTER `post_title`");
+        $ensureColumn('post_type', "ALTER TABLE `community_posts` ADD COLUMN `post_type` ENUM('text','media','link','poll') NOT NULL DEFAULT 'text' AFTER `post_title`");
 
         try {
             $conn->exec("UPDATE community_posts SET post_title = TRIM(SUBSTRING_INDEX(content, '\\n', 1)) WHERE post_title = '' OR post_title IS NULL");
@@ -158,6 +159,44 @@ if (!function_exists('community_ensure_tables')) {
             KEY `idx_community_post_reports_post_id` (`post_id`),
             KEY `idx_community_post_reports_status` (`status`),
             CONSTRAINT `fk_community_post_reports_post` FOREIGN KEY (`post_id`) REFERENCES `community_posts` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        $conn->exec("CREATE TABLE IF NOT EXISTS `community_poll_options` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `post_id` INT UNSIGNED NOT NULL,
+            `option_text` VARCHAR(255) NOT NULL,
+            `sort_order` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `idx_community_poll_options_post` (`post_id`),
+            CONSTRAINT `fk_community_poll_options_post` FOREIGN KEY (`post_id`) REFERENCES `community_posts` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        $conn->exec("CREATE TABLE IF NOT EXISTS `community_poll_votes` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `post_id` INT UNSIGNED NOT NULL,
+            `option_id` INT UNSIGNED NOT NULL,
+            `user_id` INT UNSIGNED NOT NULL,
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uniq_community_poll_vote` (`post_id`, `user_id`),
+            KEY `idx_community_poll_votes_option` (`option_id`),
+            KEY `idx_community_poll_votes_post` (`post_id`),
+            CONSTRAINT `fk_community_poll_votes_post` FOREIGN KEY (`post_id`) REFERENCES `community_posts` (`id`) ON DELETE CASCADE,
+            CONSTRAINT `fk_community_poll_votes_option` FOREIGN KEY (`option_id`) REFERENCES `community_poll_options` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        $conn->exec("CREATE TABLE IF NOT EXISTS `notification_digest_preferences` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `user_id` INT UNSIGNED NOT NULL,
+            `frequency` ENUM('daily','weekly','off') NOT NULL DEFAULT 'daily',
+            `enabled` TINYINT(1) NOT NULL DEFAULT 1,
+            `last_sent_at` TIMESTAMP NULL DEFAULT NULL,
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uniq_digest_user` (`user_id`),
+            KEY `idx_digest_enabled_frequency` (`enabled`, `frequency`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
         $initialized = true;
@@ -600,5 +639,209 @@ if (!function_exists('community_resolve_topic_theme')) {
         }
 
         return ['card' => 'bg-gray-100 dark:bg-gray-800', 'badge' => 'bg-main/10 text-main', 'accent' => 'text-main'];
+    }
+}
+
+if (!function_exists('community_set_digest_preference')) {
+    function community_set_digest_preference($conn, $userId, $frequency)
+    {
+        $userId = (int)$userId;
+        $frequency = trim((string)$frequency);
+        if (!in_array($frequency, ['daily', 'weekly', 'off'], true) || $userId <= 0) {
+            return false;
+        }
+
+        $enabled = $frequency === 'off' ? 0 : 1;
+        $stmt = $conn->prepare("INSERT INTO notification_digest_preferences (user_id, frequency, enabled)
+            VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE frequency = VALUES(frequency), enabled = VALUES(enabled), updated_at = CURRENT_TIMESTAMP");
+        return $stmt->execute([$userId, $frequency, $enabled]);
+    }
+}
+
+if (!function_exists('community_get_digest_preference')) {
+    function community_get_digest_preference($conn, $userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return ['frequency' => 'off', 'enabled' => 0];
+        }
+
+        $stmt = $conn->prepare('SELECT frequency, enabled, last_sent_at FROM notification_digest_preferences WHERE user_id = ? LIMIT 1');
+        $stmt->execute([$userId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return ['frequency' => 'daily', 'enabled' => 1, 'last_sent_at' => null];
+        }
+        return [
+            'frequency' => (string)($row['frequency'] ?? 'daily'),
+            'enabled' => (int)($row['enabled'] ?? 1),
+            'last_sent_at' => $row['last_sent_at'] ?? null,
+        ];
+    }
+}
+
+if (!function_exists('community_get_weekly_top_contributor_ids')) {
+    function community_get_weekly_top_contributor_ids($conn, $limit = 5)
+    {
+        $limit = max(1, min(20, (int)$limit));
+        $sql = "SELECT s.user_id
+            FROM (
+                SELECT p.user_id, (COUNT(*) * 3) AS points
+                FROM community_posts p
+                WHERE p.status = 'published' AND p.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                GROUP BY p.user_id
+                UNION ALL
+                SELECT c.user_id, COUNT(*) AS points
+                FROM community_post_comments c
+                WHERE c.status = 'active' AND c.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                GROUP BY c.user_id
+                UNION ALL
+                SELECT p.user_id, COUNT(*) AS points
+                FROM community_posts p
+                INNER JOIN community_post_reactions r ON r.post_id = p.id AND r.reaction = 1
+                WHERE p.status IN ('published', 'draft', 'hidden') AND r.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                GROUP BY p.user_id
+            ) s
+            GROUP BY s.user_id
+            ORDER BY SUM(s.points) DESC, s.user_id ASC
+            LIMIT {$limit}";
+
+        $stmt = $conn->prepare($sql);
+        $stmt->execute();
+        return array_values(array_unique(array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN))));
+    }
+}
+
+if (!function_exists('community_build_user_badges_map')) {
+    function community_build_user_badges_map($conn, array $userIds)
+    {
+        $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds), function ($id) {
+            return $id > 0;
+        })));
+
+        if (empty($userIds)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($userIds), '?'));
+
+        $postCounts = [];
+        $postStmt = $conn->prepare("SELECT user_id, COUNT(*) AS total_posts FROM community_posts WHERE user_id IN ({$placeholders}) AND status IN ('published', 'draft', 'hidden') GROUP BY user_id");
+        $postStmt->execute($userIds);
+        foreach ($postStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $postCounts[(int)$row['user_id']] = (int)$row['total_posts'];
+        }
+
+        $upvoteCounts = [];
+        $upvoteStmt = $conn->prepare("SELECT p.user_id, COALESCE(SUM(CASE WHEN r.reaction = 1 THEN 1 ELSE 0 END), 0) AS total_upvotes
+            FROM community_posts p
+            LEFT JOIN community_post_reactions r ON r.post_id = p.id
+            WHERE p.user_id IN ({$placeholders}) AND p.status IN ('published', 'draft', 'hidden')
+            GROUP BY p.user_id");
+        $upvoteStmt->execute($userIds);
+        foreach ($upvoteStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $upvoteCounts[(int)$row['user_id']] = (int)$row['total_upvotes'];
+        }
+
+        $weeklyTopIds = community_get_weekly_top_contributor_ids($conn, 5);
+        $weeklyTopLookup = [];
+        foreach ($weeklyTopIds as $uid) {
+            $weeklyTopLookup[(int)$uid] = true;
+        }
+
+        $badgesMap = [];
+        foreach ($userIds as $uid) {
+            $badges = [];
+            if ((int)($postCounts[$uid] ?? 0) >= 10) {
+                $badges[] = [
+                    'key' => 'post10',
+                    'label' => '10 bai',
+                    'class' => 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200'
+                ];
+            }
+            if ((int)($upvoteCounts[$uid] ?? 0) >= 100) {
+                $badges[] = [
+                    'key' => 'upvote100',
+                    'label' => '100 upvote',
+                    'class' => 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200'
+                ];
+            }
+            if (!empty($weeklyTopLookup[$uid])) {
+                $badges[] = [
+                    'key' => 'weekly_top',
+                    'label' => 'Top tuan',
+                    'class' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200'
+                ];
+            }
+            $badgesMap[$uid] = $badges;
+        }
+
+        return $badgesMap;
+    }
+}
+
+if (!function_exists('community_get_featured_posts_24h')) {
+    function community_get_featured_posts_24h($conn, $limit = 5)
+    {
+        $limit = max(1, min(20, (int)$limit));
+        $stmt = $conn->prepare("SELECT p.id, p.post_title, p.content, p.total_upvotes, p.total_comments, p.created_at
+            FROM community_posts p
+            WHERE p.status = 'published' AND p.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            ORDER BY p.vote_score DESC, p.total_upvotes DESC, p.total_comments DESC, p.created_at DESC
+            LIMIT {$limit}");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+}
+
+if (!function_exists('community_get_posts_near_user_interests')) {
+    function community_get_posts_near_user_interests($conn, $userId, $limit = 5)
+    {
+        $userId = (int)$userId;
+        $limit = max(1, min(20, (int)$limit));
+        if ($userId <= 0) {
+            return [];
+        }
+
+        $topicStmt = $conn->prepare("SELECT t.slug, t.name, COUNT(*) AS affinity
+            FROM community_topics t
+            INNER JOIN community_post_topics pt ON pt.topic_id = t.id
+            INNER JOIN community_posts p ON p.id = pt.post_id
+            LEFT JOIN community_post_reactions r ON r.post_id = p.id AND r.user_id = ?
+            LEFT JOIN community_post_comments c ON c.post_id = p.id AND c.user_id = ? AND c.status = 'active'
+            LEFT JOIN community_saved_posts s ON s.post_id = p.id AND s.user_id = ?
+            WHERE (r.user_id IS NOT NULL OR c.user_id IS NOT NULL OR s.user_id IS NOT NULL)
+            GROUP BY t.id, t.slug, t.name
+            ORDER BY affinity DESC, t.name ASC
+            LIMIT 4");
+        $topicStmt->execute([$userId, $userId, $userId]);
+        $topicRows = $topicStmt->fetchAll(PDO::FETCH_ASSOC);
+        if (empty($topicRows)) {
+            return [];
+        }
+
+        $topicSlugs = array_values(array_filter(array_map(function ($row) {
+            return trim((string)($row['slug'] ?? ''));
+        }, $topicRows), function ($slug) {
+            return $slug !== '';
+        }));
+        if (empty($topicSlugs)) {
+            return [];
+        }
+
+        $topicPlaceholders = implode(',', array_fill(0, count($topicSlugs), '?'));
+        $postParams = array_merge([$userId], $topicSlugs);
+        $postStmt = $conn->prepare("SELECT DISTINCT p.id, p.post_title, p.content, p.created_at, p.total_upvotes, p.total_comments
+            FROM community_posts p
+            INNER JOIN community_post_topics pt ON pt.post_id = p.id
+            INNER JOIN community_topics t ON t.id = pt.topic_id
+            WHERE p.status = 'published'
+              AND p.user_id <> ?
+              AND t.slug IN ({$topicPlaceholders})
+            ORDER BY p.created_at DESC
+            LIMIT {$limit}");
+        $postStmt->execute($postParams);
+        return $postStmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }

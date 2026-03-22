@@ -18,6 +18,9 @@ $firstBundle = community_fetch_feed_posts_page($conn, $user_id, 1, 6, $activeTop
 $firstMaps = community_load_post_maps($conn, $firstBundle['posts'], $user_id);
 $firstPostsHtml = community_render_feed_posts_html($firstBundle['posts'], $firstMaps, $user_id);
 $trendingTopics = community_get_trending_topics($conn, $user_id, 10);
+$featured24h = community_get_featured_posts_24h($conn, 5);
+$interestPosts = community_get_posts_near_user_interests($conn, $user_id, 5);
+$viewerBadges = $user_id > 0 ? (community_build_user_badges_map($conn, [$user_id])[$user_id] ?? []) : [];
 
 $activeTopicName = '';
 if ($activeTopicSlug !== '') {
@@ -186,6 +189,7 @@ render_breadcrumb($breadcrumb_items);
                     <div class="flex items-center gap-3">
                         <?php if ($user_id > 0): ?>
                             <a href="community_create.php" class="btn-primary"><i class="fas fa-plus mr-2"></i>Tạo bài đăng</a>
+                            <a href="community_create.php?quick=1" class="btn-secondary"><i class="fas fa-bolt mr-2"></i>Đăng nhanh 15 giây</a>
                         <?php else: ?>
                             <a href="login.php" class="btn-primary"><i class="fas fa-sign-in-alt mr-2"></i>Đăng nhập để đăng bài</a>
                         <?php endif; ?>
@@ -256,6 +260,24 @@ render_breadcrumb($breadcrumb_items);
             </div>
 
             <aside class="space-y-4 lg:sticky lg:top-24 lg:col-span-5 xl:col-span-4">
+                <?php if ($user_id > 0): ?>
+                    <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow p-4">
+                        <div class="flex items-center justify-between gap-2">
+                            <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Hồ sơ cộng đồng</h3>
+                            <a href="update.php" class="text-xs text-main hover:underline">Cập nhật hồ sơ</a>
+                        </div>
+                        <?php if (!empty($viewerBadges)): ?>
+                            <div class="mt-3 flex flex-wrap gap-2">
+                                <?php foreach ($viewerBadges as $badge): ?>
+                                    <span class="text-[11px] px-2.5 py-1 rounded-full font-semibold <?= htmlspecialchars((string)($badge['class'] ?? 'bg-main/10 text-main'), ENT_QUOTES, 'UTF-8'); ?>"><?= htmlspecialchars((string)($badge['label'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></span>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php else: ?>
+                            <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">Đăng thêm bài và nhận upvote để mở khóa badge mốc 10 bài, 100 upvote, Top tuần.</p>
+                        <?php endif; ?>
+                    </section>
+                <?php endif; ?>
+
                 <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow p-4">
                     <div class="flex items-center justify-between gap-2">
                         <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Chủ đề nội bật</h3>
@@ -274,6 +296,72 @@ render_breadcrumb($breadcrumb_items);
                         <?php else: ?>
                             <p class="text-xs text-gray-500 dark:text-gray-400">Chu de se xuat hien khi co bai viet moi.</p>
                         <?php endif; ?>
+                    </div>
+                </section>
+
+                <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow p-4">
+                    <div class="flex items-center justify-between gap-2">
+                        <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Bài nổi bật 24h</h3>
+                    </div>
+                    <div class="mt-3 space-y-3">
+                        <?php if (!empty($featured24h)): ?>
+                            <?php foreach ($featured24h as $item): ?>
+                                <?php $itemTitle = trim((string)($item['post_title'] ?? '')) !== '' ? (string)$item['post_title'] : community_extract_title((string)$item['content']); ?>
+                                <a href="#community-post-<?= (int)$item['id']; ?>" class="block rounded-lg border border-gray-200 dark:border-gray-700 p-3 hover:border-main transition-colors">
+                                    <h4 class="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2"><?= htmlspecialchars((string)$itemTitle, ENT_QUOTES, 'UTF-8'); ?></h4>
+                                    <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                                        <span class="mr-2"><i class="fas fa-arrow-up mr-1"></i><?= (int)($item['total_upvotes'] ?? 0); ?></span>
+                                        <span><i class="fas fa-comments mr-1"></i><?= (int)($item['total_comments'] ?? 0); ?></span>
+                                    </p>
+                                </a>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Chưa có bài đủ tín hiệu trong 24 giờ gần đây.</p>
+                        <?php endif; ?>
+                    </div>
+                </section>
+
+                <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow p-4">
+                    <div class="flex items-center justify-between gap-2">
+                        <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Bài gần bạn quan tâm</h3>
+                    </div>
+                    <div class="mt-3 space-y-3">
+                        <?php if (!empty($interestPosts)): ?>
+                            <?php foreach ($interestPosts as $item): ?>
+                                <?php $itemTitle = trim((string)($item['post_title'] ?? '')) !== '' ? (string)$item['post_title'] : community_extract_title((string)$item['content']); ?>
+                                <a href="#community-post-<?= (int)$item['id']; ?>" class="block rounded-lg border border-gray-200 dark:border-gray-700 p-3 hover:border-main transition-colors">
+                                    <h4 class="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2"><?= htmlspecialchars((string)$itemTitle, ENT_QUOTES, 'UTF-8'); ?></h4>
+                                    <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400"><?= htmlspecialchars(community_time_ago((string)$item['created_at']), ENT_QUOTES, 'UTF-8'); ?></p>
+                                </a>
+                            <?php endforeach; ?>
+                        <?php elseif ($user_id > 0): ?>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Hãy tương tác vài bài đầu tiên để hệ thống cá nhân hóa tốt hơn.</p>
+                        <?php else: ?>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Đăng nhập để xem gợi ý theo chủ đề bạn quan tâm.</p>
+                        <?php endif; ?>
+                    </div>
+                </section>
+
+                <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow p-4">
+                    <div class="flex items-center justify-between gap-2">
+                        <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Digest thông báo</h3>
+                    </div>
+                    <p class="mt-3 text-xs text-gray-600 dark:text-gray-300">Nhận tổng hợp theo ngày hoặc tuần khi bài viết của bạn có react và comment mới.</p>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <button type="button" data-community-digest="daily" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-main text-white hover:opacity-90">Bật digest ngày</button>
+                        <button type="button" data-community-digest="weekly" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-main/10">Bật digest tuần</button>
+                    </div>
+                </section>
+
+                <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow p-4">
+                    <div class="flex items-center justify-between gap-2">
+                        <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Template post nhanh</h3>
+                    </div>
+                    <div class="mt-3 grid grid-cols-1 gap-2">
+                        <a href="community_create.php?template=experience" class="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm text-gray-700 dark:text-gray-200 hover:bg-main/10">Chia sẻ kinh nghiệm</a>
+                        <a href="community_create.php?template=review" class="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm text-gray-700 dark:text-gray-200 hover:bg-main/10">Review địa điểm</a>
+                        <a href="community_create.php?template=qa" class="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm text-gray-700 dark:text-gray-200 hover:bg-main/10">Hỏi đáp nhanh</a>
+                        <a href="community_create.php?template=poll" class="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-sm text-gray-700 dark:text-gray-200 hover:bg-main/10">Khảo sát nhanh (poll)</a>
                     </div>
                 </section>
             </aside>
@@ -383,6 +471,20 @@ render_breadcrumb($breadcrumb_items);
                 return window.BLOG_ENDPOINTS.communityAction;
             }
             return 'community_action_api.php';
+        };
+
+        const getPollVoteEndpoint = () => {
+            if (window.BLOG_ENDPOINTS && window.BLOG_ENDPOINTS.communityPollVote) {
+                return window.BLOG_ENDPOINTS.communityPollVote;
+            }
+            return 'community_poll_vote.php';
+        };
+
+        const getDigestPreferenceEndpoint = () => {
+            if (window.BLOG_ENDPOINTS && window.BLOG_ENDPOINTS.communityDigestPreference) {
+                return window.BLOG_ENDPOINTS.communityDigestPreference;
+            }
+            return 'community_digest_preference.php';
         };
 
         const setLoading = (value) => {
@@ -783,6 +885,88 @@ render_breadcrumb($breadcrumb_items);
             }
         }
 
+        function updatePollOptionState(postId, userOptionId, totalVotes, options) {
+            const wrap = document.querySelector('[data-community-poll-wrap][data-post-id="' + postId + '"]');
+            if (!wrap) {
+                return;
+            }
+
+            const optionsById = {};
+            (options || []).forEach(function(item) {
+                const optionId = Number(item.option_id || 0);
+                if (optionId > 0) {
+                    optionsById[optionId] = Number(item.vote_count || 0);
+                }
+            });
+
+            const effectiveTotal = Math.max(0, Number(totalVotes || 0));
+            wrap.querySelectorAll('[data-community-poll-option][data-post-id="' + postId + '"]').forEach(function(btn) {
+                const optionId = Number(btn.getAttribute('data-option-id') || '0');
+                const voteCount = Number(optionsById[optionId] || 0);
+                const percent = effectiveTotal > 0 ? Math.round((voteCount / effectiveTotal) * 100) : 0;
+                const isActive = optionId > 0 && optionId === Number(userOptionId || 0);
+                btn.classList.toggle('border-main', isActive);
+                btn.classList.toggle('bg-main/10', isActive);
+                btn.classList.toggle('font-semibold', isActive);
+                btn.setAttribute('data-selected', isActive ? '1' : '0');
+
+                const meta = btn.querySelector('[data-community-poll-option-meta]');
+                if (meta) {
+                    meta.setAttribute('data-vote-count', String(voteCount));
+                    meta.textContent = voteCount + ' vote(s) • ' + percent + '%';
+                }
+            });
+
+            const totalEl = wrap.querySelector('[data-community-poll-total]');
+            if (totalEl) {
+                totalEl.textContent = String(effectiveTotal);
+            }
+        }
+
+        async function votePollOption(button) {
+            const postId = Number(button.getAttribute('data-post-id') || '0');
+            const optionId = Number(button.getAttribute('data-option-id') || '0');
+            if (!postId) {
+                return;
+            }
+
+            button.disabled = true;
+            try {
+                const fd = new FormData();
+                fd.set('post_id', String(postId));
+                fd.set('option_id', String(optionId));
+
+                const res = await fetch(getPollVoteEndpoint(), {
+                    method: 'POST',
+                    body: fd,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                });
+
+                const payload = await res.json();
+                if (!payload || payload.ok !== true) {
+                    if (payload && payload.login_required && payload.login_url) {
+                        showNotification(payload.message || 'Ban can dang nhap.', 'warning');
+                        setTimeout(function() {
+                            window.location.href = payload.login_url;
+                        }, 500);
+                        return;
+                    }
+                    showNotification((payload && payload.message) || 'Khong the cap nhat poll.', 'error');
+                    return;
+                }
+
+                updatePollOptionState(postId, payload.user_option_id || 0, payload.total_votes || 0, payload.options || []);
+                showNotification(payload.message || 'Đã ghi nhận bình chọn poll của bạn.', 'success');
+            } catch (err) {
+                showNotification('Loi ket noi khi binh chon poll.', 'error');
+            } finally {
+                button.disabled = false;
+            }
+        }
+
         async function submitComment(form) {
             const postId = Number(form.getAttribute('data-post-id') || '0');
             const endpoint = (window.BLOG_ENDPOINTS && window.BLOG_ENDPOINTS.communityCommentAdd) ?
@@ -909,7 +1093,7 @@ render_breadcrumb($breadcrumb_items);
             }
         }
 
-        document.addEventListener('click', function(event) {
+        document.addEventListener('click', async function(event) {
             if (shared && shared.handleClick(event)) {
                 return;
             }
@@ -976,6 +1160,47 @@ render_breadcrumb($breadcrumb_items);
             if (voteButton) {
                 event.preventDefault();
                 submitVote(voteButton);
+                return;
+            }
+
+            const pollButton = event.target.closest('[data-community-poll-option]');
+            if (pollButton) {
+                event.preventDefault();
+                votePollOption(pollButton);
+                return;
+            }
+
+            const digestBtn = event.target.closest('[data-community-digest]');
+            if (digestBtn) {
+                event.preventDefault();
+                const digestMode = String(digestBtn.getAttribute('data-community-digest') || 'daily');
+                try {
+                    const fd = new FormData();
+                    fd.set('frequency', digestMode);
+                    const res = await fetch(getDigestPreferenceEndpoint(), {
+                        method: 'POST',
+                        body: fd,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin'
+                    });
+                    const payload = await res.json();
+                    if (!payload || payload.ok !== true) {
+                        if (payload && payload.login_required && payload.login_url) {
+                            showNotification(payload.message || 'Ban can dang nhap.', 'warning');
+                            setTimeout(function() {
+                                window.location.href = payload.login_url;
+                            }, 500);
+                            return;
+                        }
+                        showNotification((payload && payload.message) || 'Khong the cap nhat digest.', 'error');
+                        return;
+                    }
+                    showNotification(payload.message || 'Da cap nhat digest.', 'success');
+                } catch (err) {
+                    showNotification('Loi ket noi khi cap nhat digest.', 'error');
+                }
                 return;
             }
 
@@ -1168,6 +1393,35 @@ render_breadcrumb($breadcrumb_items);
         } else {
             initCarousels(feedList);
         }
+
+        document.querySelectorAll('[data-community-poll-wrap]').forEach(function(wrap) {
+            const pid = Number(wrap.getAttribute('data-post-id') || '0');
+            if (pid <= 0) {
+                return;
+            }
+            let selected = 0;
+            const options = [];
+            wrap.querySelectorAll('[data-community-poll-option][data-post-id="' + pid + '"]').forEach(function(btn) {
+                const optionId = Number(btn.getAttribute('data-option-id') || '0');
+                const voteCount = Number(btn.querySelector('[data-community-poll-option-meta]')?.getAttribute('data-vote-count') || '0');
+                if (btn.getAttribute('data-selected') === '1') {
+                    selected = optionId;
+                }
+                options.push({
+                    option_id: optionId,
+                    vote_count: voteCount
+                });
+            });
+            const totalVotes = Number(wrap.querySelector('[data-community-poll-total]')?.textContent || '0');
+            updatePollOptionState(pid, selected, totalVotes, options);
+        });
+
+        document.querySelectorAll('[data-community-poll-option]').forEach(function(btn) {
+            const pid = Number(btn.getAttribute('data-post-id') || '0');
+            if (pid <= 0) {
+                btn.disabled = true;
+            }
+        });
     })();
 
     function toggleCommunityComments(postId) {

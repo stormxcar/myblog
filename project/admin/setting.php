@@ -142,27 +142,6 @@ if (isset($_POST['save_license'])) {
     $message[] = 'License updated successfully!';
 }
 
-// update image slide banner
-if (isset($_POST['save_image_slide'])) {
-    // Cập nhật ảnh banner slide
-    for ($i = 1; $i <= 4; $i++) {
-        $image_key = 'image_' . $i;
-        if (isset($_FILES[$image_key]) && (int)($_FILES[$image_key]['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
-            $uploadResult = blog_cloudinary_upload($_FILES[$image_key], blog_cloudinary_default_folder() . '/settings/banners');
-            if (!($uploadResult['ok'] ?? false)) {
-                $message[] = (string)($uploadResult['error'] ?? ('Khong the upload banner slide ' . $i));
-                continue;
-            }
-
-            $image_path = (string)$uploadResult['secure_url'];
-            $update_image = $conn->prepare("UPDATE settings SET setting_value = ? WHERE setting_key = ?");
-            $update_image->execute([$image_path, 'banner_slide_' . $i]);
-        }
-    }
-
-    $message[] = 'Slide ảnh đã được cập nhật thành công!';
-}
-
 // update title in gioithieu part
 if (isset($_POST['save_gioithieu'])) {
     $settings = $conn->query("SELECT setting_key, setting_value FROM `settings`")->fetchAll(PDO::FETCH_KEY_PAIR);
@@ -360,46 +339,6 @@ if (isset($_POST['save_lienhe'])) {
     <section class="setting">
 
         <h1 class="heading">Thiết lập hiển thị giao diện</h1>
-
-        <!-- Thêm ảnh banner và upload -->
-
-        <form class="banner_edit_form" action="setting.php" method="post" enctype="multipart/form-data">
-            <p class="title_banner">Tùy chỉnh banner</p>
-            <div class="image-container">
-                <div class="banner_img">
-                    <div class="banner_img_infor">
-                        <span>Ảnh banner 1: </span>
-                        <input id="banner_1" type="file" name="image_1" accept="image/jpg, image/jpeg, image/png , image/avif" onchange="previewImage('banner_1')">
-                    </div>
-                    <img id="banner_1_preview" class="show_img" src="../uploaded_img/default_img.png" alt="image slide show here !">
-                </div>
-                <div class="banner_img">
-                    <div class="banner_img_infor">
-                        <span>Ảnh banner 2: </span>
-                        <input id="banner_2" type="file" name="image_2" accept="image/jpg, image/jpeg, image/png , image/avif" onchange="previewImage('banner_2')">
-                    </div>
-                    <img id="banner_2_preview" class="show_img" src="" alt="image slide show here !">
-                </div>
-                <div class="banner_img">
-                    <div class="banner_img_infor">
-                        <span>Ảnh banner 3: </span>
-                        <input id="banner_3" type="file" name="image_3" accept="image/jpg, image/jpeg, image/png , image/avif" onchange="previewImage('banner_3')">
-                    </div>
-                    <img id="banner_3_preview" class="show_img" src="../uploaded_img/default_img.png" alt="image slide show here !">
-                </div>
-                <div class="banner_img">
-                    <div class="banner_img_infor">
-                        <span>Ảnh banner 4: </span>
-                        <input id="banner_4" type="file" name="image_4" accept="image/jpg, image/jpeg, image/png , image/avif" onchange="previewImage('banner_4')">
-                    </div>
-                    <img id="banner_4_preview" class="show_img" src="../uploaded_img/default_img.png" alt="image slide show here !">
-                </div>
-            </div>
-            <div class="btn_handle">
-                <button type="reset" class="reset_btn">Làm mới</button>
-                <button type="submit" class="submit_btn" name="save_image_slide">Xác nhận</button>
-            </div>
-        </form>
 
         <form class="footer_edit_form" action="setting.php" method="post" enctype="multipart/form-data">
             <p class="title_banner">Tùy chỉnh footer</p>

@@ -2,6 +2,10 @@
 include '../components/connect.php';
 include '../components/seo_helpers.php';
 
+if (function_exists('blog_inject_lazy_loading_into_html')) {
+    ob_start('blog_inject_lazy_loading_into_html');
+}
+
 session_start();
 
 if (isset($_SESSION['user_id'])) {

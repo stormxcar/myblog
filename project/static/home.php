@@ -2,6 +2,10 @@
 include '../components/connect.php';
 include '../components/seo_helpers.php';
 
+if (function_exists('blog_inject_lazy_loading_into_html')) {
+    ob_start('blog_inject_lazy_loading_into_html');
+}
+
 // Disable error display for AJAX requests to prevent HTML error output
 if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
     ini_set('display_errors', 0);

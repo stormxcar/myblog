@@ -321,11 +321,12 @@ $current_tag = $fetch_post_tag['category'];
 // Truy vấn các bài viết liên quan
 $select_related_posts = $conn->prepare("SELECT * FROM `posts` WHERE category = ? AND id != ? AND status = 'active' LIMIT 4");
 $select_related_posts->execute([$current_tag, $get_id]);
+$related_posts = $select_related_posts->fetchAll(PDO::FETCH_ASSOC);
 
 $aiSummary = blog_generate_quick_summary($decoded_current_content);
 $aiSummaryDisplay = blog_decode_html_entities_deep((string)$aiSummary);
 
-$personalized_stmt = null;
+$personalized_posts = [];
 if ($user_id !== '') {
     $personalized_stmt = $conn->prepare("SELECT p.*, 
         (CASE WHEN p.category IN (
@@ -344,6 +345,51 @@ if ($user_id !== '') {
         ORDER BY rec_score DESC, p.id DESC
         LIMIT 4");
     $personalized_stmt->execute([(int)$user_id, (int)$user_id, (int)$get_id]);
+    $personalized_posts = $personalized_stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+$metric_post_ids = [(int)$get_id];
+foreach ($related_posts as $related_row) {
+    $metric_post_ids[] = (int)$related_row['id'];
+}
+$metric_post_ids = array_values(array_unique(array_filter(array_map('intval', $metric_post_ids), function ($value) {
+    return $value > 0;
+})));
+
+$post_comment_count_map = [];
+$post_like_count_map = [];
+$user_liked_post_map = [];
+$user_saved_post_map = [];
+
+if (!empty($metric_post_ids)) {
+    $metric_placeholders = implode(',', array_fill(0, count($metric_post_ids), '?'));
+
+    $comment_count_stmt = $conn->prepare("SELECT post_id, COUNT(*) AS total_comments FROM `comments` WHERE post_id IN ({$metric_placeholders}) GROUP BY post_id");
+    $comment_count_stmt->execute($metric_post_ids);
+    foreach ($comment_count_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $post_comment_count_map[(int)$row['post_id']] = (int)$row['total_comments'];
+    }
+
+    $like_count_stmt = $conn->prepare("SELECT post_id, COUNT(*) AS total_likes FROM `likes` WHERE post_id IN ({$metric_placeholders}) GROUP BY post_id");
+    $like_count_stmt->execute($metric_post_ids);
+    foreach ($like_count_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $post_like_count_map[(int)$row['post_id']] = (int)$row['total_likes'];
+    }
+
+    if ($user_id !== '') {
+        $liked_params = array_merge([(int)$user_id], $metric_post_ids);
+        $liked_stmt = $conn->prepare("SELECT post_id FROM `likes` WHERE user_id = ? AND post_id IN ({$metric_placeholders})");
+        $liked_stmt->execute($liked_params);
+        foreach ($liked_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $user_liked_post_map[(int)$row['post_id']] = true;
+        }
+
+        $saved_stmt = $conn->prepare("SELECT post_id FROM `favorite_posts` WHERE user_id = ? AND post_id IN ({$metric_placeholders})");
+        $saved_stmt->execute($liked_params);
+        foreach ($saved_stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $user_saved_post_map[(int)$row['post_id']] = true;
+        }
+    }
 }
 
 if (!function_exists('render_comment_branch')) {
@@ -523,20 +569,10 @@ render_breadcrumb($breadcrumb_items);
                 while ($fetch_posts = $select_posts->fetch(PDO::FETCH_ASSOC)) {
                     $post_id = $fetch_posts['id'];
                     $post_tags = blog_get_post_tags($conn, $post_id);
-
-                    $count_post_comments = $conn->prepare("SELECT * FROM `comments` WHERE post_id = ?");
-                    $count_post_comments->execute([$post_id]);
-                    $total_post_comments = $count_post_comments->rowCount();
-
-                    $count_post_likes = $conn->prepare("SELECT * FROM `likes` WHERE post_id = ?");
-                    $count_post_likes->execute([$post_id]);
-                    $total_post_likes = $count_post_likes->rowCount();
-
-                    $confirm_likes = $conn->prepare("SELECT * FROM `likes` WHERE user_id = ? AND post_id = ?");
-                    $confirm_likes->execute([$user_id, $post_id]);
-
-                    $confirm_save = $conn->prepare("SELECT * FROM `favorite_posts` WHERE user_id = ? AND post_id = ?");
-                    $confirm_save->execute([$user_id, $post_id]);
+                    $total_post_comments = (int)($post_comment_count_map[(int)$post_id] ?? 0);
+                    $total_post_likes = (int)($post_like_count_map[(int)$post_id] ?? 0);
+                    $is_post_liked = !empty($user_liked_post_map[(int)$post_id]);
+                    $is_post_saved = !empty($user_saved_post_map[(int)$post_id]);
             ?>
                     <form method="post" action="">
                         <input type="hidden" name="post_id" value="<?= $post_id; ?>">
@@ -563,7 +599,7 @@ render_breadcrumb($breadcrumb_items);
 
                                 <button type="submit" name="save_post"
                                     class="p-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors group">
-                                    <i class="fas fa-bookmark text-xl <?= $confirm_save->rowCount() > 0 ? 'text-yellow-500' : 'text-gray-400 group-hover:text-yellow-500' ?> transition-colors"></i>
+                                    <i class="fas fa-bookmark text-xl <?= $is_post_saved ? 'text-yellow-500' : 'text-gray-400 group-hover:text-yellow-500' ?> transition-colors"></i>
                                 </button>
                             </div>
                         </div>
@@ -589,7 +625,7 @@ render_breadcrumb($breadcrumb_items);
                             </h1>
 
                             <div class="article-content-render prose prose-lg max-w-none text-gray-700 dark:text-gray-300 mb-8">
-                                <?= blog_decode_html_entities_deep((string)$fetch_posts['content']); ?>
+                                <?= blog_render_rich_content_html(blog_decode_html_entities_deep((string)$fetch_posts['content'])); ?>
                             </div>
 
                             <!-- Category Tag -->
@@ -621,7 +657,7 @@ render_breadcrumb($breadcrumb_items);
                                     </div>
 
                                     <button type="submit" name="like_post"
-                                        class="flex items-center space-x-2 hover:text-red-500 transition-colors <?= $confirm_likes->rowCount() > 0 ? 'text-red-500' : 'text-gray-600 dark:text-gray-400' ?>">
+                                        class="flex items-center space-x-2 hover:text-red-500 transition-colors <?= $is_post_liked ? 'text-red-500' : 'text-gray-600 dark:text-gray-400' ?>">
                                         <i class="fas fa-heart text-lg"></i>
                                         <span class="font-semibold"><?= $total_post_likes; ?> lượt thích</span>
                                     </button>
@@ -814,15 +850,16 @@ render_breadcrumb($breadcrumb_items);
                 <aside class="lg:col-span-1">
                     <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-700/30 lg:sticky lg:top-24">
                         <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-3">Đề xuất cho bạn</h3>
-                        <?php if ($personalized_stmt && $personalized_stmt->rowCount() > 0): ?>
+                        <?php if (!empty($personalized_posts)): ?>
                             <div class="space-y-3">
-                                <?php while ($rec = $personalized_stmt->fetch(PDO::FETCH_ASSOC)): ?>
+                                <?php foreach ($personalized_posts as $rec): ?>
+                                    <?php $decoded_rec_title = blog_decode_html_entities_deep((string)($rec['title'] ?? '')); ?>
                                     <a href="<?= post_path((int)$rec['id']); ?>" class="block rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 hover:-translate-y-0.5 hover:shadow transition">
                                         <p class="text-[11px] uppercase text-main mb-1"><?= htmlspecialchars($rec['category'] ?? 'Chung', ENT_QUOTES, 'UTF-8'); ?></p>
-                                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2"><?= htmlspecialchars($rec['title'], ENT_QUOTES, 'UTF-8'); ?></h4>
+                                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2"><?= htmlspecialchars($decoded_rec_title, ENT_QUOTES, 'UTF-8'); ?></h4>
 
                                     </a>
-                                <?php endwhile; ?>
+                                <?php endforeach; ?>
                             </div>
                         <?php else: ?>
                             <p class="text-sm text-gray-500 dark:text-gray-400">Chưa đủ dữ liệu cho bạn.</p>
@@ -842,23 +879,14 @@ render_breadcrumb($breadcrumb_items);
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 <?php
-                if ($select_related_posts->rowCount() > 0) {
-                    while ($fetch_related_posts = $select_related_posts->fetch(PDO::FETCH_ASSOC)) {
+                if (!empty($related_posts)) {
+                    foreach ($related_posts as $fetch_related_posts) {
                         $related_post_id = $fetch_related_posts['id'];
-
-                        $count_post_comments = $conn->prepare("SELECT * FROM `comments` WHERE post_id = ?");
-                        $count_post_comments->execute([$related_post_id]);
-                        $total_post_comments = $count_post_comments->rowCount();
-
-                        $count_post_likes = $conn->prepare("SELECT * FROM `likes` WHERE post_id = ?");
-                        $count_post_likes->execute([$related_post_id]);
-                        $total_post_likes = $count_post_likes->rowCount();
-
-                        $confirm_likes = $conn->prepare("SELECT * FROM `likes` WHERE user_id = ? AND post_id = ?");
-                        $confirm_likes->execute([$user_id, $related_post_id]);
-
-                        $confirm_save = $conn->prepare("SELECT * FROM `favorite_posts` WHERE user_id = ? AND post_id = ?");
-                        $confirm_save->execute([$user_id, $related_post_id]);
+                        $decoded_related_title = blog_decode_html_entities_deep((string)$fetch_related_posts['title']);
+                        $total_post_comments = (int)($post_comment_count_map[(int)$related_post_id] ?? 0);
+                        $total_post_likes = (int)($post_like_count_map[(int)$related_post_id] ?? 0);
+                        $is_related_liked = !empty($user_liked_post_map[(int)$related_post_id]);
+                        $is_related_saved = !empty($user_saved_post_map[(int)$related_post_id]);
                 ?>
                         <article class="card dark:bg-gray-700 group blog-card-shared hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2">
                             <form method="post" class="h-full flex flex-col">
@@ -883,7 +911,7 @@ render_breadcrumb($breadcrumb_items);
                                     </div>
 
                                     <button type="submit" name="save_post" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-                                        <i class="fas fa-bookmark <?= $confirm_save->rowCount() > 0 ? 'text-yellow-500' : 'text-gray-400' ?>"></i>
+                                        <i class="fas fa-bookmark <?= $is_related_saved ? 'text-yellow-500' : 'text-gray-400' ?>"></i>
                                     </button>
                                 </div>
 
@@ -891,7 +919,7 @@ render_breadcrumb($breadcrumb_items);
                                 <?php if ($fetch_related_posts['image'] != '') : ?>
                                     <div class="relative overflow-hidden h-40 rounded-lg mt-4">
                                         <img src="<?= htmlspecialchars(blog_post_image_src((string)$fetch_related_posts['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>"
-                                            alt="<?= $fetch_related_posts['title']; ?>"
+                                            alt="<?= htmlspecialchars($decoded_related_title, ENT_QUOTES, 'UTF-8'); ?>"
                                             loading="lazy"
                                             decoding="async"
                                             class="blog-card-image">
@@ -901,8 +929,8 @@ render_breadcrumb($breadcrumb_items);
                                 <!-- Post Content -->
                                 <div class="py-4 flex-1 flex flex-col">
                                     <h3 class="font-bold text-gray-900 dark:text-white hover:text-main transition-colors mb-2 line-clamp-2">
-                                        <a href="<?= post_path($related_post_id, $fetch_related_posts['title']); ?>">
-                                            <?= $fetch_related_posts['title']; ?>
+                                        <a href="<?= post_path($related_post_id, $decoded_related_title); ?>">
+                                            <?= htmlspecialchars($decoded_related_title, ENT_QUOTES, 'UTF-8'); ?>
                                         </a>
                                     </h3>
 
@@ -910,7 +938,7 @@ render_breadcrumb($breadcrumb_items);
                                         <?= strip_tags(html_entity_decode((string)$fetch_related_posts['content'], ENT_QUOTES | ENT_HTML5, 'UTF-8')); ?>
                                     </div>
 
-                                    <a href="<?= post_path($related_post_id, $fetch_related_posts['title']); ?>"
+                                    <a href="<?= post_path($related_post_id, $decoded_related_title); ?>"
                                         class="text-main font-semibold hover:text-blue-700 transition-colors text-sm mb-3">
                                         Đọc thêm →
                                     </a>
@@ -925,7 +953,7 @@ render_breadcrumb($breadcrumb_items);
 
                                 <!-- Post Actions -->
                                 <div class="py-4 border-t border-gray-200 dark:border-gray-600 flex items-center justify-between">
-                                    <a href="<?= post_path($related_post_id, $fetch_related_posts['title']); ?>"
+                                    <a href="<?= post_path($related_post_id, $decoded_related_title); ?>"
                                         class="flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-main transition-colors text-sm">
                                         <i class="fas fa-comment"></i>
                                         <span><?= $total_post_comments; ?></span>
@@ -933,7 +961,7 @@ render_breadcrumb($breadcrumb_items);
 
                                     <button type="submit" name="like_post"
                                         class="flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors text-sm">
-                                        <i class="fas fa-heart <?= $confirm_likes->rowCount() > 0 ? 'text-red-500' : '' ?>"></i>
+                                        <i class="fas fa-heart <?= $is_related_liked ? 'text-red-500' : '' ?>"></i>
                                         <span><?= $total_post_likes; ?></span>
                                     </button>
                                 </div>

@@ -249,6 +249,44 @@ try {
         }
     }
 
+    if (!function_exists('blog_inject_lazy_loading_into_html')) {
+        function blog_inject_lazy_loading_into_html($html)
+        {
+            $html = (string)$html;
+            if ($html === '' || stripos($html, '<img') === false) {
+                return $html;
+            }
+
+            return (string)preg_replace_callback('/<img\b[^>]*>/i', function ($matches) {
+                $imgTag = (string)($matches[0] ?? '');
+                if ($imgTag === '') {
+                    return $imgTag;
+                }
+
+                if (stripos($imgTag, 'decoding=') === false) {
+                    $imgTag = rtrim(substr($imgTag, 0, -1)) . ' decoding="async">';
+                }
+
+                if (stripos($imgTag, 'loading=') !== false) {
+                    return $imgTag;
+                }
+
+                if (stripos($imgTag, 'data-no-lazy') !== false || stripos($imgTag, 'fetchpriority="high"') !== false) {
+                    return $imgTag;
+                }
+
+                return rtrim(substr($imgTag, 0, -1)) . ' loading="lazy">';
+            }, $html);
+        }
+    }
+
+    if (!function_exists('blog_render_rich_content_html')) {
+        function blog_render_rich_content_html($html)
+        {
+            return blog_inject_lazy_loading_into_html((string)$html);
+        }
+    }
+
     blog_ensure_post_tags_tables($conn);
 
     if (!function_exists('blog_get_foreign_key_reference')) {

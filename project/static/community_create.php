@@ -52,10 +52,24 @@ render_breadcrumb($breadcrumb_items);
                 <input type="hidden" name="post_type" id="communityPostType" value="text">
                 <input type="hidden" name="content" id="communityContentHidden" value="">
 
-                <div role="tablist" class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div role="tablist" class="flex flex-wrap items-center gap-2">
                     <button type="button" role="tab" class="community-create-tab border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-left font-semibold" data-tab="text" aria-selected="true">Văn bản</button>
                     <button type="button" role="tab" class="community-create-tab border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-left font-semibold" data-tab="media" aria-selected="false">Hình ảnh và video</button>
                     <button type="button" role="tab" class="community-create-tab border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-left font-semibold" data-tab="link" aria-selected="false">Liên kết</button>
+                    <button type="button" role="tab" class="community-create-tab border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-left font-semibold" data-tab="poll" aria-selected="false">Khảo sát</button>
+                </div>
+
+                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">Template post</h3>
+                        <span class="text-xs text-gray-500">Tạo nhanh trong 15 giây</span>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" data-community-template="experience" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-main/10">Kinh nghiệm</button>
+                        <button type="button" data-community-template="review" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-main/10">Review địa điểm</button>
+                        <button type="button" data-community-template="qa" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-main/10">Hỏi đáp</button>
+                        <button type="button" data-community-template="poll" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-main/10">Poll nhanh</button>
+                    </div>
                 </div>
 
                 <div>
@@ -86,6 +100,18 @@ render_breadcrumb($breadcrumb_items);
                         <textarea id="communityContentEditor"></textarea>
                     </div>
                     <p class="text-xs text-gray-500 mt-1">Nội dung tối đa 5000 ký tự sau khi bỏ định dạng.</p>
+                </div>
+
+                <div id="communityPollWrap" class="hidden rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 p-4">
+                    <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-3">Khảo sát nhanh</h3>
+                    <div class="grid grid-cols-1 gap-3">
+                        <input id="communityPollQuestion" name="poll_question" type="text" class="form-input" placeholder="Câu hỏi khảo sát (vd: Bạn thích chủ đề nào nhất?)">
+                        <input id="communityPollOption1" name="poll_option_1" type="text" class="form-input" placeholder="Lựa chọn 1">
+                        <input id="communityPollOption2" name="poll_option_2" type="text" class="form-input" placeholder="Lựa chọn 2">
+                        <input id="communityPollOption3" name="poll_option_3" type="text" class="form-input" placeholder="Lựa chọn 3 (tuỳ chọn)">
+                        <input id="communityPollOption4" name="poll_option_4" type="text" class="form-input" placeholder="Lựa chọn 4 (tuỳ chọn)">
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2">Tab này tạo poll thực với số phiếu lưu trong DB theo tài khoản người dùng.</p>
                 </div>
 
                 <div id="communityLinkWrap" class="hidden">
@@ -123,16 +149,19 @@ render_breadcrumb($breadcrumb_items);
         const postTypeInput = document.getElementById('communityPostType');
         const titleLabel = document.getElementById('communityTitleLabel');
         const linkWrap = document.getElementById('communityLinkWrap');
+        const pollWrap = document.getElementById('communityPollWrap');
+        const applyPollBtn = document.getElementById('communityApplyPollBtn');
         let submitIntent = 'publish';
 
         const tabLabelMap = {
             text: 'Tiêu đề bài văn bản',
             media: 'Tiêu đề bài hình ảnh và video',
-            link: 'Tiêu đề bài liên kết'
+            link: 'Tiêu đề bài liên kết',
+            poll: 'Tiêu đề khảo sát'
         };
 
         function applyTab(nextType) {
-            const currentType = ['text', 'media', 'link'].includes(nextType) ? nextType : 'text';
+            const currentType = ['text', 'media', 'link', 'poll'].includes(nextType) ? nextType : 'text';
             if (postTypeInput) {
                 postTypeInput.value = currentType;
             }
@@ -149,11 +178,73 @@ render_breadcrumb($breadcrumb_items);
             if (linkWrap) {
                 linkWrap.classList.toggle('hidden', currentType !== 'link');
             }
+
+            if (pollWrap) {
+                pollWrap.classList.toggle('hidden', currentType !== 'poll');
+            }
+        }
+
+        function setEditorContent(content) {
+            const normalized = String(content || '');
+            if (editorInstance) {
+                editorInstance.setData(normalized);
+            } else if (editorEl) {
+                editorEl.value = normalized;
+            }
+        }
+
+        function getEditorContent() {
+            if (editorInstance) {
+                return String(editorInstance.getData() || '');
+            }
+            return editorEl ? String(editorEl.value || '') : '';
+        }
+
+        function applyTemplate(templateKey) {
+            const key = String(templateKey || '').toLowerCase();
+            const titleInput = document.getElementById('communityTitle');
+            if (!titleInput) {
+                return;
+            }
+
+            const presets = {
+                experience: {
+                    title: 'Chia sẻ kinh nghiệm: [Chủ đề của bạn]',
+                    content: '<p><strong>Bối cảnh:</strong> Tôi đã thử...</p><p><strong>Điểm quan trọng:</strong></p><ul><li>...</li><li>...</li></ul><p><strong>Kết quả:</strong> ...</p><p>#experience #tips</p>'
+                },
+                review: {
+                    title: 'Review nhanh: [Tên địa điểm/dịch vụ]',
+                    content: '<p><strong>Điểm cộng:</strong></p><ul><li>...</li></ul><p><strong>Điểm trừ:</strong></p><ul><li>...</li></ul><p><strong>Đánh giá:</strong> .../10</p><p>#review #recommend</p>'
+                },
+                qa: {
+                    title: 'Hỏi đáp: [Câu hỏi của bạn]',
+                    content: '<p>Mình đang gặp vấn đề sau: ...</p><p>Đã thử: ...</p><p>Mong nhận được gợi ý từ mọi người. #qa #help</p>'
+                },
+                poll: {
+                    title: 'Khảo sát nhanh: [Chủ đề]',
+                    content: '<p><strong>[POLL]</strong></p><p>Câu hỏi của bạn?</p><ul><li>Lựa chọn A</li><li>Lựa chọn B</li><li>Lựa chọn C</li></ul><p><strong>[/POLL]</strong></p><p>Hãy bình chọn bằng cách comment số thứ tự lựa chọn.</p><p>#poll #community</p>'
+                }
+            };
+
+            const preset = presets[key];
+            if (!preset) {
+                return;
+            }
+
+            titleInput.value = preset.title;
+            setEditorContent(preset.content);
+            applyTab(key === 'poll' ? 'poll' : 'text');
         }
 
         document.querySelectorAll('.community-create-tab').forEach(function(tab) {
             tab.addEventListener('click', function() {
                 applyTab(String(tab.getAttribute('data-tab') || 'text'));
+            });
+        });
+
+        document.querySelectorAll('[data-community-template]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                applyTemplate(String(btn.getAttribute('data-community-template') || ''));
             });
         });
 
@@ -323,10 +414,16 @@ render_breadcrumb($breadcrumb_items);
                     'community_create_api.php';
 
                 const formData = new FormData(form);
-                if (contentHidden && editor) {
-                    const html = editorInstance ? editorInstance.getData() : '';
+                if (contentHidden) {
+                    const html = getEditorContent();
                     contentHidden.value = html;
                     formData.set('content', html);
+                }
+
+                const urlParams = new URLSearchParams(window.location.search || '');
+                const quickMode = urlParams.get('quick') === '1';
+                if (quickMode && formData.get('title') && !formData.get('content')) {
+                    formData.set('content', String(formData.get('title') || ''));
                 }
 
                 const privacyForSubmit = submitIntent === 'draft' ? 'private' : String(formData.get('privacy') || 'public');
@@ -388,6 +485,15 @@ render_breadcrumb($breadcrumb_items);
         });
 
         applyTab('text');
+
+        const startupParams = new URLSearchParams(window.location.search || '');
+        const template = startupParams.get('template');
+        if (template) {
+            applyTemplate(template);
+        }
+        if (startupParams.get('quick') === '1') {
+            showNotification('Chế độ đăng nhanh: điền tiêu đề + nội dung ngắn rồi đăng ngay.', 'info');
+        }
     });
 </script>
 
