@@ -70,8 +70,8 @@ if (isset($_POST['submit_contact'])) {
     }
 }
 
-$page_title = 'Trang chủ - My Blog';
-$page_description = 'Khám phá bài viết mới nhất, nội dung nổi bật và bộ sưu tập ảnh từ cộng đồng My Blog.';
+$page_title = 'My Blog - Blog du lich, cong nghe va trai nghiem song moi ngay';
+$page_description = 'Doc bai viet moi nhat ve du lich, cong nghe va trai nghiem song. Cap nhat lien tuc, de tim kiem tren Google va de theo doi xu huong nhanh nhat.';
 $page_robots = 'index,follow,max-image-preview:large';
 $page_canonical = canonical_current_url();
 $page_og_image = site_url('uploaded_img/logo-removebg.png');
@@ -131,6 +131,14 @@ try {
     $category_posts = $latest_by_category_stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
     $category_posts = [];
+}
+
+try {
+    $latest_index_stmt = $conn->prepare("SELECT id, title, date FROM posts WHERE status = 'active' ORDER BY id DESC LIMIT 12");
+    $latest_index_stmt->execute();
+    $latest_index_posts = $latest_index_stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $latest_index_posts = [];
 }
 ?>
 
@@ -201,6 +209,31 @@ try {
                     <?php endif; ?>
                 </div>
             </aside>
+        </div>
+    </div>
+</section>
+
+<section class="py-10 bg-gray-50 dark:bg-gray-900/40" aria-label="Lien ket bai viet moi nhat">
+    <div class="container-custom">
+        <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-sm">
+            <div class="flex items-center justify-between gap-3 mb-4">
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white">Lien ket bai viet moi nhat</h2>
+                <a href="posts.php" class="text-sm text-main font-semibold hover:underline">Xem danh sach day du</a>
+            </div>
+            <?php if (!empty($latest_index_posts)): ?>
+                <ul class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
+                    <?php foreach ($latest_index_posts as $index_post): ?>
+                        <?php $index_title = html_entity_decode((string)($index_post['title'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'); ?>
+                        <li>
+                            <a href="<?= post_path((int)$index_post['id'], $index_title); ?>" class="text-gray-700 dark:text-gray-200 hover:text-main dark:hover:text-main transition-colors underline-offset-2 hover:underline">
+                                <?= htmlspecialchars($index_title, ENT_QUOTES, 'UTF-8'); ?>
+                            </a>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php else: ?>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Chua co du lieu bai viet moi nhat.</p>
+            <?php endif; ?>
         </div>
     </div>
 </section>

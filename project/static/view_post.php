@@ -42,7 +42,7 @@ $current_post = null;
 if ($slug_param !== '') {
     // Prefer exact DB slug match when slug column exists.
     try {
-        $select_by_slug = $conn->prepare("SELECT id, title, content, slug FROM `posts` WHERE status = ? AND slug = ? LIMIT 1");
+        $select_by_slug = $conn->prepare("SELECT * FROM `posts` WHERE status = ? AND slug = ? LIMIT 1");
         $select_by_slug->execute(['active', $slug_param]);
         $current_post = $select_by_slug->fetch(PDO::FETCH_ASSOC);
         if ($current_post) {
@@ -68,7 +68,7 @@ if ($get_id <= 0) {
 
 if (!$current_post) {
     try {
-        $select_current_post = $conn->prepare("SELECT id, title, content, slug FROM `posts` WHERE status = ? AND id = ? LIMIT 1");
+        $select_current_post = $conn->prepare("SELECT * FROM `posts` WHERE status = ? AND id = ? LIMIT 1");
         $select_current_post->execute(['active', $get_id]);
         $current_post = $select_current_post->fetch(PDO::FETCH_ASSOC);
     } catch (Exception $e) {
@@ -95,10 +95,45 @@ if ($slug_param === '' || $slug_param !== $canonical_slug) {
 
 $decoded_current_title = blog_decode_html_entities_deep((string)$current_post['title']);
 $decoded_current_content = blog_decode_html_entities_deep((string)$current_post['content']);
+$category_label = trim((string)($current_post['category'] ?? ''));
+$article_plain = preg_replace('/\s+/u', ' ', trim(strip_tags($decoded_current_content)));
+$article_plain = (string)($article_plain ?? '');
+if ($article_plain === '') {
+    $article_plain = $decoded_current_title;
+}
 
-$page_title = $decoded_current_title . ' - My Blog';
-$page_description = mb_substr(trim(strip_tags($decoded_current_content)), 0, 160, 'UTF-8');
+$page_title = $decoded_current_title;
+if ($category_label !== '') {
+    $page_title .= ' | ' . $category_label;
+}
+$page_title .= ' | My Blog';
+
+$page_description = mb_substr($article_plain, 0, 150, 'UTF-8');
+if (mb_strlen($article_plain, 'UTF-8') > 150) {
+    $page_description .= '...';
+}
+
 $page_canonical = $canonical_post_url;
+$page_robots = 'index,follow,max-image-preview:large';
+$page_og_image = blog_post_image_src((string)($current_post['image'] ?? ''), '../uploaded_img/', '../uploaded_img/default_img.jpg');
+
+$article_date_raw = trim((string)($current_post['date'] ?? ''));
+$article_ts = $article_date_raw !== '' ? strtotime($article_date_raw) : false;
+$article_published_iso = $article_ts !== false ? gmdate(DATE_ATOM, $article_ts) : gmdate(DATE_ATOM);
+$article_modified_iso = $article_published_iso;
+$article_author_name = trim((string)($current_post['name'] ?? 'My Blog'));
+if ($article_author_name === '') {
+    $article_author_name = 'My Blog';
+}
+
+$keywords = [];
+if ($category_label !== '') {
+    $keywords[] = $category_label;
+}
+$keywords[] = 'blog';
+$keywords[] = 'du lich';
+$keywords[] = 'trai nghiem';
+$article_keywords = implode(', ', array_values(array_unique($keywords)));
 
 // Lấy thông tin user profile nếu đã đăng nhập
 $fetch_profile = null;
@@ -519,12 +554,35 @@ render_breadcrumb($breadcrumb_items);
     <script type="application/ld+json">
         <?= json_encode([
             '@context' => 'https://schema.org',
-            '@type' => 'BlogPosting',
+            '@type' => 'Article',
+            '@id' => $canonical_post_url,
+            'mainEntityOfPage' => [
+                '@type' => 'WebPage',
+                '@id' => $canonical_post_url,
+            ],
             'headline' => $decoded_current_title,
             'description' => $page_description,
             'url' => $canonical_post_url,
-            'datePublished' => date(DATE_ATOM),
-            'author' => ['@type' => 'Person', 'name' => 'My Blog']
+            'datePublished' => $article_published_iso,
+            'dateModified' => $article_modified_iso,
+            'articleSection' => $category_label !== '' ? $category_label : null,
+            'keywords' => $article_keywords,
+            'image' => [
+                '@type' => 'ImageObject',
+                'url' => $page_og_image,
+            ],
+            'author' => [
+                '@type' => 'Person',
+                'name' => $article_author_name,
+            ],
+            'publisher' => [
+                '@type' => 'Organization',
+                'name' => 'My Blog',
+                'logo' => [
+                    '@type' => 'ImageObject',
+                    'url' => site_url('uploaded_img/logo-removebg.png'),
+                ],
+            ],
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>
     </script>
 

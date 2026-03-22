@@ -10,6 +10,9 @@ RewriteEngine On
 # Rewrite root URL (/) to /static/home.php
 RewriteRule ^$ static/home.php [L]
 
+# Sitemap endpoint
+RewriteRule ^sitemap\.xml$ static/sitemap.php [L,NC]
+
 # Clean routes for static pages without .php extension
 RewriteRule ^(home|posts|category|all_photos|search|contact|login|register|forgot_pass|reset_pass|update|new_post|user_likes|user_comments|author_posts|menu|introduce)/?$ static/$1.php [L,QSA,NC]
 

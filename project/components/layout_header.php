@@ -34,6 +34,7 @@ $og_image = isset($page_og_image) && !empty($page_og_image)
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-2Q0NFTQD9G"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
+
         function gtag() {
             dataLayer.push(arguments);
         }

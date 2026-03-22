@@ -4,3 +4,5 @@ Allow: /
 Disallow: /admin/
 Disallow: /plugin/
 Disallow: /vendor/
+
+Sitemap: https://bolochayho.me/sitemap.xml
