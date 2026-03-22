@@ -36,6 +36,7 @@ $og_image = isset($page_og_image) && !empty($page_og_image)
     <title><?= $page_title; ?></title>
     <meta name="description" content="<?= htmlspecialchars($page_description, ENT_QUOTES, 'UTF-8'); ?>">
     <meta name="robots" content="<?= htmlspecialchars($page_robots, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta name="google-site-verification" content="B3jnzqQq3jbsdlIom-VU6HaRVK4Owj1ZZkV6iXYeY4M" />
     <link rel="canonical" href="<?= htmlspecialchars($page_canonical, ENT_QUOTES, 'UTF-8'); ?>">
 
     <meta property="og:type" content="website">
