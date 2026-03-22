@@ -461,7 +461,7 @@ if (!function_exists('community_render_comment_item')) {
             $replyAction = '<button type="button" class="text-xs text-main hover:underline" onclick="communityReplyToComment(' . $commentId . ')">Tra loi</button>';
         }
 
-        $html = '<div class="rounded-xl bg-gray-50 dark:bg-gray-700/40 p-3' . $replyClass . '" data-community-comment-id="' . $commentId . '">'
+        $html = '<div class="rounded-xl bg-gray-50 dark:bg-gray-700 p-3' . $replyClass . '" data-community-comment-id="' . $commentId . '">'
             . '<div class="flex items-center justify-between gap-2">'
             . '<div class="flex items-center gap-2">'
             . '<div class="w-8 h-8 rounded-full bg-main text-white text-xs font-semibold flex items-center justify-center">' . htmlspecialchars($initial, ENT_QUOTES, 'UTF-8') . '</div>'
@@ -578,27 +578,27 @@ if (!function_exists('community_resolve_topic_theme')) {
     {
         $slug = trim((string)$slug);
         $themes = [
-            'technology' => ['card' => 'bg-slate-100 dark:bg-slate-800/70', 'badge' => 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200', 'accent' => 'text-sky-600'],
-            'tech' => ['card' => 'bg-slate-100 dark:bg-slate-800/70', 'badge' => 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200', 'accent' => 'text-sky-600'],
-            'ai' => ['card' => 'bg-indigo-50 dark:bg-indigo-950/30', 'badge' => 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200', 'accent' => 'text-indigo-600'],
-            'business' => ['card' => 'bg-amber-50 dark:bg-amber-950/30', 'badge' => 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200', 'accent' => 'text-amber-600'],
-            'news' => ['card' => 'bg-yellow-50 dark:bg-yellow-950/30', 'badge' => 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-200', 'accent' => 'text-yellow-600'],
-            'lifestyle' => ['card' => 'bg-pink-50 dark:bg-pink-950/30', 'badge' => 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-200', 'accent' => 'text-pink-600'],
-            'fashion' => ['card' => 'bg-fuchsia-50 dark:bg-fuchsia-950/30', 'badge' => 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-200', 'accent' => 'text-fuchsia-600'],
-            'food' => ['card' => 'bg-orange-50 dark:bg-orange-950/30', 'badge' => 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200', 'accent' => 'text-orange-600'],
-            'travel' => ['card' => 'bg-emerald-50 dark:bg-emerald-950/30', 'badge' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200', 'accent' => 'text-emerald-600'],
-            'education' => ['card' => 'bg-cyan-50 dark:bg-cyan-950/30', 'badge' => 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-200', 'accent' => 'text-cyan-600'],
-            'sports' => ['card' => 'bg-lime-50 dark:bg-lime-950/30', 'badge' => 'bg-lime-100 text-lime-700 dark:bg-lime-900/40 dark:text-lime-200', 'accent' => 'text-lime-700'],
-            'music' => ['card' => 'bg-violet-50 dark:bg-violet-950/30', 'badge' => 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200', 'accent' => 'text-violet-600'],
-            'gaming' => ['card' => 'bg-purple-50 dark:bg-purple-950/30', 'badge' => 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-200', 'accent' => 'text-purple-600'],
-            'health' => ['card' => 'bg-teal-50 dark:bg-teal-950/30', 'badge' => 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-200', 'accent' => 'text-teal-600'],
-            'design' => ['card' => 'bg-rose-50 dark:bg-rose-950/30', 'badge' => 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200', 'accent' => 'text-rose-600'],
+            'technology' => ['card' => 'bg-slate-100 dark:bg-slate-800', 'badge' => 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200', 'accent' => 'text-sky-600'],
+            'tech' => ['card' => 'bg-slate-100 dark:bg-slate-800', 'badge' => 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200', 'accent' => 'text-sky-600'],
+            'ai' => ['card' => 'bg-indigo-50 dark:bg-indigo-950', 'badge' => 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200', 'accent' => 'text-indigo-600'],
+            'business' => ['card' => 'bg-amber-50 dark:bg-amber-950', 'badge' => 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200', 'accent' => 'text-amber-600'],
+            'news' => ['card' => 'bg-yellow-50 dark:bg-yellow-950', 'badge' => 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-200', 'accent' => 'text-yellow-600'],
+            'lifestyle' => ['card' => 'bg-pink-50 dark:bg-pink-950', 'badge' => 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-200', 'accent' => 'text-pink-600'],
+            'fashion' => ['card' => 'bg-fuchsia-50 dark:bg-fuchsia-950', 'badge' => 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-900/40 dark:text-fuchsia-200', 'accent' => 'text-fuchsia-600'],
+            'food' => ['card' => 'bg-orange-50 dark:bg-orange-950', 'badge' => 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200', 'accent' => 'text-orange-600'],
+            'travel' => ['card' => 'bg-emerald-50 dark:bg-emerald-950', 'badge' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200', 'accent' => 'text-emerald-600'],
+            'education' => ['card' => 'bg-cyan-50 dark:bg-cyan-950', 'badge' => 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-200', 'accent' => 'text-cyan-600'],
+            'sports' => ['card' => 'bg-lime-50 dark:bg-lime-950', 'badge' => 'bg-lime-100 text-lime-700 dark:bg-lime-900/40 dark:text-lime-200', 'accent' => 'text-lime-700'],
+            'music' => ['card' => 'bg-violet-50 dark:bg-violet-950', 'badge' => 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200', 'accent' => 'text-violet-600'],
+            'gaming' => ['card' => 'bg-purple-50 dark:bg-purple-950', 'badge' => 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-200', 'accent' => 'text-purple-600'],
+            'health' => ['card' => 'bg-teal-50 dark:bg-teal-950', 'badge' => 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-200', 'accent' => 'text-teal-600'],
+            'design' => ['card' => 'bg-rose-50 dark:bg-rose-950', 'badge' => 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200', 'accent' => 'text-rose-600'],
         ];
 
         if ($slug !== '' && isset($themes[$slug])) {
             return $themes[$slug];
         }
 
-        return ['card' => 'bg-gray-100 dark:bg-gray-800/70', 'badge' => 'bg-main/10 text-main', 'accent' => 'text-main'];
+        return ['card' => 'bg-gray-100 dark:bg-gray-800', 'badge' => 'bg-main/10 text-main', 'accent' => 'text-main'];
     }
 }

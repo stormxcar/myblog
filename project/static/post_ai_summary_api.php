@@ -508,8 +508,10 @@ if (!$post) {
 }
 
 $geminiKey = trim((string)(getenv('GEMINI_API_KEY') ?: ''));
-$contentPlain = trim((string)preg_replace('/\s+/u', ' ', strip_tags((string)$post['content'])));
-$fallbackSummary = blog_generate_quick_summary((string)$post['content']);
+$decodedTitle = html_entity_decode((string)$post['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+$decodedContent = html_entity_decode((string)$post['content'], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+$contentPlain = trim((string)preg_replace('/\s+/u', ' ', strip_tags($decodedContent)));
+$fallbackSummary = blog_generate_quick_summary($decodedContent);
 $postHash = sha1((string)$post['title'] . '|' . (string)$post['content']);
 
 if ($contentPlain === '') {
@@ -562,7 +564,7 @@ $promptGuide = $summaryMode === 'detailed'
 $prompt = "Bạn là trợ lý biên tập tiếng Việt. "
     . $promptGuide
     . " Không bịa thông tin, chỉ dùng dữ kiện trong bài. Không mở đầu bằng câu dẫn kiểu 'Dưới đây là...'. Không dùng markdown tiêu đề.\n\nTiêu đề: "
-    . (string)$post['title']
+    . $decodedTitle
     . "\n\nNội dung:\n"
     . $contentPlain;
 

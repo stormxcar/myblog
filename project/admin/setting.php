@@ -92,8 +92,6 @@ if (isset($_POST['save_logo'])) {
     $logo = $_FILES['logo']['name'];
     $logo = filter_var($logo, FILTER_SANITIZE_STRING);
     $logo_size = $_FILES['logo']['size'];
-    $logo_tmp_name = $_FILES['logo']['tmp_name'];
-    $logo_folder = '../uploaded_img/' . $logo;
 
     if (!empty($logo)) {
         if ($logo_size > 200000) {
@@ -104,18 +102,29 @@ if (isset($_POST['save_logo'])) {
             $fetch_logo = $update_logo->fetch(PDO::FETCH_ASSOC);
             $old_logo = $fetch_logo['setting_value'];
 
-            $update_logo = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'logo'");
-            $update_logo->execute([$logo_folder]);
-
-            // Move the new logo file to the upload folder
-            move_uploaded_file($logo_tmp_name, $logo_folder);
-
-            // Delete the old logo file if it's different from the new one
-            if ($old_logo && $old_logo != $logo_folder && file_exists($old_logo)) {
-                unlink($old_logo);
+            $uploadResult = blog_cloudinary_upload($_FILES['logo'], blog_cloudinary_default_folder() . '/settings/logo');
+            if (!($uploadResult['ok'] ?? false)) {
+                $message[] = (string)($uploadResult['error'] ?? 'Khong the upload logo len Cloudinary.');
+                $logo = '';
             }
 
-            $message[] = 'Logo da duoc cap nhat!';
+            if ($logo === '') {
+                // skip
+            } else {
+                $newLogoUrl = (string)$uploadResult['secure_url'];
+
+                $update_logo = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'logo'");
+                $update_logo->execute([$newLogoUrl]);
+
+                if ($old_logo && $old_logo != $newLogoUrl) {
+                    blog_delete_image_resource((string)$old_logo);
+                    if (file_exists((string)$old_logo)) {
+                        @unlink((string)$old_logo);
+                    }
+                }
+
+                $message[] = 'Logo da duoc cap nhat!';
+            }
         }
     } else {
         $message[] = "vui long chon logo muon thay doi";
@@ -135,18 +144,23 @@ if (isset($_POST['save_license'])) {
 
 // update image slide banner
 if (isset($_POST['save_image_slide'])) {
-    // nÃªn khai bÃ¡o biáº¿n lÃ  sá»‘ silde vá» sau
+    // Cập nhật ảnh banner slide
     for ($i = 1; $i <= 4; $i++) {
         $image_key = 'image_' . $i;
-        $image_path = '../uploaded_img/banner_slide_' . $i . '.' . pathinfo($_FILES[$image_key]['name'], PATHINFO_EXTENSION);
+        if (isset($_FILES[$image_key]) && (int)($_FILES[$image_key]['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+            $uploadResult = blog_cloudinary_upload($_FILES[$image_key], blog_cloudinary_default_folder() . '/settings/banners');
+            if (!($uploadResult['ok'] ?? false)) {
+                $message[] = (string)($uploadResult['error'] ?? ('Khong the upload banner slide ' . $i));
+                continue;
+            }
 
-        if (move_uploaded_file($_FILES[$image_key]['tmp_name'], $image_path)) {
+            $image_path = (string)$uploadResult['secure_url'];
             $update_image = $conn->prepare("UPDATE settings SET setting_value = ? WHERE setting_key = ?");
             $update_image->execute([$image_path, 'banner_slide_' . $i]);
         }
     }
 
-    $message[] = 'Slide áº£nh Ä‘Ã£ Ä‘Æ°á»£c cáº­p nháº­t thÃ nh cÃ´ng!';
+    $message[] = 'Slide ảnh đã được cập nhật thành công!';
 }
 
 // update title in gioithieu part
@@ -170,40 +184,40 @@ if (isset($_POST['save_gioithieu'])) {
         $gioithieu_tieude = filter_var($gioithieu_tieude, FILTER_SANITIZE_STRING);
         $update_gioithieu_tieude = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'gioithieu_tieude'");
         $update_gioithieu_tieude->execute([$gioithieu_tieude]);
-        $message[] = 'TiÃªu Ä‘á» giá»›i thiá»‡u Ä‘Ã£ Ä‘Æ°á»£c cáº­p nháº­t!';
+        $message[] = 'Tiêu đề giới thiệu đã được cập nhật!';
     }
 
     if (!empty($gioithieu_slogan) && $gioithieu_slogan !== $settings['gioithieu_slogan']) {
         $gioithieu_slogan = filter_var($gioithieu_slogan, FILTER_SANITIZE_STRING);
         $update_gioithieu_slogan = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'gioithieu_slogan'");
         $update_gioithieu_slogan->execute([$gioithieu_slogan]);
-        $message[] = 'Slogan Ä‘Ã£ Ä‘Æ°á»£c cáº­p nháº­t!';
+        $message[] = 'Slogan đã được cập nhật!';
     }
 
-    // Update ná»™i dung giá»›i thiá»‡u
+    // Update nội dung giới thiệu
     if (!empty($gioithieu_tieude_1) && $gioithieu_tieude_1 !== $settings['gioithieu_tieude_1']) {
         $gioithieu_tieude_1 = filter_var($gioithieu_tieude_1, FILTER_SANITIZE_STRING);
         $update_gioithieu_tieude_1 = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'gioithieu_tieude_1'");
         $update_gioithieu_tieude_1->execute([$gioithieu_tieude_1]);
-        $message[] = 'TiÃªu Ä‘á» giá»›i thiá»‡u Ä‘Ã£ Ä‘Æ°á»£c cáº­p nháº­t!';
+        $message[] = 'Tiêu đề giới thiệu đã được cập nhật!';
     }
     if (!empty($gioithieu_noidung_1) && $gioithieu_noidung_1 !== $settings['gioithieu_noidung_1']) {
         $gioithieu_noidung_1 = filter_var($gioithieu_noidung_1, FILTER_SANITIZE_STRING);
         $update_gioithieu_noidung_1 = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'gioithieu_noidung_1'");
         $update_gioithieu_noidung_1->execute([$gioithieu_noidung_1]);
-        $message[] = 'Ná»™i dung giá»›i thiá»‡u Ä‘Ã£ Ä‘Æ°á»£c cáº­p nháº­t!';
+        $message[] = 'Nội dung giới thiệu đã được cập nhật!';
     }
     if (!empty($gioithieu_tieude_2) && $gioithieu_tieude_2 !== $settings['gioithieu_tieude_2']) {
         $gioithieu_tieude_2 = filter_var($gioithieu_tieude_2, FILTER_SANITIZE_STRING);
         $update_gioithieu_tieude_2 = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'gioithieu_tieude_2'");
         $update_gioithieu_tieude_2->execute([$gioithieu_tieude_2]);
-        $message[] = 'TiÃªu Ä‘á» giá»›i thiá»‡u Ä‘Ã£ Ä‘Æ°á»£c cáº­p nháº­t!';
+        $message[] = 'Tiêu đề giới thiệu đã được cập nhật!';
     }
     if (!empty($gioithieu_noidung_2) && $gioithieu_noidung_2 !== $settings['gioithieu_noidung_2']) {
         $gioithieu_noidung_2 = filter_var($gioithieu_noidung_2, FILTER_SANITIZE_STRING);
         $update_gioithieu_noidung_2 = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'gioithieu_noidung_2'");
         $update_gioithieu_noidung_2->execute([$gioithieu_noidung_2]);
-        $message[] = 'Ná»™i dung giá»›i thiá»‡u Ä‘Ã£ Ä‘Æ°á»£c cáº­p nháº­t!';
+        $message[] = 'Nội dung giới thiệu đã được cập nhật!';
     }
 
     // Update socials
@@ -211,28 +225,28 @@ if (isset($_POST['save_gioithieu'])) {
         $social_facebook = filter_var($social_facebook, FILTER_SANITIZE_URL);
         $update_social_facebook = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'link_facebook'");
         $update_social_facebook->execute([$social_facebook]);
-        $message[] = 'Link Facebook Ä‘Ã£ Ä‘Æ°á»£c cáº­p nháº­t!';
+        $message[] = 'Link Facebook đã được cập nhật!';
     }
 
     if (!empty($social_gmail) && $social_gmail !== $settings['link_google']) {
         $social_gmail = filter_var($social_gmail, FILTER_SANITIZE_URL);
         $update_social_gmail = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'link_google'");
         $update_social_gmail->execute([$social_gmail]);
-        $message[] = 'Link Gmail Ä‘Ã£ Ä‘Æ°á»£c cáº­p nháº­t!';
+        $message[] = 'Link Gmail đã được cập nhật!';
     }
 
     if (!empty($social_twitter) && $social_twitter !== $settings['link_twitter']) {
         $social_twitter = filter_var($social_twitter, FILTER_SANITIZE_URL);
         $update_social_twitter = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'link_twitter'");
         $update_social_twitter->execute([$social_twitter]);
-        $message[] = 'Link Twitter Ä‘Ã£ Ä‘Æ°á»£c cáº­p nháº­t!';
+        $message[] = 'Link Twitter đã được cập nhật!';
     }
 
     if (!empty($social_youtube) && $social_youtube !== $settings['link_youtube']) {
         $social_youtube = filter_var($social_youtube, FILTER_SANITIZE_URL);
         $update_social_youtube = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'link_youtube'");
         $update_social_youtube->execute([$social_youtube]);
-        $message[] = 'Link Youtube Ä‘Ã£ Ä‘Æ°á»£c cáº­p nháº­t!';
+        $message[] = 'Link Youtube đã được cập nhật!';
     }
 }
 
@@ -240,7 +254,7 @@ if (isset($_POST['save_gioithieu'])) {
 if (isset($_POST['save_lienhe'])) {
     $settings = $conn->query("SELECT setting_key , setting_value FROM `settings`")->fetchAll(PDO::FETCH_KEY_PAIR);
 
-    $lienhe_image = $_POST['lienhe_image'];
+    $lienhe_image = $_POST['lienhe_image'] ?? '';
     $lienhe_tieude = $_POST['lienhe_tieude'];
     $lienhe_noidung = $_POST['lienhe_noidung'];
 
@@ -249,47 +263,55 @@ if (isset($_POST['save_lienhe'])) {
     $lienhe_fax = $_POST['lienhe_fax'];
     $lienhe_email = $_POST['lienhe_email'];
     $lienhe_zalo = $_POST['lienhe_zalo'];
-    $lienhe_name = $POST['lienhe_name'];
+    $lienhe_name = $_POST['lienhe_name'] ?? '';
+    if (isset($_FILES['lienhe_image']) && (int)($_FILES['lienhe_image']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+        $uploadResult = blog_cloudinary_upload($_FILES['lienhe_image'], blog_cloudinary_default_folder() . '/settings/contact');
+        if (!($uploadResult['ok'] ?? false)) {
+            $message[] = (string)($uploadResult['error'] ?? 'Khong the upload anh lien he.');
+        } else {
+            $lienhe_image = (string)$uploadResult['secure_url'];
+        }
+    }
     if (!empty($lienhe_image) && $lienhe_image !== $settings['lienhe_image']) {
         $lienhe_image = filter_var($lienhe_image, FILTER_SANITIZE_URL);
         $update_lienhe_image = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'lienhe_image'");
         $update_lienhe_image->execute([$lienhe_image]);
-        $message[] = 'Cáº­p nháº­t áº£nh thÃ nh cÃ´ng!';
+        $message[] = 'Cập nhật ảnh thành công!';
     }
 
     if (!empty($lienhe_tieude) && $lienhe_tieude !== $settings['lienhe_tieude']) {
         $lienhe_tieude = filter_var($lienhe_tieude, FILTER_SANITIZE_STRING);
         $update_lienhe_tieude = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'lienhe_tieude'");
         $update_lienhe_tieude->execute([$lienhe_tieude]);
-        $message[] = 'Cáº­p nháº­t tiÃªu Ä‘á» thÃ nh cÃ´ng !';
+        $message[] = 'Cập nhật tiêu đề thành công!';
     }
 
     if (!empty($lienhe_noidung) && $lienhe_noidung !== $settings['lienhe_noidung']) {
         $lienhe_noidung = filter_var($lienhe_noidung, FILTER_SANITIZE_STRING);
         $update_lienhe_noidung = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'lienhe_noidung'");
         $update_lienhe_noidung->execute([$lienhe_noidung]);
-        $message[] = 'Cáº­p nháº­t ná»™i dung giá»›i thiá»‡u nÃ y !';
+        $message[] = 'Cập nhật nội dung giới thiệu thành công!';
     }
 
     if (!empty($lienhe_diachi) && $lienhe_diachi !== $settings['lienhe_diachi']) {
         $lienhe_diachi = filter_var($lienhe_diachi, FILTER_SANITIZE_STRING);
         $update_lienhe_diachi = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'lienhe_diachi'");
         $update_lienhe_diachi->execute([$lienhe_diachi]);
-        $message[] = 'Cáº­p nháº­t Ä‘á»‹a chá»‰ thÃ nh cÃ´ng!';
+        $message[] = 'Cập nhật địa chỉ thành công!';
     }
 
     if (!empty($lienhe_dienthoai) && $lienhe_dienthoai !== $settings['lienhe_dienthoai']) {
         $lienhe_dienthoai = filter_var($lienhe_dienthoai, FILTER_SANITIZE_STRING);
         $update_lienhe_dienthoai = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'lienhe_dienthoai'");
         $update_lienhe_dienthoai->execute([$lienhe_dienthoai]);
-        $message[] = 'Cáº­p nháº­t sá»‘ Ä‘iá»‡n thoáº¡i thÃ nh cÃ´ng!';
+        $message[] = 'Cập nhật số điện thoại thành công!';
     }
 
     if (!empty($lienhe_fax) && $lienhe_fax !== $settings['lienhe_fax']) {
         $lienhe_fax = filter_var($lienhe_fax, FILTER_SANITIZE_STRING);
         $update_lienhe_fax = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'lienhe_fax'");
         $update_lienhe_fax->execute([$lienhe_fax]);
-        $message[] = 'Cáº­p nháº­t fax báº¡n Ä‘Æ°á»£c cáº­p nháº­t!';
+        $message[] = 'Cập nhật fax thành công!';
     }
 
     if (!empty($lienhe_email) && $lienhe_email !== $settings['lienhe_email']) {
@@ -316,13 +338,13 @@ if (isset($_POST['save_lienhe'])) {
 
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Thiáº¿t láº­p giao diá»‡n</title>
+    <title>Thiết lập giao diện</title>
 
     <!-- font awesome cdn link  -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
@@ -337,61 +359,61 @@ if (isset($_POST['save_lienhe'])) {
 
     <section class="setting">
 
-        <h1 class="heading">Thiáº¿t láº­p hiá»ƒn thá»‹ giao diá»‡n</h1>
+        <h1 class="heading">Thiết lập hiển thị giao diện</h1>
 
-        <!-- thÃªm áº£nh banner vÃ  upload vÃ o má»¥c áº£nh -->
+        <!-- Thêm ảnh banner và upload -->
 
         <form class="banner_edit_form" action="setting.php" method="post" enctype="multipart/form-data">
-            <p class="title_banner">TÃ¹y chá»‰nh banner</p>
+            <p class="title_banner">Tùy chỉnh banner</p>
             <div class="image-container">
                 <div class="banner_img">
                     <div class="banner_img_infor">
-                        <span>áº¢nh banner 1: </span>
+                        <span>Ảnh banner 1: </span>
                         <input id="banner_1" type="file" name="image_1" accept="image/jpg, image/jpeg, image/png , image/avif" onchange="previewImage('banner_1')">
                     </div>
                     <img id="banner_1_preview" class="show_img" src="../uploaded_img/default_img.png" alt="image slide show here !">
                 </div>
                 <div class="banner_img">
                     <div class="banner_img_infor">
-                        <span>áº¢nh banner 2: </span>
+                        <span>Ảnh banner 2: </span>
                         <input id="banner_2" type="file" name="image_2" accept="image/jpg, image/jpeg, image/png , image/avif" onchange="previewImage('banner_2')">
                     </div>
                     <img id="banner_2_preview" class="show_img" src="" alt="image slide show here !">
                 </div>
                 <div class="banner_img">
                     <div class="banner_img_infor">
-                        <span>áº¢nh banner 3: </span>
+                        <span>Ảnh banner 3: </span>
                         <input id="banner_3" type="file" name="image_3" accept="image/jpg, image/jpeg, image/png , image/avif" onchange="previewImage('banner_3')">
                     </div>
                     <img id="banner_3_preview" class="show_img" src="../uploaded_img/default_img.png" alt="image slide show here !">
                 </div>
                 <div class="banner_img">
                     <div class="banner_img_infor">
-                        <span>áº¢nh banner 4: </span>
+                        <span>Ảnh banner 4: </span>
                         <input id="banner_4" type="file" name="image_4" accept="image/jpg, image/jpeg, image/png , image/avif" onchange="previewImage('banner_4')">
                     </div>
                     <img id="banner_4_preview" class="show_img" src="../uploaded_img/default_img.png" alt="image slide show here !">
                 </div>
             </div>
             <div class="btn_handle">
-                <button type="reset" class="reset_btn">LÃ m má»›i</button>
-                <button type="submit" class="submit_btn" name="save_image_slide">XÃ¡c nháº­n</button>
+                <button type="reset" class="reset_btn">Làm mới</button>
+                <button type="submit" class="submit_btn" name="save_image_slide">Xác nhận</button>
             </div>
         </form>
 
         <form class="footer_edit_form" action="setting.php" method="post" enctype="multipart/form-data">
-            <p class="title_banner">TÃ¹y chá»‰nh footer</p>
+            <p class="title_banner">Tùy chỉnh footer</p>
             <div class="detail_handle">
                 <div class="btn_top">
-                    <button type="button" class="tablink" onclick="openPage('gioithieu', this, 'var(--main-color)')" id="defaultOpen">Giá»›i thiá»‡u</button>
-                    <button type="button" class="tablink" onclick="openPage('lienhe', this, 'var(--main-color)')">LiÃªn há»‡</button>
-                    <button type="button" class="tablink" onclick="openPage('thongtin', this, 'var(--main-color)')">ThÃ´ng tin</button>
+                    <button type="button" class="tablink" onclick="openPage('gioithieu', this, 'var(--main-color)')" id="defaultOpen">Giới thiệu</button>
+                    <button type="button" class="tablink" onclick="openPage('lienhe', this, 'var(--main-color)')">Liên hệ</button>
+                    <button type="button" class="tablink" onclick="openPage('thongtin', this, 'var(--main-color)')">Thông tin</button>
                 </div>
                 <div id="gioithieu" class="tabcontent">
                     <div class="detail_gioithieu">
-                        <h3>Giá»›i thiá»‡u:</h3>
+                        <h3>Giới thiệu:</h3>
                         <div class="detail_gioithieu_tieude">
-                            <h4>Giá»›i thiá»‡u</h4>
+                            <h4>Giới thiệu</h4>
                             <?php
                             $settings = $conn->query("SELECT setting_key, setting_value FROM `settings`")->fetchAll(PDO::FETCH_KEY_PAIR);
 
@@ -415,21 +437,21 @@ if (isset($_POST['save_lienhe'])) {
                         <div class="sperator"></div>
                         <div class="detail_gioithieu_noidung" id="detail_gioithieu_noidung">
                             <div class="section-container" id="section-1">
-                                <h4>TiÃªu Ä‘á» 1</h4>
+                                <h4>Tiêu đề 1</h4>
                                 <input type="text" name="gioithieu_tieude_1" placeholder="<?= $gioithieu_tieude_1 ?>" style="text-transform:uppercase">
-                                <h4>Ná»™i dung 1</h4>
+                                <h4>Nội dung 1</h4>
                                 <textarea name="gioithieu_noidung_1" id="gioithieu" cols="30" rows="5" placeholder="<?= $gioithieu_noidung_1 ?>"></textarea>
                             </div>
                             <div class="section-container" id="section-2">
-                                <h4>TiÃªu Ä‘á» 2</h4>
+                                <h4>Tiêu đề 2</h4>
                                 <input type="text" name="gioithieu_tieude_2" placeholder="<?= $gioithieu_tieude_2 ?>" style="text-transform:uppercase">
-                                <h4>Ná»™i dung 2</h4>
+                                <h4>Nội dung 2</h4>
                                 <textarea name="gioithieu_noidung_2" id="gioithieu_2" cols="30" rows="5" placeholder="<?= $gioithieu_noidung_1 ?>"></textarea>
                             </div>
 
 
                         </div>
-                        <button class="add_tieude_noidung" style="width:100px" >ThÃªm</button>
+                        <button class="add_tieude_noidung" style="width:100px">Thêm</button>
                     </div>
                     <div class="detail_socials">
                         <h3>Socials:</h3>
@@ -462,10 +484,10 @@ if (isset($_POST['save_lienhe'])) {
                             <input type="text" name="social_youtube" placeholder="<?= $social_youtube ?>">
                         </label>
                         <div class="bottom">
-                            <button type="button" class="add_social">Them</button>
+                            <button type="button" class="add_social">Thêm</button>
                             <div class="btn_handle">
-                                <button type="reset" class="reset_btn">LÃ m má»›i</button>
-                                <button type="submit" class="submit_btn" name="save_gioithieu">XÃ¡c nháº­n</button>
+                                <button type="reset" class="reset_btn">Làm mới</button>
+                                <button type="submit" class="submit_btn" name="save_gioithieu">Xác nhận</button>
                             </div>
                         </div>
                     </div>
@@ -487,29 +509,29 @@ if (isset($_POST['save_lienhe'])) {
                     $lienhe_name = $settings['lienhe_name'] ?? '';
                     ?>
                     <div class="lienhe_image">
-                        <h4>Chá»n áº£nh: </h4>
+                        <h4>Chọn ảnh: </h4>
                         <input type="file" name="lienhe_image" id="lienhe_image" onchange="previewImage('lienhe_image')" value="<?= $lienhe_image ?>">
                         <img id="lienhe_image_preview" class="show_img" src="<?= $lienhe_image ?>" alt="image slide show here !">
                     </div>
                     <div class="lienhe_tieude">
-                        <h4>TiÃªu Ä‘á»</h4>
+                        <h4>Tiêu đề</h4>
                         <input type="text" name="lienhe_tieude" placeholder="<?= $lienhe_tieude ?>" style="text-transform:uppercase" ?>">
                     </div>
                     <div class="lienhe_noidung">
-                        <h4>Ná»™i dung</h4>
+                        <h4>Nội dung</h4>
                         <textarea name="lienhe_noidung" id="" rows="10" placeholder="<?= $lienhe_noidung ?>"></textarea>
                     </div>
                     <label for="">
                         <div class="top">
                             <i class="fa-brands fa-facebook"></i>
-                            <span>Äá»‹a chá»‰:</span>
+                            <span>Địa chỉ:</span>
                         </div>
                         <input type="text" placeholder="<?= $lienhe_diachi ?>" name="lienhe_diachi">
                     </label>
                     <label for="">
                         <div class="top">
                             <i class="fa-brands fa-facebook"></i>
-                            <span>Sá»‘ Ä‘iá»‡n thoáº¡i:</span>
+                            <span>Số điện thoại:</span>
                         </div>
                         <input type="text" placeholder="<?= $lienhe_dienthoai ?>" name="lienhe_dienthoai">
                     </label>
@@ -542,16 +564,16 @@ if (isset($_POST['save_lienhe'])) {
                         <input type="text" placeholder="<?= $lienhe_name ?>" name="lienhe_name">
                     </label>
                     <div class="bottom">
-                        <button type="button" class="add_social">Them</button>
+                        <button type="button" class="add_social">Thêm</button>
                         <div class="btn_handle">
-                            <button type="reset" class="reset_btn">LÃ m má»›i</button>
-                            <button type="submit" class="submit_btn" name="save_lienhe">XÃ¡c nháº­n</button>
+                            <button type="reset" class="reset_btn">Làm mới</button>
+                            <button type="submit" class="submit_btn" name="save_lienhe">Xác nhận</button>
                         </div>
                     </div>
                 </div>
 
                 <div id="thongtin" class="tabcontent">
-                    <h3>ThÃ´ng tin</h3>
+                    <h3>Thông tin</h3>
                 </div>
             </div>
         </form>
@@ -560,32 +582,32 @@ if (isset($_POST['save_lienhe'])) {
         <form action="setting.php" method="post" enctype="multipart/form-data">
             <div class="diff_edit_form">
                 <div class="logo_edit">
-                    <h3>TÃ¹y chá»‰nh logo</h3>
+                    <h3>Tùy chỉnh logo</h3>
                     <div class="detail_logo_edit">
-                        <h4>Chá»n logo khÃ¡c thay tháº¿:</h4>
+                        <h4>Chọn logo khác thay thế:</h4>
                         <input type="file" name="logo" id="logo" onchange="previewImage('logo')">
                         <img id="logo_preview" src="../uploaded_img/default_img.png" alt="logo show here !">
                     </div>
                     <div class="btn_handle">
-                        <button type="reset" class="reset_btn">LÃ m má»›i</button>
-                        <button type="submit" class="submit_btn" name="save_logo">XÃ¡c nháº­n</button>
+                        <button type="reset" class="reset_btn">Làm mới</button>
+                        <button type="submit" class="submit_btn" name="save_logo">Xác nhận</button>
                     </div>
                 </div>
 
                 <div class="license_edit">
-                    <h3>TÃ¹y chá»‰nh báº£n quyá»n</h3>
+                    <h3>Tùy chỉnh bản quyền</h3>
                     <div class="detail_license_edit">
-                    <?php
-                            $settings = $conn->query("SELECT setting_key, setting_value FROM `settings`")->fetchAll(PDO::FETCH_KEY_PAIR);
+                        <?php
+                        $settings = $conn->query("SELECT setting_key, setting_value FROM `settings`")->fetchAll(PDO::FETCH_KEY_PAIR);
 
-                            $license_text = $settings['footer_text'] ?? '';
-                            ?>
-                        <h4>Nháº­p báº£n quyá»n:</h4>
-                        <input type="text" name="license_text" value="" placeholder="<?= $license_text?>">
+                        $license_text = $settings['footer_text'] ?? '';
+                        ?>
+                        <h4>Nhập bản quyền:</h4>
+                        <input type="text" name="license_text" value="" placeholder="<?= $license_text ?>">
                     </div>
                     <div class="btn_handle">
-                        <button type="reset" class="reset_btn">LÃ m má»›i</button>
-                        <button type="submit" class="submit_btn" name="save_license">XÃ¡c nháº­n</button>
+                        <button type="reset" class="reset_btn">Làm mới</button>
+                        <button type="submit" class="submit_btn" name="save_license">Xác nhận</button>
                     </div>
                 </div>
             </div>
@@ -621,18 +643,18 @@ if (isset($_POST['save_lienhe'])) {
 
 
 
-/*
-        function previewLogo() {
-            const file = document.getElementById('logo').files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    document.getElementById('logo_preview').src = e.target.result;
+        /*
+                function previewLogo() {
+                    const file = document.getElementById('logo').files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            document.getElementById('logo_preview').src = e.target.result;
+                        }
+                        reader.readAsDataURL(file);
+                    }
                 }
-                reader.readAsDataURL(file);
-            }
-        }
-            */
+                    */
 
 
         function previewImage(inputId) {
@@ -653,8 +675,6 @@ if (isset($_POST['save_lienhe'])) {
                 previewImage.src = ''; // Náº¿u khÃ´ng cÃ³ file Ä‘Æ°á»£c chá»n
             }
         }
-
-       
     </script>
 
 

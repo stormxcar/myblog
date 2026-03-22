@@ -56,23 +56,7 @@ try {
 
 $display_name = $avatar && !empty($avatar['name']) ? $avatar['name'] : 'bạn';
 
-if ($avatar && isset($avatar['avatar']) && $avatar['avatar'] !== null && $avatar['avatar'] !== '') {
-   $avatarContent = $avatar['avatar'];
-   $avatarMime = 'image/jpeg';
-   $finfo = finfo_open(FILEINFO_MIME_TYPE);
-   if ($finfo !== false) {
-      $detectedMime = finfo_buffer($finfo, $avatarContent);
-      finfo_close($finfo);
-      if (is_string($detectedMime) && $detectedMime !== '') {
-         $avatarMime = $detectedMime;
-      }
-   }
-
-   $avatarBase64 = base64_encode($avatarContent);
-   $avatarSrc = "data:$avatarMime;base64,$avatarBase64";
-} else {
-   $avatarSrc = '../uploaded_img/default_avatar.png';
-}
+$avatarSrc = blog_user_avatar_src($avatar['avatar'] ?? null, '../uploaded_img/default_avatar.png');
 ?>
 <?php if (!defined('BLOG_LAYOUT_ASSETS')): ?>
    <link rel="stylesheet" href="../css/output.css">

@@ -280,8 +280,14 @@ if (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || strtolower($_SERVER['HTTP_X_REQ
                 <div id="posts-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mb-12" data-layout="grid">
                     <?php
                     if ($select_posts && $select_posts->rowCount() > 0) {
-                        while ($fetch_posts = $select_posts->fetch(PDO::FETCH_ASSOC)) {
+                        $posts_rows = $select_posts->fetchAll(PDO::FETCH_ASSOC);
+                        $tag_map = blog_get_tags_map_for_posts($conn, array_map(function ($row) {
+                            return (int)($row['id'] ?? 0);
+                        }, $posts_rows));
+
+                        foreach ($posts_rows as $fetch_posts) {
                             $post_id = $fetch_posts['id'];
+                            $post_tags = $tag_map[(int)$post_id] ?? [];
 
                             try {
                                 $count_post_comments = $conn->prepare("SELECT * FROM `comments` WHERE post_id = ?");
@@ -335,7 +341,7 @@ if (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || strtolower($_SERVER['HTTP_X_REQ
                                         <!-- Post Image -->
                                         <?php if ($fetch_posts['image'] != '') : ?>
                                             <div class="post-card-image relative overflow-hidden rounded-lg mb-4 lg:mb-0 lg:w-56 lg:h-40 flex-shrink-0">
-                                                <img src="../uploaded_img/<?= htmlspecialchars($fetch_posts['image'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                <img src="<?= htmlspecialchars(blog_post_image_src((string)$fetch_posts['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>"
                                                     alt="<?= htmlspecialchars($fetch_posts['title'], ENT_QUOTES, 'UTF-8'); ?>"
                                                     class="w-full h-full object-cover">
                                                 <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
@@ -366,6 +372,17 @@ if (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || strtolower($_SERVER['HTTP_X_REQ
                                                     <span><?= $fetch_posts['category']; ?></span>
                                                 </a>
                                             </div>
+
+                                            <?php if (!empty($post_tags)): ?>
+                                                <div class="mt-2 flex flex-wrap gap-1">
+                                                    <?php foreach ($post_tags as $tag): ?>
+                                                        <a href="search.php?tag=<?= urlencode((string)$tag['slug']); ?>&size=12&page=1"
+                                                            class="px-2 py-1 rounded-full text-[11px] bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-main hover:text-white transition-colors">
+                                                            #<?= htmlspecialchars((string)$tag['name'], ENT_QUOTES, 'UTF-8'); ?>
+                                                        </a>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
 

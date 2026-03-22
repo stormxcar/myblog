@@ -271,7 +271,7 @@ if (!function_exists('community_render_feed_posts_html')) {
                 }
             }
 ?>
-            <article id="community-post-<?= $postId; ?>" class="community-post-card <?= htmlspecialchars((string)$theme['card'], ENT_QUOTES, 'UTF-8'); ?> rounded-2xl shadow-md overflow-visible my-5 hover:shadow-xl transition-shadow duration-300">
+            <article id="community-post-<?= $postId; ?>" class="community-post-card <?= htmlspecialchars((string)$theme['card'], ENT_QUOTES, 'UTF-8'); ?> rounded-2xl shadow-md overflow-visible my-5 hover:shadow-xl transition-shadow duration-300 w-full max-w-[1200px] mx-auto">
                 <div class="p-4 sm:p-5 border-b border-black/5 dark:border-white/10">
                     <div class="flex items-center justify-between gap-3">
                         <div class="flex items-center gap-3 min-w-0">
@@ -288,35 +288,38 @@ if (!function_exists('community_render_feed_posts_html')) {
                                 <?= htmlspecialchars(community_visibility_badge((string)$post['privacy'], (string)$post['status']), ENT_QUOTES, 'UTF-8'); ?>
                             </span>
                             <div class="relative" data-community-action-wrap>
-                                <button type="button" class="w-8 h-8 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white transition-colors" data-community-action-trigger aria-label="Menu bai viet">
+                                <button type="button" class="w-8 h-8 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white transition-colors" data-community-action-trigger aria-label="Menu bài viết">
                                     <i class="fas fa-ellipsis"></i>
                                 </button>
-                                <div class="hidden absolute right-0 top-10 z-30 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl overflow-hidden" data-community-action-menu>
-                                    <button type="button" class="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700" data-community-action="save" data-post-id="<?= $postId; ?>" data-saved="<?= $isSaved ? '1' : '0'; ?>"><?= $isSaved ? 'Bo luu bai viet' : 'Luu bai viet'; ?></button>
-                                    <button type="button" class="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700" data-community-action="hide" data-post-id="<?= $postId; ?>">An bai viet</button>
-                                    <button type="button" class="w-full text-left px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20" data-community-action="report" data-post-id="<?= $postId; ?>">Bao cao bai viet</button>
+                                <div class="hidden absolute right-0 top-10 z-30 min-w-[240px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl overflow-hidden" style=" min-width: 260px;" data-community-action-menu>
+                                    <button type="button" class="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700" data-community-action="save" data-post-id="<?= $postId; ?>" data-saved="<?= $isSaved ? '1' : '0'; ?>"><?= $isSaved ? 'Bỏ lưu bài viết' : 'Lưu bài viết'; ?></button>
+                                    <button type="button" class="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700" data-community-action="hide" data-post-id="<?= $postId; ?>">Ẩn bài viết</button>
+                                    <button type="button" class="w-full text-left px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20" data-community-action="report" data-post-id="<?= $postId; ?>">Báo cáo bài viết</button>
                                     <?php if ($isOwner): ?>
                                         <div class="border-t border-gray-100 dark:border-gray-700"></div>
-                                        <a href="community_manage.php" class="block px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Chinh sua bai viet</a>
-                                        <button type="button" class="w-full text-left px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20" data-community-delete-btn data-post-id="<?= $postId; ?>">Xoa bai viet</button>
+                                        <a href="community_manage.php" class="block px-3 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700">Chỉnh sửa bài viết</a>
+                                        <button type="button" class="w-full text-left px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20" data-community-delete-btn data-post-id="<?= $postId; ?>">Xóa bài viết</button>
                                     <?php endif; ?>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <h2 class="text-lg sm:text-xl font-bold leading-tight text-gray-900 dark:text-white mt-3 break-words"><?= $safeTitleHtml; ?></h2>
+
                 </div>
 
                 <div class="p-4 sm:p-5 space-y-4">
-                    <?php if (trim((string)$safeContentHtml) !== ''): ?>
-                        <div class="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-line break-words text-sm sm:text-base"><?= $safeContentHtml; ?></div>
-                    <?php endif; ?>
+                    <h3 class="text-lg sm:text-xl font-normal leading-tight text-gray-900 dark:text-white break-words"><?= $safeTitleHtml; ?></h3>
 
                     <?php if (!empty($postMedia)): ?>
                         <?php
                         $allMediaUrls = [];
                         foreach ($postMedia as $mediaRow) {
-                            $allMediaUrls[] = site_url('uploaded_img/' . ltrim((string)$mediaRow['file_path'], '/'));
+                            $mediaPath = (string)($mediaRow['file_path'] ?? '');
+                            if (blog_is_external_url($mediaPath)) {
+                                $allMediaUrls[] = $mediaPath;
+                            } else {
+                                $allMediaUrls[] = site_url('uploaded_img/' . ltrim($mediaPath, '/'));
+                            }
                         }
                         $allMediaJson = htmlspecialchars(json_encode($allMediaUrls, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8');
                         ?>
@@ -363,24 +366,36 @@ if (!function_exists('community_render_feed_posts_html')) {
                 </div>
 
                 <div class="px-4 sm:px-5 py-3 border-t border-black/5 dark:border-white/10 bg-white/45 dark:bg-gray-900/30 text-sm text-gray-600 dark:text-gray-300 space-y-3 rounded-b-2xl">
-                    <div class="flex items-center gap-4 sm:gap-5 flex-wrap">
-                        <button type="button" class="inline-flex items-center gap-2 hover:text-emerald-600 transition-colors <?= $isUpvoted ? 'text-emerald-600' : ''; ?>" data-community-vote-btn data-vote="up" data-post-id="<?= $postId; ?>" aria-pressed="<?= $isUpvoted ? 'true' : 'false'; ?>">
-                            <i class="fas fa-arrow-up" data-community-upvote-icon></i>
-                            <span id="community-upvote-count-<?= $postId; ?>"><?= (int)($post['total_upvotes'] ?? 0); ?></span>
-                        </button>
-                        <span class="inline-flex items-center px-2.5 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold" id="community-score-count-<?= $postId; ?>"><?= (int)($post['vote_score'] ?? 0); ?></span>
-                        <button type="button" class="inline-flex items-center gap-2 hover:text-rose-600 transition-colors <?= $isDownvoted ? 'text-rose-600' : ''; ?>" data-community-vote-btn data-vote="down" data-post-id="<?= $postId; ?>" aria-pressed="<?= $isDownvoted ? 'true' : 'false'; ?>">
-                            <i class="fas fa-arrow-down" data-community-downvote-icon></i>
-                            <span id="community-downvote-count-<?= $postId; ?>"><?= (int)($post['total_downvotes'] ?? 0); ?></span>
-                        </button>
-                        <button type="button" class="inline-flex items-center gap-2 hover:text-main transition-colors" onclick="toggleCommunityComments(<?= $postId; ?>)">
+                    <?php
+                    $voteGroupClass = 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 shadow-sm';
+                    if ($isUpvoted) {
+                        $voteGroupClass = 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 shadow-lg';
+                    } elseif ($isDownvoted) {
+                        $voteGroupClass = 'bg-rose-100 dark:bg-rose-900/50 text-rose-800 dark:text-rose-200 shadow-lg';
+                    }
+                    ?>
+                    <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+                        <div data-community-vote-group class="inline-flex items-center gap-2 px-5 py-2 rounded-full transition duration-200 <?= $voteGroupClass; ?> text-lg">
+                            <button type="button" class="inline-flex items-center gap-2 rounded-md transition duration-200 <?= $isUpvoted ? 'text-xl font-bold' : 'text-sm'; ?>" data-community-vote-btn data-vote="up" data-post-id="<?= $postId; ?>" aria-pressed="<?= $isUpvoted ? 'true' : 'false'; ?>">
+                                <i class="fas fa-arrow-up" data-community-upvote-icon></i>
+                                <span id="community-upvote-count-<?= $postId; ?>"><?= (int)($post['total_upvotes'] ?? 0); ?></span>
+                            </button>
+                            <span id="community-score-count-<?= $postId; ?>" class="inline-flex items-center rounded-md  dark:bg-gray-800 text-base font-semibold"><?= (int)($post['vote_score'] ?? 0); ?></span>
+                            <button type="button" class="inline-flex items-center gap-2 px-2 py-1 rounded-md transition duration-200 <?= $isDownvoted ? 'text-xl font-bold' : 'text-sm'; ?>" data-community-vote-btn data-vote="down" data-post-id="<?= $postId; ?>" aria-pressed="<?= $isDownvoted ? 'true' : 'false'; ?>">
+                                <i class="fas fa-arrow-down" data-community-downvote-icon></i>
+                                <span id="community-downvote-count-<?= $postId; ?>"><?= (int)($post['total_downvotes'] ?? 0); ?></span>
+                            </button>
+                        </div>
+
+                        <div class="inline-flex items-center gap-2 px-5 py-2 bg-white dark:bg-gray-900 shadow-sm rounded-full cursor-pointer text-sm" onclick="toggleCommunityComments(<?= $postId; ?>)">
                             <i class="fas fa-comment"></i>
                             <span id="community-comment-count-<?= $postId; ?>"><?= (int)$post['total_comments']; ?></span>
-                        </button>
-                        <button type="button" class="inline-flex items-center gap-2 hover:text-sky-600 transition-colors" onclick="shareCommunityPost(<?= $postId; ?>)">
+                        </div>
+
+                        <div class="inline-flex items-center gap-2 px-5 py-2 bg-white dark:bg-gray-900 shadow-sm rounded-full cursor-pointer text-sm" onclick="shareCommunityPost(<?= $postId; ?>)">
                             <i class="fas fa-share-nodes"></i>
                             <span>Chia sẻ</span>
-                        </button>
+                        </div>
                     </div>
 
                     <div id="community-comments-panel-<?= $postId; ?>" class="hidden pt-3 border-t border-black/5 dark:border-white/10">
@@ -400,7 +415,7 @@ if (!function_exists('community_render_feed_posts_html')) {
                                     ?>
                                 <?php endforeach; ?>
                             <?php else: ?>
-                                <p id="community-empty-comments-<?= $postId; ?>" class="text-xs text-gray-500 dark:text-gray-400">Chua co binh luan nao.</p>
+                                <p id="community-empty-comments-<?= $postId; ?>" class="text-xs text-gray-500 dark:text-gray-400">Chưa có bình luận nào.</p>
                             <?php endif; ?>
                         </div>
 
@@ -409,15 +424,15 @@ if (!function_exists('community_render_feed_posts_html')) {
                                 <input type="hidden" name="post_id" value="<?= $postId; ?>">
                                 <input type="hidden" name="parent_comment_id" id="community-parent-comment-<?= $postId; ?>" value="0">
                                 <div id="community-reply-indicator-<?= $postId; ?>" class="hidden text-xs text-main mb-1"></div>
-                                <textarea name="comment" rows="3" maxlength="1200" class="form-textarea text-sm" placeholder="Viet binh luan..." required></textarea>
+                                <textarea name="comment" rows="3" maxlength="1200" class="form-textarea text-sm" placeholder="Viết bình luận..." required></textarea>
                                 <div class="mt-2 flex items-center gap-2">
-                                    <button type="submit" class="px-3 py-2 rounded-lg bg-main text-white text-sm font-semibold hover:bg-main/90">Gui binh luan</button>
-                                    <button type="button" class="px-3 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm hover:bg-gray-200" onclick="cancelCommunityReply(<?= $postId; ?>)">Huy tra loi</button>
+                                    <button type="submit" class="px-3 py-2 rounded-lg bg-main text-white text-sm font-semibold hover:bg-main/90">Gửi bình luận</button>
+                                    <button type="button" class="px-3 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm hover:bg-gray-200" onclick="cancelCommunityReply(<?= $postId; ?>)">Hủy trả lời</button>
                                 </div>
                             </form>
                         <?php else: ?>
                             <div class="mt-3">
-                                <a href="login.php" class="text-sm text-main hover:underline">Dang nhap de binh luan</a>
+                                <a href="login.php" class="text-sm text-main hover:underline">Đăng nhập để bình luận</a>
                             </div>
                         <?php endif; ?>
                     </div>

@@ -50,23 +50,30 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         } else {
             $avatar = null;
             if (isset($_FILES['avatar']) && (int)($_FILES['avatar']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
-                $tmpFile = (string)($_FILES['avatar']['tmp_name'] ?? '');
-                if ($tmpFile !== '' && is_uploaded_file($tmpFile)) {
-                    $avatar = @file_get_contents($tmpFile);
+                $uploadResult = blog_cloudinary_upload($_FILES['avatar'], blog_cloudinary_default_folder() . '/avatars');
+                if (!($uploadResult['ok'] ?? false)) {
+                    $toastMessage = (string)($uploadResult['error'] ?? 'Không thể upload ảnh đại diện.');
+                    $toastType = 'error';
+                } else {
+                    $avatar = (string)$uploadResult['secure_url'];
                 }
             }
 
-            $passHash = sha1($rawPass);
-            $insertUser = $conn->prepare("INSERT INTO `users` (name, email, password, avatar) VALUES (?, ?, ?, ?)");
-            if ($insertUser->execute([$name, $email, $passHash, $avatar])) {
-                session_regenerate_id(true);
-                $_SESSION['flash_message'] = 'Dang ky tai khoan thanh cong';
-                $_SESSION['flash_type'] = 'success';
-                $_SESSION['user_id'] = (int)$conn->lastInsertId();
-                redirect_with_fallback('home.php?message=' . urlencode('Dang ky tai khoan thanh cong'));
+            if ($toastType === 'error' && $toastMessage !== '') {
+                // Avatar upload failed, keep validation error and stop creating account.
             } else {
-                $toastMessage = 'Co loi xay ra khi dang ky tai khoan!';
-                $toastType = 'error';
+                $passHash = sha1($rawPass);
+                $insertUser = $conn->prepare("INSERT INTO `users` (name, email, password, avatar) VALUES (?, ?, ?, ?)");
+                if ($insertUser->execute([$name, $email, $passHash, $avatar])) {
+                    session_regenerate_id(true);
+                    $_SESSION['flash_message'] = 'Dang ky tai khoan thanh cong';
+                    $_SESSION['flash_type'] = 'success';
+                    $_SESSION['user_id'] = (int)$conn->lastInsertId();
+                    redirect_with_fallback('home.php?message=' . urlencode('Dang ky tai khoan thanh cong'));
+                } else {
+                    $toastMessage = 'Co loi xay ra khi dang ky tai khoan!';
+                    $toastType = 'error';
+                }
             }
         }
     }

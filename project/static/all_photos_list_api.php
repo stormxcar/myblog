@@ -79,7 +79,7 @@ foreach ($rows as $index => $photo) {
     <div class="photo-card masonry-item <?= $heightClass; ?> group cursor-pointer" data-photo-id="<?= $postId; ?>" data-post-url="<?= htmlspecialchars($postPath, ENT_QUOTES, 'UTF-8'); ?>">
         <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 transition-all duration-300 hover:shadow-2xl">
             <div class="h-full overflow-hidden">
-                <img src="../uploaded_img/<?= htmlspecialchars((string)$photo['image'], ENT_QUOTES, 'UTF-8'); ?>"
+                <img src="<?= htmlspecialchars(blog_post_image_src((string)$photo['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>"
                     alt="<?= htmlspecialchars($postTitle, ENT_QUOTES, 'UTF-8'); ?>"
                     class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                     loading="lazy">

@@ -1,5 +1,7 @@
 <?php
 require __DIR__ . '/../../vendor/autoload.php';
+require_once __DIR__ . '/cloudinary.php';
+require_once __DIR__ . '/post_tags.php';
 
 // In production (Heroku), suppress HTML warning output to avoid invalid JSON responses.
 if (getenv('DYNO') !== false) {
@@ -218,6 +220,36 @@ try {
             return ["{$fieldName} IN ({$placeholders})", $ids];
         }
     }
+
+    if (!function_exists('blog_user_avatar_src')) {
+        function blog_user_avatar_src($avatarValue, $fallback = '../uploaded_img/default_avatar.png')
+        {
+            if ($avatarValue === null || $avatarValue === '') {
+                return $fallback;
+            }
+
+            $avatarValue = (string)$avatarValue;
+            if (blog_is_external_url($avatarValue)) {
+                return $avatarValue;
+            }
+
+            $mime = 'image/jpeg';
+            if (function_exists('finfo_open')) {
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                if ($finfo !== false) {
+                    $detected = finfo_buffer($finfo, $avatarValue);
+                    finfo_close($finfo);
+                    if (is_string($detected) && $detected !== '') {
+                        $mime = $detected;
+                    }
+                }
+            }
+
+            return 'data:' . $mime . ';base64,' . base64_encode($avatarValue);
+        }
+    }
+
+    blog_ensure_post_tags_tables($conn);
 
     if (!function_exists('blog_get_foreign_key_reference')) {
         function blog_get_foreign_key_reference($conn, $table, $column)

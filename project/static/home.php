@@ -147,7 +147,7 @@ try {
                     <?php if (!empty($featured_posts)): ?>
                         <?php foreach ($featured_posts as $post): ?>
                             <swiper-slide class="relative w-full h-full">
-                                <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('../uploaded_img/<?= htmlspecialchars(!empty($post['image']) ? $post['image'] : 'default_img.jpg', ENT_QUOTES, 'UTF-8'); ?>');"></div>
+                                <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('<?= htmlspecialchars(blog_post_image_src((string)($post['image'] ?? ''), '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>');"></div>
                                 <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent"></div>
                                 <div class="absolute bottom-6 left-6 right-6 z-10 text-white">
                                     <div class="inline-flex items-center gap-2 mb-3 text-xs uppercase tracking-wide bg-white/20 backdrop-blur px-3 py-1 rounded-full">
@@ -348,7 +348,7 @@ $noidung_text_2 = $introduce_settings['gioithieu_noidung_2'] ?? 'Trở thành ng
                             <!-- Post Image -->
                             <?php if (!empty($post['image'])): ?>
                                 <div class="relative overflow-hidden h-48">
-                                    <img src="../uploaded_img/<?= $post['image']; ?>"
+                                    <img src="<?= htmlspecialchars(blog_post_image_src((string)$post['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>"
                                         alt="<?= htmlspecialchars($post['title']); ?>"
                                         class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
 
@@ -487,7 +487,7 @@ $noidung_text_2 = $introduce_settings['gioithieu_noidung_2'] ?? 'Trở thành ng
                     $photos = $select_photos->fetchAll(PDO::FETCH_ASSOC);
                     $masonry_classes = ['masonry-h-md', 'masonry-h-lg', 'masonry-h-sm', 'masonry-h-xl'];
                     foreach ($photos as $index => $photo) {
-                        $photo_url = '../uploaded_img/' . $photo['image'];
+                        $photo_url = blog_post_image_src((string)$photo['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg');
                         $photo_alt = htmlspecialchars($photo['title']);
                         $height_class = $masonry_classes[$index % count($masonry_classes)];
 

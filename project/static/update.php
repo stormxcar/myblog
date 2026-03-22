@@ -103,12 +103,22 @@ if (isset($_POST['submit'])) {
         } elseif ($file_size > 5 * 1024 * 1024) { // 5MB
             $error_messages[] = 'Kích thước file không được vượt quá 5MB!';
         } else {
-            $fileTmpName = $_FILES['avatar']['tmp_name'];
-            $fileContent = file_get_contents($fileTmpName);
+            $uploadResult = blog_cloudinary_upload($_FILES['avatar'], blog_cloudinary_default_folder() . '/avatars');
+            if (!($uploadResult['ok'] ?? false)) {
+                $error_messages[] = (string)($uploadResult['error'] ?? 'Không thể upload ảnh đại diện lên Cloudinary.');
+            } else {
+                $newAvatarUrl = (string)$uploadResult['secure_url'];
+                $oldAvatar = (string)($fetch_user['avatar'] ?? '');
 
-            $update_avatar = $conn->prepare("UPDATE `users` SET avatar = ? WHERE id = ?");
-            $update_avatar->execute([$fileContent, $user_id]);
-            $success_messages[] = 'Ảnh đại diện đã được cập nhật!';
+                $update_avatar = $conn->prepare("UPDATE `users` SET avatar = ? WHERE id = ?");
+                $update_avatar->execute([$newAvatarUrl, $user_id]);
+
+                if ($oldAvatar !== '' && $oldAvatar !== $newAvatarUrl && blog_is_external_url($oldAvatar)) {
+                    blog_delete_image_resource($oldAvatar);
+                }
+
+                $success_messages[] = 'Ảnh đại diện đã được cập nhật!';
+            }
         }
     }
 
@@ -194,7 +204,7 @@ render_breadcrumb($breadcrumb_items);
                             <!-- Avatar -->
                             <div class="relative inline-block mb-4">
                                 <?php if (!empty($fetch_user['avatar'])) : ?>
-                                    <img src="data:image/jpeg;base64,<?= base64_encode($fetch_user['avatar']) ?>"
+                                    <img src="<?= htmlspecialchars(blog_user_avatar_src($fetch_user['avatar'], '../uploaded_img/default_avatar.png'), ENT_QUOTES, 'UTF-8'); ?>"
                                         alt="Avatar"
                                         class="w-24 h-24 rounded-full object-cover border-4 border-main shadow-lg">
                                 <?php else : ?>
@@ -313,7 +323,7 @@ render_breadcrumb($breadcrumb_items);
                                     <div class="flex-shrink-0">
                                         <div id="avatarPreview" class="relative">
                                             <?php if (!empty($fetch_user['avatar'])) : ?>
-                                                <img src="data:image/jpeg;base64,<?= base64_encode($fetch_user['avatar']) ?>"
+                                                <img src="<?= htmlspecialchars(blog_user_avatar_src($fetch_user['avatar'], '../uploaded_img/default_avatar.png'), ENT_QUOTES, 'UTF-8'); ?>"
                                                     alt="Avatar hiện tại"
                                                     class="w-20 h-20 rounded-full object-cover border-2 border-gray-300 dark:border-gray-600">
                                             <?php else : ?>

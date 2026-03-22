@@ -17,6 +17,21 @@ include '../components/like_post.php';
 include '../components/save_post.php';
 blog_ensure_feature_tables($conn);
 
+if (!function_exists('blog_decode_html_entities_deep')) {
+    function blog_decode_html_entities_deep(string $input, int $maxDepth = 3): string
+    {
+        $decoded = $input;
+        for ($i = 0; $i < $maxDepth; $i++) {
+            $next = html_entity_decode($decoded, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            if ($next === $decoded) {
+                break;
+            }
+            $decoded = $next;
+        }
+        return $decoded;
+    }
+}
+
 // Resolve post ID from slug route (/post/my-title-123) or legacy ?post_id=
 $slug_param = isset($_GET['slug']) ? trim($_GET['slug']) : '';
 $legacy_post_id = isset($_GET['post_id']) ? (int)$_GET['post_id'] : 0;
@@ -78,8 +93,11 @@ if ($slug_param === '' || $slug_param !== $canonical_slug) {
     exit;
 }
 
-$page_title = $current_post['title'] . ' - My Blog';
-$page_description = mb_substr(trim(strip_tags($current_post['content'])), 0, 160, 'UTF-8');
+$decoded_current_title = blog_decode_html_entities_deep((string)$current_post['title']);
+$decoded_current_content = blog_decode_html_entities_deep((string)$current_post['content']);
+
+$page_title = $decoded_current_title . ' - My Blog';
+$page_description = mb_substr(trim(strip_tags($decoded_current_content)), 0, 160, 'UTF-8');
 $page_canonical = $canonical_post_url;
 
 // Lấy thông tin user profile nếu đã đăng nhập
@@ -304,7 +322,8 @@ $current_tag = $fetch_post_tag['category'];
 $select_related_posts = $conn->prepare("SELECT * FROM `posts` WHERE category = ? AND id != ? AND status = 'active' LIMIT 4");
 $select_related_posts->execute([$current_tag, $get_id]);
 
-$aiSummary = blog_generate_quick_summary($current_post['content']);
+$aiSummary = blog_generate_quick_summary($decoded_current_content);
+$aiSummaryDisplay = blog_decode_html_entities_deep((string)$aiSummary);
 
 $personalized_stmt = null;
 if ($user_id !== '') {
@@ -408,7 +427,7 @@ $breadcrumb_items = [
         'url' => get_nav_link('posts')
     ],
     [
-        'title' => $current_post['title'],
+        'title' => $decoded_current_title,
         'url' => ''
     ]
 ];
@@ -416,11 +435,46 @@ render_breadcrumb($breadcrumb_items);
 ?>
 
 <main class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <style>
+        .article-content-render ul,
+        .article-content-render ol {
+            margin: 1rem 0 1rem 1.25rem;
+            padding-left: 1rem;
+        }
+
+        .article-content-render ul {
+            list-style: disc;
+        }
+
+        .article-content-render ol {
+            list-style: decimal;
+        }
+
+        .article-content-render li {
+            display: list-item;
+            margin: 0.35rem 0;
+        }
+
+        .article-content-render h1,
+        .article-content-render h2,
+        .article-content-render h3,
+        .article-content-render h4,
+        .article-content-render h5,
+        .article-content-render h6 {
+            margin: 1rem 0 0.5rem;
+            font-weight: 700;
+            line-height: 1.35;
+        }
+
+        .article-content-render p {
+            margin: 0.75rem 0;
+        }
+    </style>
     <script type="application/ld+json">
         <?= json_encode([
             '@context' => 'https://schema.org',
             '@type' => 'BlogPosting',
-            'headline' => $current_post['title'],
+            'headline' => $decoded_current_title,
             'description' => $page_description,
             'url' => $canonical_post_url,
             'datePublished' => date(DATE_ATOM),
@@ -468,6 +522,7 @@ render_breadcrumb($breadcrumb_items);
             if ($select_posts->rowCount() > 0) {
                 while ($fetch_posts = $select_posts->fetch(PDO::FETCH_ASSOC)) {
                     $post_id = $fetch_posts['id'];
+                    $post_tags = blog_get_post_tags($conn, $post_id);
 
                     $count_post_comments = $conn->prepare("SELECT * FROM `comments` WHERE post_id = ?");
                     $count_post_comments->execute([$post_id]);
@@ -517,7 +572,7 @@ render_breadcrumb($breadcrumb_items);
                         <!-- <?php if ($fetch_posts['image'] != '') : ?>
                             <div class="relative">
                                 <img id="image_show"
-                                    src="../uploaded_img/<?= $fetch_posts['image']; ?>"
+                                    src="<?= htmlspecialchars(blog_post_image_src((string)$fetch_posts['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>"
                                     alt="<?= $fetch_posts['title']; ?>"
                                     fetchpriority="high"
                                     decoding="async"
@@ -528,12 +583,13 @@ render_breadcrumb($breadcrumb_items);
 
                         <!-- Post Content -->
                         <div class="p-6">
+                            <?php $decoded_post_title = blog_decode_html_entities_deep((string)$fetch_posts['title']); ?>
                             <h1 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-6">
-                                <?= $fetch_posts['title']; ?>
+                                <?= htmlspecialchars($decoded_post_title, ENT_QUOTES, 'UTF-8'); ?>
                             </h1>
 
-                            <div class="prose prose-lg max-w-none text-gray-700 dark:text-gray-300 mb-8">
-                                <?= html_entity_decode((string)$fetch_posts['content'], ENT_QUOTES | ENT_HTML5, 'UTF-8'); ?>
+                            <div class="article-content-render prose prose-lg max-w-none text-gray-700 dark:text-gray-300 mb-8">
+                                <?= blog_decode_html_entities_deep((string)$fetch_posts['content']); ?>
                             </div>
 
                             <!-- Category Tag -->
@@ -542,6 +598,17 @@ render_breadcrumb($breadcrumb_items);
                                 <i class="fas fa-tag"></i>
                                 <span><?= $fetch_posts['category']; ?></span>
                             </a>
+
+                            <?php if (!empty($post_tags)): ?>
+                                <div class="mt-4 flex flex-wrap gap-2">
+                                    <?php foreach ($post_tags as $tag): ?>
+                                        <a href="search.php?tag=<?= urlencode((string)$tag['slug']); ?>&size=12&page=1"
+                                            class="inline-flex items-center bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-3 py-1 rounded-full text-sm hover:bg-main hover:text-white transition-colors">
+                                            #<?= htmlspecialchars((string)$tag['name'], ENT_QUOTES, 'UTF-8'); ?>
+                                        </a>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
                         </div>
 
                         <!-- Post Actions -->
@@ -593,7 +660,7 @@ render_breadcrumb($breadcrumb_items);
         <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-12">
             <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <i class="fas fa-wand-magic-sparkles text-main"></i>
-                AI Trợ lý bài viết
+                AI Trợ lý bài viết <span class="text-sm text-gray-400">(tính năng đang được tối ưu)</span>
             </h2>
 
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-700/30">
@@ -620,7 +687,8 @@ render_breadcrumb($breadcrumb_items);
                         </button>
                     </div>
                 </div>
-                <p id="aiSummaryText" class="text-sm text-gray-700 dark:text-gray-300 leading-6 whitespace-pre-line"><?= htmlspecialchars($aiSummary, ENT_QUOTES, 'UTF-8'); ?></p>
+                <p id="aiSummaryText" class="text-sm text-gray-700 dark:text-gray-300 leading-6 whitespace-pre-line"><?= htmlspecialchars($aiSummaryDisplay, ENT_QUOTES, 'UTF-8'); ?></p>
+                <p id="aiSummaryMeta" class="hidden text-xs text-gray-500 dark:text-gray-400 mt-2">Nguồn: nội bộ</p>
                 <div id="aiSummaryDebugWrap" class="hidden mt-3 rounded-lg border border-amber-300 bg-amber-50 text-amber-900 p-3 text-xs dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
                     <p class="font-semibold mb-1">Chi tiết lỗi Gemini</p>
                     <pre id="aiSummaryDebug" class="whitespace-pre-wrap break-words"></pre>
@@ -822,7 +890,7 @@ render_breadcrumb($breadcrumb_items);
                                 <!-- Post Image -->
                                 <?php if ($fetch_related_posts['image'] != '') : ?>
                                     <div class="relative overflow-hidden h-40 rounded-lg mt-4">
-                                        <img src="../uploaded_img/<?= $fetch_related_posts['image']; ?>"
+                                        <img src="<?= htmlspecialchars(blog_post_image_src((string)$fetch_related_posts['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>"
                                             alt="<?= $fetch_related_posts['title']; ?>"
                                             loading="lazy"
                                             decoding="async"
@@ -911,6 +979,60 @@ render_breadcrumb($breadcrumb_items);
         const aiSummaryModeButtons = Array.from(document.querySelectorAll('.ai-summary-mode-btn'));
         let selectedSummaryMode = 'short';
 
+        function escapeHtml(text) {
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function formatAiSummary(rawSummary) {
+            const text = String(rawSummary || '').trim();
+            if (text === '') {
+                return '<p class="text-sm text-gray-700 dark:text-gray-300 leading-6">Chưa có nội dung tóm tắt.</p>';
+            }
+
+            const lines = text.split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter((line) => line !== '');
+
+            const items = [];
+            let conclusion = null;
+
+            lines.forEach((line) => {
+                const lower = line.toLowerCase();
+                if (/^(\d+)[\.\)]\s*/.test(line)) {
+                    items.push(line.replace(/^(\d+)[\.\)]\s*/, ''));
+                } else if (lower.startsWith('kết luận:') || lower.startsWith('kết luận')) {
+                    conclusion = line.replace(/^(kết luận:\s*)/i, '');
+                } else if (/^[\-\*•]\s*/.test(line)) {
+                    items.push(line.replace(/^[\-\*•]\s*/, ''));
+                } else {
+                    items.push(line);
+                }
+            });
+
+            if (items.length > 0) {
+                const listItems = items
+                    .map((item) => '<li class="my-1 text-sm text-gray-700 dark:text-gray-300">' + escapeHtml(item) + '</li>')
+                    .join('');
+
+                let html = '<ol class="list-decimal list-inside space-y-2 mb-3">' + listItems + '</ol>';
+                if (conclusion !== null) {
+                    html += '<p class="text-sm font-semibold text-gray-800 dark:text-gray-200">Kết luận: ' + escapeHtml(conclusion) + '</p>';
+                }
+                return html;
+            }
+
+            return '<p class="text-sm text-gray-700 dark:text-gray-300 leading-6">' + escapeHtml(text) + '</p>';
+        }
+
+        if (aiSummaryText) {
+            aiSummaryText.innerHTML = formatAiSummary(aiSummaryText.textContent);
+        }
+
         function updateSummaryModeUi() {
             aiSummaryModeButtons.forEach((btn) => {
                 const mode = btn.getAttribute('data-summary-mode');
@@ -979,7 +1101,7 @@ render_breadcrumb($breadcrumb_items);
                     throw new Error(data && data.message ? data.message : 'Không thể tạo tóm tắt lúc này.');
                 }
 
-                aiSummaryText.textContent = String(data.summary || '').trim() || 'Chưa có nội dung tóm tắt.';
+                aiSummaryText.innerHTML = formatAiSummary(String(data.summary || '').trim() || 'Chưa có nội dung tóm tắt.');
                 if (data.source === 'gemini') {
                     aiSummaryMeta.textContent = 'Nguồn: Gemini (server-side API)';
                 } else if (data.source === 'gemini-cache') {

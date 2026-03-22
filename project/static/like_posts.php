@@ -93,7 +93,7 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
                     <?php
                     if ($fetch_posts['image'] != '') {
                     ?>
-                        <img src="../uploaded_img/<?= $fetch_posts['image']; ?>" class="post-image" alt="">
+                        <img src="<?= htmlspecialchars(blog_post_image_src((string)$fetch_posts['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>" class="post-image" alt="">
                     <?php
                     }
                     ?>

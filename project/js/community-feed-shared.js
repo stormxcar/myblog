@@ -12,6 +12,37 @@
     "Lừa đảo hoặc mạo danh",
   ];
 
+  // Add animation styles for vote buttons and vote group
+  (function addVoteAnimationStyles() {
+    if (document.getElementById("community-vote-animation-style")) {
+      return;
+    }
+    const style = document.createElement("style");
+    style.id = "community-vote-animation-style";
+    style.textContent = `
+      @keyframes community-vote-pop {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.2); }
+        100% { transform: scale(1); }
+      }
+      .community-vote-pop {
+        animation: community-vote-pop 0.35s ease-out;
+      }
+      @keyframes community-vote-glow {
+        0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.5); }
+        50% { box-shadow: 0 0 12px 5px rgba(34,197,94,0.35); }
+        100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+      }
+      .community-vote-glow {
+        animation: community-vote-glow 0.7s ease-out;
+      }
+      .community-vote-group-active{
+        box-shadow: 0 0 16px rgba(34,197,94,0.35);
+      }
+    `;
+    document.head.appendChild(style);
+  })();
+
   function ensureReportModal() {
     let modal = document.getElementById("community-report-modal");
     if (modal) {
@@ -26,10 +57,11 @@
 
     modal = document.createElement("div");
     modal.id = "community-report-modal";
-    modal.className = "hidden fixed inset-0 z-[10060] bg-black/50 p-4";
+    modal.className =
+      "hidden fixed inset-0 z-[10060] bg-black/50 p-4 flex items-center justify-center overflow-auto";
+    modal.style.padding = "1.5rem";
     modal.innerHTML =
-      '<div class="min-h-full w-full flex items-center justify-center">' +
-      '<div class="w-full max-w-lg bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-2xl p-5 sm:p-6">' +
+      '<div class="w-full max-w-xl max-h-[85vh] bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-2xl p-5 sm:p-6 overflow-y-auto">' +
       '<h3 class="text-lg font-bold text-gray-900 dark:text-white">Chọn lý do báo cáo</h3>' +
       '<p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Hãy chọn lý do phù hợp nhất cho bài viết này.</p>' +
       '<div id="community-report-reason-tags" class="mt-4 flex flex-wrap gap-2"></div>' +
@@ -38,7 +70,7 @@
       '<div class="mt-5 flex items-center justify-end gap-2">' +
       '<button type="button" id="community-report-cancel" class="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600">Hủy</button>' +
       '<button type="button" id="community-report-confirm" class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">Gửi báo cáo</button>' +
-      "</div></div></div>";
+      "</div>";
 
     document.body.appendChild(modal);
     return modal;
@@ -288,13 +320,80 @@
           scoreEl.textContent = String(payload.vote_score || 0);
         }
 
+        const voteGroup = upBtn
+          ? upBtn.closest("[data-community-vote-group]")
+          : null;
         const reaction = Number(payload.reaction || 0);
+
+        if (voteGroup) {
+          voteGroup.classList.remove(
+            "bg-emerald-100",
+            "dark:bg-emerald-900\/50",
+            "text-emerald-800",
+            "dark:text-emerald-200",
+            "bg-rose-100",
+            "dark:bg-rose-900\/50",
+            "text-rose-800",
+            "dark:text-rose-200",
+            "bg-white",
+            "dark:bg-gray-900",
+            "shadow-lg",
+            "shadow-sm",
+            "ring",
+            "ring-emerald-300",
+            "ring-rose-300",
+            "community-vote-go",
+            "community-vote-glow",
+          );
+          voteGroup.classList.add("community-vote-glow");
+          setTimeout(() => {
+            voteGroup.classList.remove("community-vote-glow");
+          }, 700);
+          if (reaction === 1) {
+            voteGroup.classList.add(
+              "bg-emerald-100",
+              "dark:bg-emerald-900\/50",
+              "text-emerald-800",
+              "dark:text-emerald-200",
+              "shadow-lg",
+            );
+          } else if (reaction === -1) {
+            voteGroup.classList.add(
+              "bg-rose-100",
+              "dark:bg-rose-900\/50",
+              "text-rose-800",
+              "dark:text-rose-200",
+              "shadow-lg",
+            );
+          } else {
+            voteGroup.classList.add(
+              "bg-white",
+              "dark:bg-gray-900",
+              "shadow-sm",
+            );
+          }
+        }
+
         if (upBtn) {
-          upBtn.classList.toggle("text-emerald-600", reaction === 1);
+          upBtn.classList.toggle("text-2xl", reaction === 1);
+          upBtn.classList.toggle("font-bold", reaction === 1);
+          upBtn.classList.toggle("text-xl", reaction !== 1);
+          upBtn.classList.toggle("ring", reaction === 1);
+          upBtn.classList.toggle("ring-emerald-300", reaction === 1);
+          upBtn.classList.toggle("ring-rose-300", reaction !== 1);
+          upBtn.classList.add("community-vote-pop");
+          setTimeout(() => upBtn.classList.remove("community-vote-pop"), 350);
           upBtn.setAttribute("aria-pressed", reaction === 1 ? "true" : "false");
         }
         if (downBtn) {
-          downBtn.classList.toggle("text-rose-600", reaction === -1);
+          downBtn.classList.toggle("text-2xl", reaction === -1);
+          downBtn.classList.toggle("font-bold", reaction === -1);
+          downBtn.classList.toggle("text-xl", reaction !== -1);
+          downBtn.classList.toggle("ring", reaction === -1);
+          downBtn.classList.toggle("ring-rose-300", reaction === -1);
+          downBtn.classList.toggle("ring-emerald-300", reaction !== -1);
+          downBtn.classList.add("community-vote-pop");
+          setTimeout(() => downBtn.classList.remove("community-vote-pop"), 350);
           downBtn.setAttribute(
             "aria-pressed",
             reaction === -1 ? "true" : "false",

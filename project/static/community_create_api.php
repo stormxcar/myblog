@@ -68,16 +68,6 @@ if (count($links) > 5) {
     $links = array_slice($links, 0, 5);
 }
 
-$uploadBaseDir = realpath(__DIR__ . '/../uploaded_img');
-if ($uploadBaseDir === false) {
-    community_json_fail('Thu muc upload goc khong ton tai tren server.', 500);
-}
-
-$communityDir = $uploadBaseDir . DIRECTORY_SEPARATOR . 'community';
-if (!is_dir($communityDir) && !mkdir($communityDir, 0755, true)) {
-    community_json_fail('Khong the tao thu muc upload cong dong.', 500);
-}
-
 $allowedMimes = [
     'image/jpeg' => 'jpg',
     'image/png' => 'png',
@@ -146,15 +136,20 @@ if (isset($_FILES['images']) && is_array($_FILES['images']['name'])) {
         }
 
         $ext = $allowedMimes[$mime];
-        $filename = 'community_' . $userId . '_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-        $targetPath = $communityDir . DIRECTORY_SEPARATOR . $filename;
-
-        if (!move_uploaded_file($tmpFile, $targetPath)) {
-            community_json_fail('Khong the luu tep anh tai len.', 500);
+        $filePayload = [
+            'name' => 'community_' . $userId . '_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.' . $ext,
+            'type' => $mime,
+            'tmp_name' => $tmpFile,
+            'error' => UPLOAD_ERR_OK,
+            'size' => $fileSize,
+        ];
+        $uploadResult = blog_cloudinary_upload($filePayload, blog_cloudinary_default_folder() . '/community');
+        if (!($uploadResult['ok'] ?? false)) {
+            community_json_fail((string)($uploadResult['error'] ?? 'Khong the luu tep anh tai len.'), 500);
         }
 
         $storedMedia[] = [
-            'file_path' => 'community/' . $filename,
+            'file_path' => (string)$uploadResult['secure_url'],
             'original_name' => mb_substr($origName, 0, 255, 'UTF-8')
         ];
     }
@@ -235,10 +230,7 @@ try {
     }
 
     foreach ($storedMedia as $media) {
-        $fullPath = $uploadBaseDir . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $media['file_path']);
-        if (is_file($fullPath)) {
-            @unlink($fullPath);
-        }
+        blog_delete_image_resource((string)($media['file_path'] ?? ''));
     }
 
     community_json_fail('Khong the dang bai cong dong luc nay.', 500, [

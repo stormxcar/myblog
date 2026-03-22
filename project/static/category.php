@@ -21,6 +21,8 @@ if (!function_exists('renderCategoryCardsHtml')) {
         if (!empty($postsRows)) {
             foreach ($postsRows as $fetch_posts) {
                 $post_id = (int)$fetch_posts['id'];
+                $decodedTitle = html_entity_decode((string)$fetch_posts['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $decodedSnippet = html_entity_decode(strip_tags((string)$fetch_posts['content']), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
                 $confirm_likes = $conn->prepare("SELECT 1 FROM `likes` WHERE user_id = ? AND post_id = ? LIMIT 1");
                 $confirm_likes->execute([$user_id, $post_id]);
@@ -35,7 +37,7 @@ if (!function_exists('renderCategoryCardsHtml')) {
                         <input type="hidden" name="post_id" value="<?= $post_id; ?>">
                         <input type="hidden" name="admin_id" value="<?= (int)$fetch_posts['admin_id']; ?>">
 
-                        <div class="p-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-600">
+                        <div class="py-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-600">
                             <div class="flex items-center space-x-3">
                                 <div class="w-10 h-10 bg-main rounded-full flex items-center justify-center text-white text-sm font-semibold">
                                     <?= strtoupper(substr((string)$fetch_posts['name'], 0, 1)) ?>
@@ -57,23 +59,23 @@ if (!function_exists('renderCategoryCardsHtml')) {
                         </div>
 
                         <?php if (!empty($fetch_posts['image'])) : ?>
-                            <div class="relative overflow-hidden h-48 rounded-lg mx-4 mt-4">
-                                <img src="../uploaded_img/<?= htmlspecialchars((string)$fetch_posts['image'], ENT_QUOTES, 'UTF-8'); ?>"
-                                    alt="<?= htmlspecialchars((string)$fetch_posts['title'], ENT_QUOTES, 'UTF-8'); ?>"
+                            <div class="relative overflow-hidden h-48 rounded-lg mt-4">
+                                <img src="<?= htmlspecialchars(blog_post_image_src((string)$fetch_posts['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>"
+                                    alt="<?= htmlspecialchars($decodedTitle, ENT_QUOTES, 'UTF-8'); ?>"
                                     class="blog-card-image">
                                 <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
                             </div>
                         <?php endif; ?>
 
-                        <div class="p-4 flex-1 flex flex-col">
+                        <div class="py-4 flex-1 flex flex-col">
                             <h3 class="font-bold text-gray-900 dark:text-white mb-3 line-clamp-2 group-hover:text-main transition-colors">
                                 <a href="<?= post_path($post_id); ?>">
-                                    <?= htmlspecialchars((string)$fetch_posts['title'], ENT_QUOTES, 'UTF-8'); ?>
+                                    <?= htmlspecialchars($decodedTitle, ENT_QUOTES, 'UTF-8'); ?>
                                 </a>
                             </h3>
 
                             <div class="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-3 flex-1">
-                                <?= htmlspecialchars(strip_tags((string)$fetch_posts['content']), ENT_QUOTES, 'UTF-8'); ?>
+                                <?= htmlspecialchars($decodedSnippet, ENT_QUOTES, 'UTF-8'); ?>
                             </div>
 
                             <a href="<?= post_path($post_id); ?>"
@@ -83,7 +85,7 @@ if (!function_exists('renderCategoryCardsHtml')) {
                             </a>
                         </div>
 
-                        <div class="p-4 border-t border-gray-200 dark:border-gray-600 flex items-center justify-between">
+                        <div class="py-4 border-t border-gray-200 dark:border-gray-600 flex items-center justify-between">
                             <div class="flex items-center space-x-4">
                                 <div class="flex items-center space-x-1 text-gray-500 dark:text-gray-400 text-sm">
                                     <i class="fas fa-comment"></i>

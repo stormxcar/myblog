@@ -33,7 +33,12 @@ if (isset($_POST['search_btn']) || (isset($_POST['search_box']) && !isset($_POST
 
 // Get search query
 $search_query = isset($_GET['q']) ? trim((string)$_GET['q']) : '';
+$tag_filter = isset($_GET['tag']) ? trim((string)$_GET['tag']) : '';
+$is_tag_search = $tag_filter !== '';
 $is_search_requested = isset($_GET['q']);
+if ($is_tag_search) {
+    $is_search_requested = true;
+}
 
 if (!function_exists('highlight_search_term')) {
     function highlight_search_term($text, $term)
@@ -56,7 +61,9 @@ if (!function_exists('highlight_search_term')) {
 include '../components/breadcrumb.php';
 
 // Generate breadcrumb for search page
-$search_title = !empty($search_query) ? "Tìm kiếm: \"$search_query\"" : 'Tìm kiếm';
+$search_title = !empty($search_query)
+    ? "Tìm kiếm: \"$search_query\""
+    : ($is_tag_search ? ('Tag: #' . $tag_filter) : 'Tìm kiếm');
 $breadcrumb_items = auto_breadcrumb($search_title);
 render_breadcrumb($breadcrumb_items);
 ?>
@@ -108,24 +115,35 @@ render_breadcrumb($breadcrumb_items);
                 <div class="flex flex-wrap gap-3 mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
                     <span class="text-gray-600 dark:text-gray-400 font-medium">Tìm kiếm nhanh:</span>
                     <?php
-                    $quick_searches = ['PHP', 'JavaScript', 'Web Design', 'Tutorial', 'Technology', 'Programming'];
-                    foreach ($quick_searches as $tag) :
+                    $recent_titles_stmt = $conn->prepare("SELECT title FROM posts WHERE status = 'active' ORDER BY date DESC LIMIT 8");
+                    $recent_titles_stmt->execute();
+                    $recent_titles = $recent_titles_stmt->fetchAll(PDO::FETCH_COLUMN);
+                    if (empty($recent_titles)) {
+                        $recent_titles = ['PHP', 'JavaScript', 'Web Design', 'Tutorial'];
+                    }
+                    foreach ($recent_titles as $tag) :
+                        $searchTag = trim($tag);
+                        if ($searchTag === '') continue;
                     ?>
-                        <a href="?q=<?= urlencode($tag); ?>&size=<?= $page_size; ?>&page=1"
+                        <a href="?q=<?= urlencode($searchTag); ?>&size=<?= $page_size; ?>&page=1"
                             class="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full hover:bg-main hover:text-white transition-all duration-300 text-sm font-medium">
-                            <?= $tag ?>
+                            <?= htmlspecialchars($searchTag, ENT_QUOTES, 'UTF-8') ?>
                         </a>
                     <?php endforeach; ?>
                 </div>
             </form>
         </div>
 
-        <?php if ($is_search_requested && !empty($search_query)) : ?>
+        <?php if ($is_search_requested && (!empty($search_query) || $is_tag_search)) : ?>
             <!-- Search Results -->
             <div class="mb-8">
                 <div class="flex items-center justify-between mb-6">
                     <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
-                        Kết quả tìm kiếm cho: <span class="text-main">"<?= htmlspecialchars($search_query) ?>"</span>
+                        <?php if ($is_tag_search): ?>
+                            Kết quả cho tag: <span class="text-main">#<?= htmlspecialchars($tag_filter, ENT_QUOTES, 'UTF-8'); ?></span>
+                        <?php else: ?>
+                            Kết quả tìm kiếm cho: <span class="text-main">"<?= htmlspecialchars($search_query) ?>"</span>
+                        <?php endif; ?>
                     </h2>
                 </div>
 
@@ -133,8 +151,25 @@ render_breadcrumb($breadcrumb_items);
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                     <?php
                     $search_term = "%{$search_query}%";
-                    $count_stmt = $conn->prepare("SELECT COUNT(*) FROM `posts` WHERE (title LIKE ? OR category LIKE ? OR content LIKE ?) AND status = 'active'");
-                    $count_stmt->execute([$search_term, $search_term, $search_term]);
+                    $countSql = "SELECT COUNT(DISTINCT p.id)
+                        FROM posts p
+                        LEFT JOIN post_tags pt ON pt.post_id = p.id
+                        LEFT JOIN tags t ON t.id = pt.tag_id
+                        WHERE p.status = 'active'";
+                    $countParams = [];
+                    if ($is_tag_search) {
+                        $countSql .= " AND t.slug = ?";
+                        $countParams[] = $tag_filter;
+                    }
+                    if ($search_query !== '') {
+                        $countSql .= " AND (p.title LIKE ? OR p.category LIKE ? OR p.content LIKE ? OR t.name LIKE ?)";
+                        $countParams[] = $search_term;
+                        $countParams[] = $search_term;
+                        $countParams[] = $search_term;
+                        $countParams[] = $search_term;
+                    }
+                    $count_stmt = $conn->prepare($countSql);
+                    $count_stmt->execute($countParams);
                     $result_count = (int)$count_stmt->fetchColumn();
 
                     if ($result_count > 0) {
@@ -147,23 +182,42 @@ render_breadcrumb($breadcrumb_items);
                         }
                         $offset = ($current_page - 1) * $page_size;
 
-                        $select_posts = $conn->prepare("SELECT p.*, 
+                        $selectSql = "SELECT p.*, 
                             (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
                             (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count,
                             (SELECT COUNT(*) FROM likes ul WHERE ul.post_id = p.id AND ul.user_id = ?) AS user_liked,
                             (SELECT COUNT(*) FROM favorite_posts sf WHERE sf.post_id = p.id AND sf.user_id = ?) AS user_saved
                             FROM posts p
-                            WHERE (p.title LIKE ? OR p.category LIKE ? OR p.content LIKE ?) AND p.status = 'active'
-                            ORDER BY p.date DESC
-                            LIMIT ? OFFSET ?");
-                        $select_posts->bindValue(1, (string)$user_id, PDO::PARAM_STR);
-                        $select_posts->bindValue(2, (string)$user_id, PDO::PARAM_STR);
-                        $select_posts->bindValue(3, $search_term, PDO::PARAM_STR);
-                        $select_posts->bindValue(4, $search_term, PDO::PARAM_STR);
-                        $select_posts->bindValue(5, $search_term, PDO::PARAM_STR);
-                        $select_posts->bindValue(6, $page_size, PDO::PARAM_INT);
-                        $select_posts->bindValue(7, $offset, PDO::PARAM_INT);
+                            LEFT JOIN post_tags pt ON pt.post_id = p.id
+                            LEFT JOIN tags t ON t.id = pt.tag_id
+                            WHERE p.status = 'active'";
+                        $selectParams = [(string)$user_id, (string)$user_id];
+                        if ($is_tag_search) {
+                            $selectSql .= ' AND t.slug = ?';
+                            $selectParams[] = $tag_filter;
+                        }
+                        if ($search_query !== '') {
+                            $selectSql .= ' AND (p.title LIKE ? OR p.category LIKE ? OR p.content LIKE ? OR t.name LIKE ?)';
+                            $selectParams[] = $search_term;
+                            $selectParams[] = $search_term;
+                            $selectParams[] = $search_term;
+                            $selectParams[] = $search_term;
+                        }
+                        $selectSql .= ' GROUP BY p.id ORDER BY p.date DESC LIMIT ? OFFSET ?';
+
+                        $select_posts = $conn->prepare($selectSql);
+                        $bindIndex = 1;
+                        foreach ($selectParams as $paramValue) {
+                            $select_posts->bindValue($bindIndex, $paramValue, PDO::PARAM_STR);
+                            $bindIndex++;
+                        }
+                        $select_posts->bindValue($bindIndex++, $page_size, PDO::PARAM_INT);
+                        $select_posts->bindValue($bindIndex, $offset, PDO::PARAM_INT);
                         $select_posts->execute();
+                        $posts_rows = $select_posts->fetchAll(PDO::FETCH_ASSOC);
+                        $tag_map = blog_get_tags_map_for_posts($conn, array_map(function ($row) {
+                            return (int)($row['id'] ?? 0);
+                        }, $posts_rows));
 
                         echo "<div class='col-span-full mb-6'>";
                         echo "<div class='bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4'>";
@@ -171,8 +225,9 @@ render_breadcrumb($breadcrumb_items);
                         echo "</div>";
                         echo "</div>";
 
-                        while ($fetch_posts = $select_posts->fetch(PDO::FETCH_ASSOC)) {
+                        foreach ($posts_rows as $fetch_posts) {
                             $post_id = $fetch_posts['id'];
+                            $post_tags = $tag_map[(int)$post_id] ?? [];
                             $highlighted_title = highlight_search_term($fetch_posts['title'], $search_query);
                             $content_plain = strip_tags((string)$fetch_posts['content']);
                             $excerpt_raw = function_exists('mb_substr') ? mb_substr($content_plain, 0, 140) : substr($content_plain, 0, 140);
@@ -209,7 +264,7 @@ render_breadcrumb($breadcrumb_items);
                                     <!-- Post Image -->
                                     <?php if ($fetch_posts['image'] != '') : ?>
                                         <div class="relative overflow-hidden h-48 rounded-lg mt-4">
-                                            <img src="../uploaded_img/<?= $fetch_posts['image']; ?>"
+                                            <img src="<?= htmlspecialchars(blog_post_image_src((string)$fetch_posts['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>"
                                                 alt="<?= $fetch_posts['title']; ?>"
                                                 class="blog-card-image">
                                             <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
@@ -239,6 +294,17 @@ render_breadcrumb($breadcrumb_items);
                                             <i class="fas fa-tag"></i>
                                             <span><?= $fetch_posts['category']; ?></span>
                                         </a>
+
+                                        <?php if (!empty($post_tags)): ?>
+                                            <div class="mt-2 flex flex-wrap gap-1">
+                                                <?php foreach ($post_tags as $tag): ?>
+                                                    <a href="?tag=<?= urlencode((string)$tag['slug']); ?>&size=<?= $page_size; ?>&page=1"
+                                                        class="px-2 py-1 rounded-full text-[11px] bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-main hover:text-white transition-colors">
+                                                        #<?= htmlspecialchars((string)$tag['name'], ENT_QUOTES, 'UTF-8'); ?>
+                                                    </a>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php endif; ?>
                                     </div>
 
                                     <!-- Post Actions -->
@@ -267,19 +333,19 @@ render_breadcrumb($breadcrumb_items);
                                 $className = $isActive
                                     ? 'px-4 py-2 rounded-lg bg-main text-white font-semibold'
                                     : 'px-4 py-2 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600';
-                                echo '<a href="?q=' . urlencode($search_query) . '&size=' . $page_size . '&page=' . $p . '" class="' . $className . '">' . $p . '</a>';
+                                echo '<a href="?q=' . urlencode($search_query) . '&tag=' . urlencode($tag_filter) . '&size=' . $page_size . '&page=' . $p . '" class="' . $className . '">' . $p . '</a>';
                             }
                             echo '</div>';
 
                             echo '<div class="col-span-full mt-4 flex md:hidden items-center justify-between gap-3">';
                             if ($current_page > 1) {
-                                echo '<a href="?q=' . urlencode($search_query) . '&size=' . $page_size . '&page=' . ($current_page - 1) . '" class="flex-1 text-center px-4 py-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">← Prev</a>';
+                                echo '<a href="?q=' . urlencode($search_query) . '&tag=' . urlencode($tag_filter) . '&size=' . $page_size . '&page=' . ($current_page - 1) . '" class="flex-1 text-center px-4 py-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">← Prev</a>';
                             } else {
                                 echo '<span class="flex-1 text-center px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-400">← Prev</span>';
                             }
 
                             if ($current_page < $total_pages) {
-                                echo '<a href="?q=' . urlencode($search_query) . '&size=' . $page_size . '&page=' . ($current_page + 1) . '" class="flex-1 text-center px-4 py-2 rounded-lg bg-main text-white">Next →</a>';
+                                echo '<a href="?q=' . urlencode($search_query) . '&tag=' . urlencode($tag_filter) . '&size=' . $page_size . '&page=' . ($current_page + 1) . '" class="flex-1 text-center px-4 py-2 rounded-lg bg-main text-white">Next →</a>';
                             } else {
                                 echo '<span class="flex-1 text-center px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-400">Next →</span>';
                             }
@@ -307,7 +373,7 @@ render_breadcrumb($breadcrumb_items);
                 </div>
             </div>
 
-        <?php elseif ($is_search_requested && empty($search_query)) : ?>
+        <?php elseif ($is_search_requested && empty($search_query) && !$is_tag_search) : ?>
             <!-- Empty Search -->
             <div class="text-center py-16">
                 <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-2xl p-8 max-w-md mx-auto">
@@ -325,7 +391,7 @@ render_breadcrumb($breadcrumb_items);
                         <i class="fas fa-search text-3xl text-main"></i>
                     </div>
                     <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Khám phá nội dung</h3>
-                    <p class="text-gray-600 dark:text-gray-400 mb-8">Tìm kiếm bài viết, danh mục và nội dung mà bạn quan tâm</p>
+                    <p class="text-gray-600 dark:text-gray-400 mb-8">Tìm kiếm bài viết, danh mục, nội dung hoặc tag bạn quan tâm</p>
 
                     <!-- Popular Categories -->
                     <div class="space-y-4">
@@ -348,7 +414,7 @@ render_breadcrumb($breadcrumb_items);
         <?php endif; ?>
 
         <!-- Search Statistics -->
-        <?php if (!empty($search_query) && isset($result_count) && $result_count > 0) : ?>
+        <?php if ((!empty($search_query) || $is_tag_search) && isset($result_count) && $result_count > 0) : ?>
             <div class="mt-12 bg-gray-100 dark:bg-gray-800 rounded-2xl p-6">
                 <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Thống kê tìm kiếm</h3>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -359,8 +425,14 @@ render_breadcrumb($breadcrumb_items);
                     <div class="bg-white dark:bg-gray-700 rounded-lg p-4 text-center">
                         <div class="text-2xl font-bold text-green-500">
                             <?php
-                            $unique_authors = $conn->prepare("SELECT COUNT(DISTINCT name) FROM posts WHERE (title LIKE ? OR category LIKE ? OR content LIKE ?) AND status = 'active'");
-                            $unique_authors->execute([$search_term, $search_term, $search_term]);
+                            $unique_authors = $conn->prepare("SELECT COUNT(DISTINCT p.name)
+                                FROM posts p
+                                LEFT JOIN post_tags pt ON pt.post_id = p.id
+                                LEFT JOIN tags t ON t.id = pt.tag_id
+                                WHERE p.status = 'active'
+                                AND (? = '' OR t.slug = ?)
+                                AND (? = '' OR (p.title LIKE ? OR p.category LIKE ? OR p.content LIKE ? OR t.name LIKE ?))");
+                            $unique_authors->execute([$tag_filter, $tag_filter, $search_query, $search_term, $search_term, $search_term, $search_term]);
                             echo $unique_authors->fetchColumn();
                             ?>
                         </div>
@@ -369,8 +441,14 @@ render_breadcrumb($breadcrumb_items);
                     <div class="bg-white dark:bg-gray-700 rounded-lg p-4 text-center">
                         <div class="text-2xl font-bold text-purple-500">
                             <?php
-                            $unique_categories = $conn->prepare("SELECT COUNT(DISTINCT category) FROM posts WHERE (title LIKE ? OR category LIKE ? OR content LIKE ?) AND status = 'active'");
-                            $unique_categories->execute([$search_term, $search_term, $search_term]);
+                            $unique_categories = $conn->prepare("SELECT COUNT(DISTINCT p.category)
+                                FROM posts p
+                                LEFT JOIN post_tags pt ON pt.post_id = p.id
+                                LEFT JOIN tags t ON t.id = pt.tag_id
+                                WHERE p.status = 'active'
+                                AND (? = '' OR t.slug = ?)
+                                AND (? = '' OR (p.title LIKE ? OR p.category LIKE ? OR p.content LIKE ? OR t.name LIKE ?))");
+                            $unique_categories->execute([$tag_filter, $tag_filter, $search_query, $search_term, $search_term, $search_term, $search_term]);
                             echo $unique_categories->fetchColumn();
                             ?>
                         </div>

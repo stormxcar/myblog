@@ -221,7 +221,7 @@ render_breadcrumb($breadcrumb_items);
                         <div class="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 transition-all duration-300 hover:shadow-2xl">
                             <!-- Image -->
                             <div class="h-full overflow-hidden">
-                                <img src="../uploaded_img/<?= $photo['image'] ?>"
+                                <img src="<?= htmlspecialchars(blog_post_image_src((string)$photo['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>"
                                     alt="<?= htmlspecialchars($photo['title']) ?>"
                                     class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                                     loading="lazy">

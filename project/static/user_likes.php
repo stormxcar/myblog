@@ -236,7 +236,7 @@ render_breadcrumb($breadcrumb_items);
                                     <!-- Post Image -->
                                     <?php if ($fetch_post['image'] != '') : ?>
                                         <div class="relative overflow-hidden h-48">
-                                            <img src="../uploaded_img/<?= $fetch_post['image']; ?>"
+                                            <img src="<?= htmlspecialchars(blog_post_image_src((string)$fetch_post['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>"
                                                 alt="<?= $fetch_post['title']; ?>"
                                                 class="post-image">
                                             <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>

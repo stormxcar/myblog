@@ -26,10 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             while ($img = $imgStmt->fetch(PDO::FETCH_ASSOC)) {
                 if (!empty($img['image'])) {
-                    $path = '../uploaded_img/' . $img['image'];
-                    if (is_file($path)) {
-                        @unlink($path);
-                    }
+                    blog_delete_image_resource((string)$img['image']);
                 }
             }
 
@@ -243,7 +240,7 @@ function postsPageUrl($targetPage)
                                         <td><?= (int)$p['id']; ?></td>
                                         <td>
                                             <?php if (!empty($p['image'])): ?>
-                                                <img src="../uploaded_img/<?= htmlspecialchars($p['image']); ?>" alt="post" style="max-width:70px;border-radius:8px;">
+                                                <img src="<?= htmlspecialchars(blog_post_image_src((string)$p['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>" alt="post" style="max-width:70px;border-radius:8px;">
                                             <?php else: ?>
                                                 -
                                             <?php endif; ?>

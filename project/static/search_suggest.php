@@ -21,7 +21,9 @@ try {
         $items[] = [
             'id' => (int)$row['id'],
             'title' => $row['title'],
-            'image' => $row['image'] ? site_url('uploaded_img/' . $row['image']) : site_url('uploaded_img/default_img.jpg'),
+            'image' => !empty($row['image'])
+                ? (blog_is_external_url((string)$row['image']) ? (string)$row['image'] : site_url('uploaded_img/' . ltrim((string)$row['image'], '/')))
+                : site_url('uploaded_img/default_img.jpg'),
             'url' => post_path((int)$row['id'], $row['title'])
         ];
     }
