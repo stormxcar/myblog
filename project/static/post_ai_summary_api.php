@@ -191,7 +191,6 @@ function ai_summary_request_gemini(string $model, string $geminiKey, array $requ
             $transportError = (string)curl_error($ch);
         }
         $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
     }
 
     if (($responseText === '' || $httpCode === 0) && $transportError !== '') {
@@ -334,7 +333,6 @@ function ai_summary_discover_models(string $geminiKey, int $ttlSeconds = 21600):
         $responseText = is_string($curlResult) ? $curlResult : '';
         $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = (string)curl_error($ch);
-        curl_close($ch);
 
         if (($responseText === '' || $httpCode === 0) && $curlError !== '') {
             $context = stream_context_create([

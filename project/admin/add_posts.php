@@ -16,16 +16,16 @@ $fetch_profile = blog_fetch_admin_profile($conn, $admin_id);
 
 if (isset($_POST['publish']) || isset($_POST['draft'])) {
     $content = (string)($_POST['content'] ?? '');
-    $name = htmlspecialchars((string)($_POST['name'] ?? ''), ENT_QUOTES, 'UTF-8');
-    $title = htmlspecialchars((string)($_POST['title'] ?? ''), ENT_QUOTES, 'UTF-8');
-    $category = htmlspecialchars((string)($_POST['category'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $name = trim((string)($_POST['name'] ?? ''));
+    $title = trim((string)($_POST['title'] ?? ''));
+    $category = trim((string)($_POST['category'] ?? ''));
 
     $image_file_name = $_FILES['image_file']['name'] ?? '';
     $image_file_name = htmlspecialchars($image_file_name, ENT_QUOTES, 'UTF-8');
     $image_file_size = (int)($_FILES['image_file']['size'] ?? 0);
     $image_file_type = (string)($_FILES['image_file']['type'] ?? '');
 
-    $image_url = htmlspecialchars((string)($_POST['image_url'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $image_url = trim((string)($_POST['image_url'] ?? ''));
     $tags_input = (string)($_POST['tags'] ?? '');
 
     $image = '';

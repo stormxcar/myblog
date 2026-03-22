@@ -1,6 +1,7 @@
 <?php
 include '../components/connect.php';
 include '../components/community_engine.php';
+include '../components/seo_helpers.php';
 
 session_start();
 
@@ -122,14 +123,19 @@ foreach ($countStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                 <tbody>
                     <?php if (!empty($reports)): ?>
                         <?php foreach ($reports as $report): ?>
+                            <?php
+                            $displayPostTitle = blog_decode_html_entities_deep((string)($report['post_title'] ?: 'Bai dang cong dong'));
+                            $displayAuthorName = blog_decode_html_entities_deep((string)($report['user_name'] ?? ''));
+                            $displayReason = blog_decode_html_entities_deep((string)($report['reason'] ?? ''));
+                            ?>
                             <tr style="border-bottom:1px solid #f1f5f9; vertical-align:top;">
                                 <td style="padding:.7rem; max-width:260px;">
-                                    <strong><?= htmlspecialchars((string)($report['post_title'] ?: 'Bai dang cong dong'), ENT_QUOTES, 'UTF-8'); ?></strong><br>
-                                    <span style="color:#64748b; font-size:.85rem;">Tac gia: <?= htmlspecialchars((string)$report['user_name'], ENT_QUOTES, 'UTF-8'); ?></span><br>
+                                    <strong><?= htmlspecialchars($displayPostTitle, ENT_QUOTES, 'UTF-8'); ?></strong><br>
+                                    <span style="color:#64748b; font-size:.85rem;">Tac gia: <?= htmlspecialchars($displayAuthorName, ENT_QUOTES, 'UTF-8'); ?></span><br>
                                     <a href="../static/community_feed.php#community-post-<?= (int)$report['post_id']; ?>" target="_blank" style="font-size:.85rem; color:#2563eb;">Xem bai dang</a>
                                 </td>
                                 <td style="padding:.7rem;"><?= (int)$report['user_id']; ?></td>
-                                <td style="padding:.7rem; max-width:280px;"><?= nl2br(htmlspecialchars((string)$report['reason'], ENT_QUOTES, 'UTF-8')); ?></td>
+                                <td style="padding:.7rem; max-width:280px;"><?= nl2br(htmlspecialchars($displayReason, ENT_QUOTES, 'UTF-8')); ?></td>
                                 <td style="padding:.7rem;"><?= htmlspecialchars(date('d/m/Y H:i', strtotime((string)$report['created_at'])), ENT_QUOTES, 'UTF-8'); ?></td>
                                 <td style="padding:.7rem;"><?= htmlspecialchars((string)$report['status'], ENT_QUOTES, 'UTF-8'); ?></td>
                                 <td style="padding:.7rem;">

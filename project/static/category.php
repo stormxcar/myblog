@@ -45,8 +45,8 @@ if (!function_exists('renderCategoryCardsHtml')) {
         if (!empty($postsRows)) {
             foreach ($postsRows as $fetch_posts) {
                 $post_id = (int)$fetch_posts['id'];
-                $decodedTitle = html_entity_decode((string)$fetch_posts['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                $decodedSnippet = html_entity_decode(strip_tags((string)$fetch_posts['content']), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $decodedTitle = blog_decode_html_entities_deep((string)$fetch_posts['title']);
+                $decodedSnippet = blog_decode_html_entities_deep(strip_tags((string)$fetch_posts['content']));
                 $isLiked = !empty($likedByPost[$post_id]);
                 $isSaved = !empty($savedByPost[$post_id]);
 ?>
@@ -227,13 +227,14 @@ $category_stats = $conn->prepare("
 $category_stats->execute([$category]);
 $stats = $category_stats->fetch(PDO::FETCH_ASSOC);
 
-$page_title = 'Danh muc ' . $category . ' | Bai viet moi nhat | My Blog';
-$page_description = 'Tong hop bai viet danh muc ' . $category . '. Xem noi dung moi nhat, bai noi bat va cac chu de lien quan de de dang tim tren Google.';
+$category_display = blog_decode_html_entities_deep((string)$category);
+$page_title = 'Danh mục ' . $category_display . ' | Bài viết mới nhất | My Blog';
+$page_description = 'Tổng hợp bài viết danh mục ' . $category_display . '. Xem nội dung mới nhất, bài nổi bật và các chủ đề liên quan để dễ dàng tìm trên Google.';
 $page_robots = 'index,follow,max-image-preview:large';
 $page_canonical = site_url('category?category=' . rawurlencode((string)$category));
 
 try {
-    $category_internal_stmt = $conn->prepare("SELECT id, title FROM posts WHERE status = 'active' AND category = ? ORDER BY id DESC LIMIT 12");
+    $category_internal_stmt = $conn->prepare("SELECT id, title, content, date FROM posts WHERE status = 'active' AND category = ? ORDER BY id DESC LIMIT 12");
     $category_internal_stmt->execute([$category]);
     $category_internal_links = $category_internal_stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
@@ -346,28 +347,44 @@ render_breadcrumb($breadcrumb_items);
             </h1>
             <div class="section-divider mb-6"></div>
             <p class="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-                Khám phá những bài viết thú vị trong danh mục <?= htmlspecialchars($category) ?>
+                Khám phá những bài viết thú vị trong danh mục <?= htmlspecialchars($category_display, ENT_QUOTES, 'UTF-8') ?>
             </p>
         </div>
 
-        <section class="mb-8 bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg" aria-label="Lien ket noi bo danh muc">
+        <section class="mb-8 bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg" aria-label="Liên kết nội bộ danh mục">
             <div class="flex items-center justify-between gap-2 mb-3">
-                <h2 class="text-lg font-bold text-gray-900 dark:text-white">Lien ket noi bo trong danh muc</h2>
-                <a href="posts.php" class="text-xs font-semibold text-main hover:underline">Tat ca bai viet</a>
+                <h2 class="text-lg font-bold text-gray-900 dark:text-white">Liên kết nội bộ trong danh mục</h2>
+                <a href="posts.php" class="text-xs font-semibold text-main hover:underline">Tất cả bài viết</a>
             </div>
             <?php if (!empty($category_internal_links)): ?>
-                <ul class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
+                <ul class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
                     <?php foreach ($category_internal_links as $item): ?>
-                        <?php $itemTitle = html_entity_decode((string)($item['title'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'); ?>
+                        <?php
+                        $itemTitle = blog_decode_html_entities_deep((string)($item['title'] ?? ''));
+                        $itemSnippet = trim(strip_tags(blog_decode_html_entities_deep((string)($item['content'] ?? ''))));
+                        if (function_exists('mb_substr')) {
+                            $itemSnippet = mb_substr($itemSnippet, 0, 95, 'UTF-8');
+                        } else {
+                            $itemSnippet = substr($itemSnippet, 0, 95);
+                        }
+                        ?>
                         <li>
-                            <a href="<?= post_path((int)$item['id'], $itemTitle); ?>" class="text-gray-700 dark:text-gray-200 hover:text-main dark:hover:text-main hover:underline underline-offset-2 transition-colors">
-                                <?= htmlspecialchars($itemTitle, ENT_QUOTES, 'UTF-8'); ?>
+                            <a href="<?= post_path((int)$item['id'], $itemTitle); ?>" class="block rounded-xl border border-gray-200 dark:border-gray-700 px-3 py-3 hover:border-main/40 hover:bg-main/5 transition-colors">
+                                <span class="block text-gray-800 dark:text-gray-100 font-semibold line-clamp-2">
+                                    <?= htmlspecialchars($itemTitle, ENT_QUOTES, 'UTF-8'); ?>
+                                </span>
+                                <span class="block mt-1 text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+                                    <?= htmlspecialchars($itemSnippet !== '' ? ($itemSnippet . '...') : 'Đọc bài viết chi tiết để xem nội dung đầy đủ.', ENT_QUOTES, 'UTF-8'); ?>
+                                </span>
+                                <span class="block mt-1 text-[11px] text-gray-400 dark:text-gray-500">
+                                    <?= htmlspecialchars((string)($item['date'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
+                                </span>
                             </a>
                         </li>
                     <?php endforeach; ?>
                 </ul>
             <?php else: ?>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Chua co bai viet trong danh muc nay.</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Chưa có bài viết trong danh mục này.</p>
             <?php endif; ?>
         </section>
 

@@ -195,6 +195,10 @@ render_breadcrumb($breadcrumb_items);
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                         <?php while ($fetch_post = $select_liked_posts->fetch(PDO::FETCH_ASSOC)) {
                             $post_id = $fetch_post['id'];
+                            $displayTitle = blog_decode_html_entities_deep((string)($fetch_post['title'] ?? ''));
+                            $displayAuthor = blog_decode_html_entities_deep((string)($fetch_post['name'] ?? ''));
+                            $displayCategory = blog_decode_html_entities_deep((string)($fetch_post['category'] ?? ''));
+                            $displaySnippet = trim(strip_tags(blog_decode_html_entities_deep((string)($fetch_post['content'] ?? ''))));
 
                             $confirm_likes = $conn->prepare("SELECT * FROM `likes` WHERE user_id = ? AND post_id = ?");
                             $confirm_likes->execute([$user_id, $post_id]);
@@ -219,12 +223,12 @@ render_breadcrumb($breadcrumb_items);
                                     <div class="p-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-600">
                                         <div class="flex items-center space-x-3">
                                             <div class="w-10 h-10 bg-main rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                                                <?= strtoupper(substr($fetch_post['name'], 0, 1)) ?>
+                                                <?= strtoupper(substr((string)$displayAuthor, 0, 1)) ?>
                                             </div>
                                             <div>
-                                                <a href="author_posts.php?author=<?= $fetch_post['name']; ?>"
+                                                <a href="author_posts.php?author=<?= urlencode($displayAuthor); ?>"
                                                     class="font-semibold text-gray-900 dark:text-white hover:text-main transition-colors text-sm">
-                                                    <?= $fetch_post['name']; ?>
+                                                    <?= htmlspecialchars($displayAuthor, ENT_QUOTES, 'UTF-8'); ?>
                                                 </a>
                                                 <div class="text-xs text-gray-500 dark:text-gray-400">
                                                     <?= date('d/m/Y', strtotime($fetch_post['date'])); ?>
@@ -241,7 +245,7 @@ render_breadcrumb($breadcrumb_items);
                                     <?php if ($fetch_post['image'] != '') : ?>
                                         <div class="relative overflow-hidden h-48">
                                             <img src="<?= htmlspecialchars(blog_post_image_src((string)$fetch_post['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>"
-                                                alt="<?= $fetch_post['title']; ?>"
+                                                alt="<?= htmlspecialchars($displayTitle, ENT_QUOTES, 'UTF-8'); ?>"
                                                 class="post-image">
                                             <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
                                         </div>
@@ -251,12 +255,12 @@ render_breadcrumb($breadcrumb_items);
                                     <div class="p-4 flex-1 flex flex-col">
                                         <h3 class="font-bold text-gray-900 dark:text-white mb-3 line-clamp-2 group-hover:text-main transition-colors">
                                             <a href="<?= post_path($post_id); ?>">
-                                                <?= $fetch_post['title']; ?>
+                                                <?= htmlspecialchars($displayTitle, ENT_QUOTES, 'UTF-8'); ?>
                                             </a>
                                         </h3>
 
                                         <div class="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-3 flex-1">
-                                            <?= strip_tags($fetch_post['content']); ?>
+                                            <?= htmlspecialchars($displaySnippet, ENT_QUOTES, 'UTF-8'); ?>
                                         </div>
 
                                         <a href="<?= post_path($post_id); ?>"
@@ -266,10 +270,10 @@ render_breadcrumb($breadcrumb_items);
                                         </a>
 
                                         <!-- Category -->
-                                        <a href="category.php?category=<?= $fetch_post['category']; ?>"
+                                        <a href="category.php?category=<?= urlencode($displayCategory); ?>"
                                             class="inline-flex items-center space-x-1 bg-main/10 text-main px-3 py-1 rounded-full text-xs font-medium hover:bg-main/20 transition-colors w-fit">
                                             <i class="fas fa-tag"></i>
-                                            <span><?= $fetch_post['category']; ?></span>
+                                            <span><?= htmlspecialchars($displayCategory, ENT_QUOTES, 'UTF-8'); ?></span>
                                         </a>
                                     </div>
 

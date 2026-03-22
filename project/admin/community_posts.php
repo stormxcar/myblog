@@ -1,6 +1,7 @@
 <?php
 include '../components/connect.php';
 include '../components/community_engine.php';
+include '../components/seo_helpers.php';
 session_start();
 
 $admin_id = $_SESSION['admin_id'] ?? null;
@@ -446,6 +447,11 @@ function communityAdminPageUrl($targetPage)
                                     $postId = (int)$post['id'];
                                     $topicNames = $topicsByPost[$postId] ?? [];
                                     $statusLabel = (string)$post['status'];
+                                    $displayUserName = blog_decode_html_entities_deep((string)($post['user_name'] ?? ''));
+                                    $displayContent = blog_decode_html_entities_deep((string)($post['content'] ?? ''));
+                                    $displayTopics = array_map(function ($topicName) {
+                                        return blog_decode_html_entities_deep((string)$topicName);
+                                    }, $topicNames);
 
                                     $statusClass = 'community-status-draft';
                                     $statusText = 'Bản nháp';
@@ -462,12 +468,12 @@ function communityAdminPageUrl($targetPage)
 
                                     $detailPayload = [
                                         'id' => $postId,
-                                        'user_name' => (string)$post['user_name'],
+                                        'user_name' => $displayUserName,
                                         'created_at' => (string)$post['created_at'],
                                         'status' => $statusText,
                                         'privacy' => (string)$post['privacy'],
-                                        'content' => (string)$post['content'],
-                                        'topics' => $topicNames,
+                                        'content' => $displayContent,
+                                        'topics' => $displayTopics,
                                         'media_count' => (int)$post['media_count'],
                                         'total_reactions' => (int)$post['total_reactions'],
                                         'total_comments' => (int)$post['total_comments'],
@@ -477,15 +483,15 @@ function communityAdminPageUrl($targetPage)
                                     <tr>
                                         <td><input type="checkbox" class="row-check-community-post" name="selected_post_ids[]" value="<?= $postId; ?>"></td>
                                         <td>#<?= $postId; ?></td>
-                                        <td><?= htmlspecialchars((string)$post['user_name'], ENT_QUOTES, 'UTF-8'); ?></td>
+                                        <td><?= htmlspecialchars($displayUserName, ENT_QUOTES, 'UTF-8'); ?></td>
                                         <td>
-                                            <div class="community-content-preview" title="<?= htmlspecialchars((string)$post['content'], ENT_QUOTES, 'UTF-8'); ?>">
-                                                <?= htmlspecialchars((string)$post['content'], ENT_QUOTES, 'UTF-8'); ?>
+                                            <div class="community-content-preview" title="<?= htmlspecialchars($displayContent, ENT_QUOTES, 'UTF-8'); ?>">
+                                                <?= htmlspecialchars($displayContent, ENT_QUOTES, 'UTF-8'); ?>
                                             </div>
                                         </td>
                                         <td>
-                                            <?php if (!empty($topicNames)): ?>
-                                                <?php foreach ($topicNames as $topicName): ?>
+                                            <?php if (!empty($displayTopics)): ?>
+                                                <?php foreach ($displayTopics as $topicName): ?>
                                                     <span class="community-topic-chip">#<?= htmlspecialchars((string)$topicName, ENT_QUOTES, 'UTF-8'); ?></span>
                                                 <?php endforeach; ?>
                                             <?php else: ?>

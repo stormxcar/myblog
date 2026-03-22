@@ -134,7 +134,7 @@ try {
 }
 
 try {
-    $latest_index_stmt = $conn->prepare("SELECT id, title, date FROM posts WHERE status = 'active' ORDER BY id DESC LIMIT 12");
+    $latest_index_stmt = $conn->prepare("SELECT id, title, category, content, date FROM posts WHERE status = 'active' ORDER BY id DESC LIMIT 12");
     $latest_index_stmt->execute();
     $latest_index_posts = $latest_index_stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
@@ -163,9 +163,9 @@ try {
                                 <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent"></div>
                                 <div class="absolute bottom-6 left-6 right-6 z-10 text-white">
                                     <div class="inline-flex items-center gap-2 mb-3 text-xs uppercase tracking-wide bg-white/20 backdrop-blur px-3 py-1 rounded-full">
-                                        <span><?= htmlspecialchars($post['category'] ?? 'Tin mới', ENT_QUOTES, 'UTF-8'); ?></span>
+                                        <span><?= htmlspecialchars(blog_decode_html_entities_deep((string)($post['category'] ?? 'Tin mới')), ENT_QUOTES, 'UTF-8'); ?></span>
                                     </div>
-                                    <h3 class="text-2xl md:text-4xl font-bold leading-tight line-clamp-2"><?= htmlspecialchars($post['title'], ENT_QUOTES, 'UTF-8'); ?></h3>
+                                    <h3 class="text-2xl md:text-4xl font-bold leading-tight line-clamp-2\"><?= htmlspecialchars(blog_decode_html_entities_deep((string)($post['title'] ?? '')), ENT_QUOTES, 'UTF-8'); ?></h3>
                                     <div class="mt-3 flex flex-wrap items-center gap-4 text-sm opacity-95">
                                         <span><i class="fas fa-user mr-1"></i><?= htmlspecialchars($post['author_name'] ?? 'Admin', ENT_QUOTES, 'UTF-8'); ?></span>
                                         <span><i class="fas fa-calendar mr-1"></i><?= htmlspecialchars($post['date'], ENT_QUOTES, 'UTF-8'); ?></span>
@@ -200,7 +200,7 @@ try {
                         <?php foreach ($category_posts as $cp): ?>
                             <a href="category.php?category=<?= urlencode($cp['category']); ?>" class="block p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:border-main/40 hover:shadow transition">
                                 <p class="text-xs uppercase tracking-wide text-main mb-1"><?= htmlspecialchars($cp['category'], ENT_QUOTES, 'UTF-8'); ?></p>
-                                <p class="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2"><?= htmlspecialchars($cp['title'], ENT_QUOTES, 'UTF-8'); ?></p>
+                                <p class="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2\"><?= htmlspecialchars(blog_decode_html_entities_deep((string)($cp['title'] ?? '')), ENT_QUOTES, 'UTF-8'); ?></p>
                                 <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars($cp['date'], ENT_QUOTES, 'UTF-8'); ?></p>
                             </a>
                         <?php endforeach; ?>
@@ -213,26 +213,46 @@ try {
     </div>
 </section>
 
-<section class="py-10 bg-gray-50 dark:bg-gray-900/40" aria-label="Lien ket bai viet moi nhat">
+<section class="py-10 bg-gray-50 dark:bg-gray-900/40" aria-label="Liên kết bài viết mới nhất">
     <div class="container-custom">
         <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 shadow-sm">
             <div class="flex items-center justify-between gap-3 mb-4">
-                <h2 class="text-xl font-bold text-gray-900 dark:text-white">Lien ket bai viet moi nhat</h2>
-                <a href="posts.php" class="text-sm text-main font-semibold hover:underline">Xem danh sach day du</a>
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white">Liên kết bài viết mới nhất</h2>
+                <a href="posts.php" class="text-sm text-main font-semibold hover:underline">Xem danh sách đầy đủ</a>
             </div>
             <?php if (!empty($latest_index_posts)): ?>
-                <ul class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
+                <ul class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
                     <?php foreach ($latest_index_posts as $index_post): ?>
-                        <?php $index_title = html_entity_decode((string)($index_post['title'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'); ?>
+                        <?php
+                        $index_title = blog_decode_html_entities_deep((string)($index_post['title'] ?? ''));
+                        $index_category = blog_decode_html_entities_deep((string)($index_post['category'] ?? 'Chung'));
+                        $index_snippet = trim(strip_tags(blog_decode_html_entities_deep((string)($index_post['content'] ?? ''))));
+                        if (function_exists('mb_substr')) {
+                            $index_snippet = mb_substr($index_snippet, 0, 95, 'UTF-8');
+                        } else {
+                            $index_snippet = substr($index_snippet, 0, 95);
+                        }
+                        ?>
                         <li>
-                            <a href="<?= post_path((int)$index_post['id'], $index_title); ?>" class="text-gray-700 dark:text-gray-200 hover:text-main dark:hover:text-main transition-colors underline-offset-2 hover:underline">
-                                <?= htmlspecialchars($index_title, ENT_QUOTES, 'UTF-8'); ?>
+                            <a href="<?= post_path((int)$index_post['id'], $index_title); ?>" class="block rounded-xl border border-gray-200 dark:border-gray-700 px-3 py-3 hover:border-main/40 hover:bg-main/5 transition-colors">
+                                <span class="inline-flex items-center text-[11px] px-2 py-0.5 rounded-full bg-main/10 text-main font-semibold">
+                                    <?= htmlspecialchars($index_category, ENT_QUOTES, 'UTF-8'); ?>
+                                </span>
+                                <span class="block mt-2 text-gray-800 dark:text-gray-100 font-semibold leading-snug line-clamp-2">
+                                    <?= htmlspecialchars($index_title, ENT_QUOTES, 'UTF-8'); ?>
+                                </span>
+                                <span class="block mt-1 text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+                                    <?= htmlspecialchars($index_snippet !== '' ? ($index_snippet . '...') : 'Đọc bài viết chi tiết để xem nội dung đầy đủ.', ENT_QUOTES, 'UTF-8'); ?>
+                                </span>
+                                <span class="block mt-1 text-[11px] text-gray-400 dark:text-gray-500">
+                                    <?= htmlspecialchars((string)($index_post['date'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
+                                </span>
                             </a>
                         </li>
                     <?php endforeach; ?>
                 </ul>
             <?php else: ?>
-                <p class="text-sm text-gray-500 dark:text-gray-400">Chua co du lieu bai viet moi nhat.</p>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Chưa có dữ liệu bài viết mới nhất.</p>
             <?php endif; ?>
         </div>
     </div>
@@ -373,6 +393,8 @@ $noidung_text_2 = $introduce_settings['gioithieu_noidung_2'] ?? 'Trở thành ng
                 if ($select_popular_posts->rowCount() > 0) {
                     while ($post = $select_popular_posts->fetch(PDO::FETCH_ASSOC)) {
                         $post_id = $post['id'];
+                        $popularTitle = blog_decode_html_entities_deep((string)($post['title'] ?? ''));
+                        $popularCategory = blog_decode_html_entities_deep((string)($post['category'] ?? ''));
 
                         // Check if user liked/saved this post
                         $confirm_likes = $conn->prepare("SELECT * FROM `likes` WHERE user_id = ? AND post_id = ?");
@@ -386,7 +408,7 @@ $noidung_text_2 = $introduce_settings['gioithieu_noidung_2'] ?? 'Trở thành ng
                             <?php if (!empty($post['image'])): ?>
                                 <div class="relative overflow-hidden h-48">
                                     <img src="<?= htmlspecialchars(blog_post_image_src((string)$post['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>"
-                                        alt="<?= htmlspecialchars($post['title']); ?>"
+                                        alt="<?= htmlspecialchars($popularTitle, ENT_QUOTES, 'UTF-8'); ?>"
                                         class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
 
                                     <!-- Save Button Overlay -->
@@ -425,7 +447,7 @@ $noidung_text_2 = $introduce_settings['gioithieu_noidung_2'] ?? 'Trở thành ng
                                 <!-- Post Title -->
                                 <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-3 line-clamp-2 group-hover:text-main transition-colors">
                                     <a href="<?= post_path($post_id); ?>">
-                                        <?= htmlspecialchars($post['title']); ?>
+                                        <?= htmlspecialchars($popularTitle, ENT_QUOTES, 'UTF-8'); ?>
                                     </a>
                                 </h3>
 
@@ -447,7 +469,7 @@ $noidung_text_2 = $introduce_settings['gioithieu_noidung_2'] ?? 'Trở thành ng
                                     <a href="category.php?category=<?= urlencode($post['category']); ?>"
                                         class="inline-flex items-center px-3 py-1 bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-full text-sm hover:bg-main hover:text-white transition-colors">
                                         <i class="fas fa-tag mr-1"></i>
-                                        <?= htmlspecialchars($post['category']); ?>
+                                        <?= htmlspecialchars($popularCategory, ENT_QUOTES, 'UTF-8'); ?>
                                     </a>
 
                                     <!-- Engagement Stats -->

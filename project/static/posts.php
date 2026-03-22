@@ -319,16 +319,23 @@ if (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || strtolower($_SERVER['HTTP_X_REQ
                                     <input type="hidden" name="post_id" value="<?= $post_id; ?>">
                                     <input type="hidden" name="admin_id" value="<?= $fetch_posts['admin_id']; ?>">
 
+                                    <?php
+                                    $displayTitle = blog_decode_html_entities_deep((string)($fetch_posts['title'] ?? ''));
+                                    $displayAuthor = blog_decode_html_entities_deep((string)($fetch_posts['name'] ?? ''));
+                                    $displayCategory = blog_decode_html_entities_deep((string)($fetch_posts['category'] ?? ''));
+                                    $displaySnippet = trim(strip_tags(blog_decode_html_entities_deep((string)($fetch_posts['content'] ?? ''))));
+                                    ?>
+
                                     <!-- Post Header -->
                                     <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-600">
                                         <div class="flex items-center space-x-3">
                                             <div class="w-10 h-10 bg-main rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                                                <?= strtoupper(substr($fetch_posts['name'], 0, 1)) ?>
+                                                <?= strtoupper(substr((string)$displayAuthor, 0, 1)) ?>
                                             </div>
                                             <div>
-                                                <a href="author_posts.php?author=<?= $fetch_posts['name']; ?>"
+                                                <a href="author_posts.php?author=<?= urlencode($displayAuthor); ?>"
                                                     class="font-semibold text-gray-900 dark:text-white hover:text-main transition-colors">
-                                                    <?= $fetch_posts['name']; ?>
+                                                    <?= htmlspecialchars($displayAuthor, ENT_QUOTES, 'UTF-8'); ?>
                                                 </a>
                                                 <div class="text-sm text-gray-500 dark:text-gray-400">
                                                     <?= date('d/m/Y', strtotime($fetch_posts['date'])); ?>
@@ -346,7 +353,7 @@ if (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || strtolower($_SERVER['HTTP_X_REQ
                                         <?php if ($fetch_posts['image'] != '') : ?>
                                             <div class="post-card-image relative overflow-hidden rounded-lg mb-4 lg:mb-0 lg:w-56 lg:h-40 flex-shrink-0">
                                                 <img src="<?= htmlspecialchars(blog_post_image_src((string)$fetch_posts['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>"
-                                                    alt="<?= htmlspecialchars($fetch_posts['title'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                    alt="<?= htmlspecialchars($displayTitle, ENT_QUOTES, 'UTF-8'); ?>"
                                                     class="w-full h-full object-cover">
                                                 <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
                                             </div>
@@ -356,11 +363,11 @@ if (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || strtolower($_SERVER['HTTP_X_REQ
                                         <div class="post-card-content flex-1 flex flex-col">
                                             <a href="<?= post_path($post_id); ?>"
                                                 class="text-xl font-bold text-gray-900 dark:text-white hover:text-main transition-colors mb-2 line-clamp-2">
-                                                <?= $fetch_posts['title']; ?>
+                                                <?= htmlspecialchars($displayTitle, ENT_QUOTES, 'UTF-8'); ?>
                                             </a>
 
                                             <div class="text-gray-600 dark:text-gray-300 mb-3 line-clamp-2 flex-1">
-                                                <?= strip_tags($fetch_posts['content']); ?>
+                                                <?= htmlspecialchars($displaySnippet, ENT_QUOTES, 'UTF-8'); ?>
                                             </div>
 
                                             <div class="flex flex-wrap items-center justify-between gap-3">
@@ -370,10 +377,10 @@ if (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || strtolower($_SERVER['HTTP_X_REQ
                                                 </a>
 
                                                 <!-- Category -->
-                                                <a href="category.php?category=<?= urlencode($fetch_posts['category']); ?>"
+                                                <a href="category.php?category=<?= urlencode($displayCategory); ?>"
                                                     class="inline-flex items-center space-x-1 bg-main/10 text-main px-3 py-1 rounded-full text-xs font-medium hover:bg-main/20 transition-colors">
                                                     <i class="fas fa-tag text-xs"></i>
-                                                    <span><?= $fetch_posts['category']; ?></span>
+                                                    <span><?= htmlspecialchars($displayCategory, ENT_QUOTES, 'UTF-8'); ?></span>
                                                 </a>
                                             </div>
 

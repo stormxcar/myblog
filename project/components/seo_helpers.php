@@ -18,6 +18,22 @@ if (!function_exists('site_base_path')) {
     }
 }
 
+if (!function_exists('blog_decode_html_entities_deep')) {
+    function blog_decode_html_entities_deep($input, $maxDepth = 3)
+    {
+        $decoded = (string)$input;
+        $depth = max(1, (int)$maxDepth);
+        for ($i = 0; $i < $depth; $i++) {
+            $next = html_entity_decode($decoded, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            if ($next === $decoded) {
+                break;
+            }
+            $decoded = $next;
+        }
+        return $decoded;
+    }
+}
+
 if (!function_exists('site_url')) {
     function site_url($path = '')
     {

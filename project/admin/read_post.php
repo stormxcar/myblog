@@ -2,6 +2,21 @@
 
 include '../components/connect.php';
 
+if (!function_exists('decode_deep')) {
+   function decode_deep(string $input, int $depth = 3): string
+   {
+      $result = $input;
+      for ($i = 0; $i < $depth; $i++) {
+         $next = html_entity_decode($result, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+         if ($next === $result) {
+            break;
+         }
+         $result = $next;
+      }
+      return $result;
+   }
+}
+
 session_start();
 
 $admin_id = $_SESSION['admin_id'] ?? null;
@@ -251,7 +266,7 @@ $post_tags = $post ? blog_get_post_tags($conn, $post_id) : [];
                      </div>
                   <?php endif; ?>
 
-                  <h2 class="title"><?= htmlspecialchars((string)$post['title'], ENT_QUOTES, 'UTF-8'); ?></h2>
+                  <h2 class="title"><?= htmlspecialchars(decode_deep((string)$post['title']), ENT_QUOTES, 'UTF-8'); ?></h2>
 
                   <div class="stats-row">
                      <span class="stat-pill"><i class="fas fa-heart" style="color:#e11d48"></i> <?= (int)$total_post_likes; ?> lượt thích</span>

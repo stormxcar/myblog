@@ -1,6 +1,7 @@
 ﻿<?php
 
 include '../components/connect.php';
+include '../components/seo_helpers.php';
 
 session_start();
 
@@ -287,7 +288,7 @@ for ($i = 5; $i >= 0; $i--) {
                             <?php foreach ($topPosts as $index => $post): ?>
                                 <tr>
                                     <td><?= $index + 1; ?></td>
-                                    <td><strong><?= htmlspecialchars($post['title'], ENT_QUOTES, 'UTF-8'); ?></strong></td>
+                                    <td><strong><?= htmlspecialchars(blog_decode_html_entities_deep((string)($post['title'] ?? '')), ENT_QUOTES, 'UTF-8'); ?></strong></td>
                                     <td><?= htmlspecialchars($post['status'], ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td><?= htmlspecialchars($post['date'], ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td><?= (int)$post['likes_count']; ?></td>

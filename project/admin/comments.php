@@ -1,5 +1,6 @@
 <?php
 include '../components/connect.php';
+include '../components/seo_helpers.php';
 session_start();
 
 $admin_id = $_SESSION['admin_id'] ?? null;
@@ -169,11 +170,12 @@ function commentsPageUrl($targetPage)
                         <tbody>
                             <?php if (!empty($comments)): ?>
                                 <?php foreach ($comments as $c): ?>
+                                    <?php $decodedPostTitle = blog_decode_html_entities_deep((string)($c['post_title'] ?? '')); ?>
                                     <tr>
                                         <td><input type="checkbox" class="row-check-comment" name="selected_comment_ids[]" value="<?= (int)$c['id']; ?>"></td>
                                         <td><?= (int)$c['id']; ?></td>
                                         <td><?= htmlspecialchars((string)$c['user_name']); ?></td>
-                                        <td><?= htmlspecialchars((string)($c['post_title'] ?? '')); ?></td>
+                                        <td><?= htmlspecialchars($decodedPostTitle, ENT_QUOTES, 'UTF-8'); ?></td>
                                         <td><?= htmlspecialchars((string)$c['comment']); ?></td>
                                         <td><?= htmlspecialchars((string)$c['date']); ?></td>
                                         <td>

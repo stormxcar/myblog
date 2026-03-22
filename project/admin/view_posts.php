@@ -1,5 +1,6 @@
 <?php
 include '../components/connect.php';
+include '../components/seo_helpers.php';
 session_start();
 
 $admin_id = $_SESSION['admin_id'] ?? null;
@@ -235,6 +236,10 @@ function postsPageUrl($targetPage)
                         <tbody>
                             <?php if (!empty($posts)): ?>
                                 <?php foreach ($posts as $p): ?>
+                                    <?php
+                                    $decodedTitle = blog_decode_html_entities_deep((string)($p['title'] ?? ''));
+                                    $decodedCategory = blog_decode_html_entities_deep((string)($p['category_name'] ?? ''));
+                                    ?>
                                     <tr>
                                         <td><input type="checkbox" class="row-check-post" name="selected_post_ids[]" value="<?= (int)$p['id']; ?>"></td>
                                         <td><?= (int)$p['id']; ?></td>
@@ -247,8 +252,8 @@ function postsPageUrl($targetPage)
                                         </td>
                                         <td><?= htmlspecialchars($p['status']); ?></td>
                                         <td><?= htmlspecialchars((string)$p['date']); ?></td>
-                                        <td><?= htmlspecialchars((string)($p['category_name'] ?? '')); ?></td>
-                                        <td><?= htmlspecialchars((string)$p['title']); ?></td>
+                                        <td><?= htmlspecialchars($decodedCategory, ENT_QUOTES, 'UTF-8'); ?></td>
+                                        <td><?= htmlspecialchars($decodedTitle, ENT_QUOTES, 'UTF-8'); ?></td>
                                         <td><?= (int)$p['comments_count']; ?></td>
                                         <td><?= (int)$p['likes_count']; ?></td>
                                         <td style="display:flex;gap:.4rem;flex-wrap:wrap;">

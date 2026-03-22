@@ -79,6 +79,7 @@ $select_posts = $conn->prepare("
     LIMIT $items_per_page OFFSET $offset
 ");
 $select_posts->execute(['active', $author]);
+$posts_rows = $select_posts->fetchAll(PDO::FETCH_ASSOC);
 
 // Lấy thông tin chi tiết về tác giả
 $author_info = $conn->prepare("
@@ -132,6 +133,216 @@ $popular_posts = $conn->prepare("
     LIMIT 3
 ");
 $popular_posts->execute([$author]);
+$display_author_name = blog_decode_html_entities_deep((string)$author);
+
+function render_author_posts_section(PDO $conn, array $posts_rows, string $user_id, string $author, string $sort, int $current_page, int $total_pages): string
+{
+    ob_start();
+?>
+    <?php if (!empty($posts_rows)) : ?>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+            <?php foreach ($posts_rows as $fetch_posts) {
+                $post_id = (int)($fetch_posts['id'] ?? 0);
+                $displayTitle = blog_decode_html_entities_deep((string)($fetch_posts['title'] ?? ''));
+                $displayAuthor = blog_decode_html_entities_deep((string)($fetch_posts['name'] ?? ''));
+                $displayCategory = blog_decode_html_entities_deep((string)($fetch_posts['category'] ?? ''));
+                $displaySnippet = trim(strip_tags(blog_decode_html_entities_deep((string)($fetch_posts['content'] ?? ''))));
+
+                $confirm_likes = $conn->prepare("SELECT 1 FROM `likes` WHERE user_id = ? AND post_id = ? LIMIT 1");
+                $confirm_likes->execute([$user_id, $post_id]);
+
+                $confirm_save = $conn->prepare("SELECT 1 FROM `favorite_posts` WHERE user_id = ? AND post_id = ? LIMIT 1");
+                $confirm_save->execute([$user_id, $post_id]);
+            ?>
+                <article class="post-card group">
+                    <form method="post" class="h-full flex flex-col" data-post-action-form="1">
+                        <input type="hidden" name="post_id" value="<?= $post_id; ?>">
+                        <input type="hidden" name="admin_id" value="<?= (int)($fetch_posts['admin_id'] ?? 0); ?>">
+
+                        <div class="p-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-600">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-main rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                                    <?= strtoupper(substr((string)$displayAuthor, 0, 1)) ?>
+                                </div>
+                                <div>
+                                    <div class="font-semibold text-gray-900 dark:text-white text-sm">
+                                        <?= htmlspecialchars($displayAuthor, ENT_QUOTES, 'UTF-8'); ?>
+                                    </div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">
+                                        <?= date('d/m/Y H:i', strtotime((string)$fetch_posts['date'])); ?>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="submit" name="save_post" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                                <i class="fas fa-bookmark text-sm <?= $confirm_save->fetchColumn() ? 'text-yellow-500' : 'text-gray-400' ?>"></i>
+                            </button>
+                        </div>
+
+                        <?php if (!empty($fetch_posts['image'])) : ?>
+                            <div class="relative overflow-hidden h-48">
+                                <img src="<?= htmlspecialchars(blog_post_image_src((string)$fetch_posts['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>"
+                                    alt="<?= htmlspecialchars($displayTitle, ENT_QUOTES, 'UTF-8'); ?>"
+                                    class="post-image">
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+                            </div>
+                        <?php endif; ?>
+
+                        <div class="p-4 flex-1 flex flex-col">
+                            <h3 class="font-bold text-gray-900 dark:text-white mb-3 line-clamp-2 group-hover:text-main transition-colors">
+                                <a href="<?= post_path($post_id); ?>">
+                                    <?= htmlspecialchars($displayTitle, ENT_QUOTES, 'UTF-8'); ?>
+                                </a>
+                            </h3>
+
+                            <div class="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-3 flex-1">
+                                <?= htmlspecialchars($displaySnippet, ENT_QUOTES, 'UTF-8'); ?>
+                            </div>
+
+                            <a href="<?= post_path($post_id); ?>"
+                                class="text-main font-semibold hover:text-blue-700 transition-colors text-sm mb-4 inline-flex items-center group">
+                                Đọc thêm
+                                <i class="fas fa-arrow-right ml-2 transform group-hover:translate-x-1 transition-transform"></i>
+                            </a>
+
+                            <a href="category.php?category=<?= urlencode($displayCategory); ?>"
+                                class="inline-flex items-center space-x-1 bg-main/10 text-main px-3 py-1 rounded-full text-xs font-medium hover:bg-main/20 transition-colors w-fit">
+                                <i class="fas fa-tag"></i>
+                                <span><?= htmlspecialchars($displayCategory, ENT_QUOTES, 'UTF-8'); ?></span>
+                            </a>
+                        </div>
+
+                        <div class="p-4 border-t border-gray-200 dark:border-gray-600 flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <div class="flex items-center space-x-1 text-gray-500 dark:text-gray-400 text-sm">
+                                    <i class="fas fa-comment"></i>
+                                    <span><?= (int)($fetch_posts['comments'] ?? 0); ?></span>
+                                </div>
+
+                                <button type="submit" name="like_post"
+                                    class="flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors text-sm">
+                                    <i class="fas fa-heart <?= $confirm_likes->fetchColumn() ? 'text-red-500' : '' ?>"></i>
+                                    <span><?= (int)($fetch_posts['likes'] ?? 0); ?></span>
+                                </button>
+                            </div>
+
+                            <div class="text-xs text-gray-400">
+                                <?= date('d/m/Y', strtotime((string)$fetch_posts['date'])); ?>
+                            </div>
+                        </div>
+                    </form>
+                </article>
+            <?php } ?>
+        </div>
+
+        <?php if ($total_pages > 1) : ?>
+            <div class="flex items-center justify-center space-x-4">
+                <?php if ($current_page > 1) : ?>
+                    <a data-author-ajax-link="1" href="?author=<?= urlencode($author) ?>&sort=<?= urlencode($sort) ?>&page=<?= $current_page - 1 ?>"
+                        class="flex items-center justify-center w-10 h-10 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-main hover:text-white hover:border-main transition-all duration-300 shadow-lg hover:shadow-xl">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                <?php endif; ?>
+
+                <div class="flex items-center space-x-2">
+                    <?php
+                    $start = max(1, $current_page - 2);
+                    $end = min($total_pages, $current_page + 2);
+
+                    for ($i = $start; $i <= $end; $i++) : ?>
+                        <a data-author-ajax-link="1" href="?author=<?= urlencode($author) ?>&sort=<?= urlencode($sort) ?>&page=<?= $i ?>"
+                            class="flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl <?= $i == $current_page ? 'bg-main text-white border-main' : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-main hover:text-white hover:border-main' ?>">
+                            <?= $i ?>
+                        </a>
+                    <?php endfor; ?>
+                </div>
+
+                <?php if ($current_page < $total_pages) : ?>
+                    <a data-author-ajax-link="1" href="?author=<?= urlencode($author) ?>&sort=<?= urlencode($sort) ?>&page=<?= $current_page + 1 ?>"
+                        class="flex items-center justify-center w-10 h-10 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-main hover:text-white hover:border-main transition-all duration-300 shadow-lg hover:shadow-xl">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                <?php endif; ?>
+            </div>
+
+            <div class="text-center mt-6">
+                <span class="text-gray-600 dark:text-gray-400">
+                    Trang <?= $current_page ?> trong tổng số <?= $total_pages ?> trang
+                </span>
+            </div>
+        <?php endif; ?>
+
+    <?php else : ?>
+        <div class="text-center py-16">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl p-12 shadow-lg border border-gray-200 dark:border-gray-700">
+                <div class="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <i class="fas fa-user-edit text-4xl text-gray-400"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Chưa có bài viết</h3>
+                <p class="text-gray-600 dark:text-gray-400 mb-6">
+                    Tác giả "<?= htmlspecialchars(blog_decode_html_entities_deep($author), ENT_QUOTES, 'UTF-8'); ?>" chưa có bài viết nào
+                </p>
+
+                <div class="space-y-3">
+                    <a href="posts.php" class="block w-full btn-primary max-w-sm mx-auto">
+                        <i class="fas fa-list mr-2"></i>
+                        Xem tất cả bài viết
+                    </a>
+                </div>
+            </div>
+        </div>
+    <?php endif;
+
+    return ob_get_clean();
+}
+
+function render_author_main_content(PDO $conn, array $posts_rows, string $user_id, string $author, string $sort, int $total_posts, int $current_page, int $total_pages): string
+{
+    ob_start();
+    ?>
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-8 border border-gray-200 dark:border-gray-700">
+        <div class="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-sort text-main"></i>
+                    <span class="font-semibold text-gray-900 dark:text-white">Sắp xếp:</span>
+                </div>
+                <div class="flex space-x-2">
+                    <?php
+                    $sort_options = [
+                        'latest' => ['icon' => 'clock', 'label' => 'Mới nhất'],
+                        'oldest' => ['icon' => 'history', 'label' => 'Cũ nhất'],
+                        'popular' => ['icon' => 'heart', 'label' => 'Phổ biến'],
+                        'comments' => ['icon' => 'comments', 'label' => 'Nhiều bình luận']
+                    ];
+                    foreach ($sort_options as $sort_key => $sort_info) :
+                    ?>
+                        <a data-author-ajax-link="1" href="?author=<?= urlencode($author) ?>&sort=<?= $sort_key ?>&page=1"
+                            class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 flex items-center space-x-2 <?= $sort == $sort_key ? 'bg-main text-white shadow-lg' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-main hover:text-white' ?>">
+                            <i class="fas fa-<?= $sort_info['icon'] ?>"></i>
+                            <span><?= $sort_info['label'] ?></span>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+            <div class="text-gray-600 dark:text-gray-400">
+                <strong class="text-gray-900 dark:text-white"><?= $total_posts ?></strong> bài viết
+            </div>
+        </div>
+    </div>
+
+    <?= render_author_posts_section($conn, $posts_rows, $user_id, $author, $sort, $current_page, $total_pages); ?>
+<?php
+
+    return ob_get_clean();
+}
+
+$is_ajax_request = isset($_GET['ajax']) && $_GET['ajax'] === '1';
+if ($is_ajax_request) {
+    echo render_author_main_content($conn, $posts_rows, $user_id, $author, $sort, (int)$total_posts, $current_page, (int)$total_pages);
+    exit;
+}
 ?>
 
 <?php include '../components/layout_header.php'; ?>
@@ -147,7 +358,7 @@ $popular_posts->execute([$author]);
             <i class="fas fa-chevron-right text-xs"></i>
             <a href="posts.php" class="hover:text-main transition-colors">Bài viết</a>
             <i class="fas fa-chevron-right text-xs"></i>
-            <span class="text-main font-medium">Tác giả: <?= htmlspecialchars($author) ?></span>
+            <span class="text-main font-medium">Tác giả: <?= htmlspecialchars($display_author_name, ENT_QUOTES, 'UTF-8') ?></span>
         </nav>
 
         <!-- Author Profile Header -->
@@ -168,7 +379,7 @@ $popular_posts->execute([$author]);
 
                         <!-- Author Info -->
                         <div class="flex-1 text-center md:text-left">
-                            <h1 class="text-4xl font-bold mb-2"><?= htmlspecialchars($author) ?></h1>
+                            <h1 class="text-4xl font-bold mb-2"><?= htmlspecialchars($display_author_name, ENT_QUOTES, 'UTF-8') ?></h1>
                             <p class="text-white/80 text-lg mb-4">Tác giả tại Blog Website</p>
 
                             <div class="flex flex-wrap gap-4 justify-center md:justify-start text-sm">
@@ -201,200 +412,8 @@ $popular_posts->execute([$author]);
 
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <!-- Main Content -->
-            <div class="lg:col-span-3">
-                <!-- Filter and Sort Section -->
-                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-8 border border-gray-200 dark:border-gray-700">
-                    <div class="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
-                        <!-- Sort Options -->
-                        <div class="flex items-center space-x-4">
-                            <div class="flex items-center space-x-2">
-                                <i class="fas fa-sort text-main"></i>
-                                <span class="font-semibold text-gray-900 dark:text-white">Sắp xếp:</span>
-                            </div>
-                            <div class="flex space-x-2">
-                                <?php
-                                $sort_options = [
-                                    'latest' => ['icon' => 'clock', 'label' => 'Mới nhất'],
-                                    'oldest' => ['icon' => 'history', 'label' => 'Cũ nhất'],
-                                    'popular' => ['icon' => 'heart', 'label' => 'Phổ biến'],
-                                    'comments' => ['icon' => 'comments', 'label' => 'Nhiều bình luận']
-                                ];
-                                foreach ($sort_options as $sort_key => $sort_info) :
-                                ?>
-                                    <a href="?author=<?= urlencode($author) ?>&sort=<?= $sort_key ?>&page=1"
-                                        class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 flex items-center space-x-2 <?= $sort == $sort_key ? 'bg-main text-white shadow-lg' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-main hover:text-white' ?>">
-                                        <i class="fas fa-<?= $sort_info['icon'] ?>"></i>
-                                        <span><?= $sort_info['label'] ?></span>
-                                    </a>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-
-                        <!-- Posts Count -->
-                        <div class="text-gray-600 dark:text-gray-400">
-                            <strong class="text-gray-900 dark:text-white"><?= $total_posts ?></strong> bài viết
-                        </div>
-                    </div>
-                </div>
-
-                <?php if ($select_posts->rowCount() > 0) : ?>
-                    <!-- Posts Grid -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-                        <?php while ($fetch_posts = $select_posts->fetch(PDO::FETCH_ASSOC)) {
-                            $post_id = $fetch_posts['id'];
-
-                            $confirm_likes = $conn->prepare("SELECT * FROM `likes` WHERE user_id = ? AND post_id = ?");
-                            $confirm_likes->execute([$user_id, $post_id]);
-
-                            $confirm_save = $conn->prepare("SELECT * FROM `favorite_posts` WHERE user_id = ? AND post_id = ?");
-                            $confirm_save->execute([$user_id, $post_id]);
-                        ?>
-                            <article class="post-card group">
-                                <form method="post" class="h-full flex flex-col">
-                                    <input type="hidden" name="post_id" value="<?= $post_id; ?>">
-                                    <input type="hidden" name="admin_id" value="<?= $fetch_posts['admin_id']; ?>">
-
-                                    <!-- Post Header -->
-                                    <div class="p-4 flex items-center justify-between border-b border-gray-200 dark:border-gray-600">
-                                        <div class="flex items-center space-x-3">
-                                            <div class="w-10 h-10 bg-main rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                                                <?= strtoupper(substr($fetch_posts['name'], 0, 1)) ?>
-                                            </div>
-                                            <div>
-                                                <div class="font-semibold text-gray-900 dark:text-white text-sm">
-                                                    <?= $fetch_posts['name']; ?>
-                                                </div>
-                                                <div class="text-xs text-gray-500 dark:text-gray-400">
-                                                    <?= date('d/m/Y H:i', strtotime($fetch_posts['date'])); ?>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <button type="submit" name="save_post" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-                                            <i class="fas fa-bookmark text-sm <?= $confirm_save->rowCount() > 0 ? 'text-yellow-500' : 'text-gray-400' ?>"></i>
-                                        </button>
-                                    </div>
-
-                                    <!-- Post Image -->
-                                    <?php if ($fetch_posts['image'] != '') : ?>
-                                        <div class="relative overflow-hidden h-48">
-                                            <img src="<?= htmlspecialchars(blog_post_image_src((string)$fetch_posts['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>"
-                                                alt="<?= $fetch_posts['title']; ?>"
-                                                class="post-image">
-                                            <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-                                        </div>
-                                    <?php endif; ?>
-
-                                    <!-- Post Content -->
-                                    <div class="p-4 flex-1 flex flex-col">
-                                        <h3 class="font-bold text-gray-900 dark:text-white mb-3 line-clamp-2 group-hover:text-main transition-colors">
-                                            <a href="<?= post_path($post_id); ?>">
-                                                <?= $fetch_posts['title']; ?>
-                                            </a>
-                                        </h3>
-
-                                        <div class="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-3 flex-1">
-                                            <?= strip_tags($fetch_posts['content']); ?>
-                                        </div>
-
-                                        <a href="<?= post_path($post_id); ?>"
-                                            class="text-main font-semibold hover:text-blue-700 transition-colors text-sm mb-4 inline-flex items-center group">
-                                            Đọc thêm
-                                            <i class="fas fa-arrow-right ml-2 transform group-hover:translate-x-1 transition-transform"></i>
-                                        </a>
-
-                                        <!-- Category -->
-                                        <a href="category.php?category=<?= $fetch_posts['category']; ?>"
-                                            class="inline-flex items-center space-x-1 bg-main/10 text-main px-3 py-1 rounded-full text-xs font-medium hover:bg-main/20 transition-colors w-fit">
-                                            <i class="fas fa-tag"></i>
-                                            <span><?= $fetch_posts['category']; ?></span>
-                                        </a>
-                                    </div>
-
-                                    <!-- Post Actions -->
-                                    <div class="p-4 border-t border-gray-200 dark:border-gray-600 flex items-center justify-between">
-                                        <div class="flex items-center space-x-4">
-                                            <div class="flex items-center space-x-1 text-gray-500 dark:text-gray-400 text-sm">
-                                                <i class="fas fa-comment"></i>
-                                                <span><?= $fetch_posts['comments']; ?></span>
-                                            </div>
-
-                                            <button type="submit" name="like_post"
-                                                class="flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-red-500 transition-colors text-sm">
-                                                <i class="fas fa-heart <?= $confirm_likes->rowCount() > 0 ? 'text-red-500' : '' ?>"></i>
-                                                <span><?= $fetch_posts['likes']; ?></span>
-                                            </button>
-                                        </div>
-
-                                        <div class="text-xs text-gray-400">
-                                            <?= date('d/m/Y', strtotime($fetch_posts['date'])); ?>
-                                        </div>
-                                    </div>
-                                </form>
-                            </article>
-                        <?php } ?>
-                    </div>
-
-                    <!-- Pagination -->
-                    <?php if ($total_pages > 1) : ?>
-                        <div class="flex items-center justify-center space-x-4">
-                            <?php if ($current_page > 1) : ?>
-                                <a href="?author=<?= urlencode($author) ?>&sort=<?= $sort ?>&page=<?= $current_page - 1 ?>"
-                                    class="flex items-center justify-center w-10 h-10 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-main hover:text-white hover:border-main transition-all duration-300 shadow-lg hover:shadow-xl">
-                                    <i class="fas fa-chevron-left"></i>
-                                </a>
-                            <?php endif; ?>
-
-                            <div class="flex items-center space-x-2">
-                                <?php
-                                $start = max(1, $current_page - 2);
-                                $end = min($total_pages, $current_page + 2);
-
-                                for ($i = $start; $i <= $end; $i++) : ?>
-                                    <a href="?author=<?= urlencode($author) ?>&sort=<?= $sort ?>&page=<?= $i ?>"
-                                        class="flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl <?= $i == $current_page ? 'bg-main text-white border-main' : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-main hover:text-white hover:border-main' ?>">
-                                        <?= $i ?>
-                                    </a>
-                                <?php endfor; ?>
-                            </div>
-
-                            <?php if ($current_page < $total_pages) : ?>
-                                <a href="?author=<?= urlencode($author) ?>&sort=<?= $sort ?>&page=<?= $current_page + 1 ?>"
-                                    class="flex items-center justify-center w-10 h-10 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-main hover:text-white hover:border-main transition-all duration-300 shadow-lg hover:shadow-xl">
-                                    <i class="fas fa-chevron-right"></i>
-                                </a>
-                            <?php endif; ?>
-                        </div>
-
-                        <!-- Page Info -->
-                        <div class="text-center mt-6">
-                            <span class="text-gray-600 dark:text-gray-400">
-                                Trang <?= $current_page ?> trong tổng số <?= $total_pages ?> trang
-                            </span>
-                        </div>
-                    <?php endif; ?>
-
-                <?php else : ?>
-                    <!-- Empty State -->
-                    <div class="text-center py-16">
-                        <div class="bg-white dark:bg-gray-800 rounded-2xl p-12 shadow-lg border border-gray-200 dark:border-gray-700">
-                            <div class="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <i class="fas fa-user-edit text-4xl text-gray-400"></i>
-                            </div>
-                            <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-4">Chưa có bài viết</h3>
-                            <p class="text-gray-600 dark:text-gray-400 mb-6">
-                                Tác giả "<?= htmlspecialchars($author) ?>" chưa có bài viết nào
-                            </p>
-
-                            <div class="space-y-3">
-                                <a href="posts.php" class="block w-full btn-primary max-w-sm mx-auto">
-                                    <i class="fas fa-list mr-2"></i>
-                                    Xem tất cả bài viết
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                <?php endif; ?>
+            <div class="lg:col-span-3" id="author-main-content">
+                <?= render_author_main_content($conn, $posts_rows, $user_id, $author, $sort, (int)$total_posts, $current_page, (int)$total_pages); ?>
             </div>
 
             <!-- Sidebar -->
@@ -452,12 +471,13 @@ $popular_posts->execute([$author]);
 
                     <div class="space-y-2">
                         <?php while ($cat = $author_categories->fetch(PDO::FETCH_ASSOC)) : ?>
-                            <a href="category.php?category=<?= urlencode($cat['category']) ?>"
+                            <?php $displayCategoryName = blog_decode_html_entities_deep((string)($cat['category'] ?? '')); ?>
+                            <a href="category.php?category=<?= urlencode($displayCategoryName) ?>"
                                 class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-main/10 transition-colors group">
                                 <div class="flex items-center space-x-2">
                                     <i class="fas fa-tag text-main group-hover:text-blue-600"></i>
                                     <span class="text-sm text-gray-700 dark:text-gray-300 group-hover:text-main font-medium">
-                                        <?= htmlspecialchars($cat['category']) ?>
+                                        <?= htmlspecialchars($displayCategoryName, ENT_QUOTES, 'UTF-8') ?>
                                     </span>
                                 </div>
                                 <span class="text-xs bg-main/20 text-main px-2 py-1 rounded-full">
@@ -477,10 +497,11 @@ $popular_posts->execute([$author]);
 
                     <div class="space-y-4">
                         <?php while ($popular = $popular_posts->fetch(PDO::FETCH_ASSOC)) : ?>
+                            <?php $displayPopularTitle = blog_decode_html_entities_deep((string)($popular['title'] ?? '')); ?>
                             <a href="<?= post_path($popular['id']); ?>"
                                 class="block p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-main/10 transition-colors group">
                                 <h4 class="font-medium text-gray-900 dark:text-white text-sm mb-2 line-clamp-2 group-hover:text-main">
-                                    <?= $popular['title'] ?>
+                                    <?= htmlspecialchars($displayPopularTitle, ENT_QUOTES, 'UTF-8') ?>
                                 </h4>
                                 <div class="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                                     <span><?= date('d/m/Y', strtotime($popular['date'])) ?></span>
@@ -501,9 +522,15 @@ $popular_posts->execute([$author]);
 <!-- Enhanced JavaScript -->
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Message notification
         const message = document.getElementById('message');
-        if (message) {
+        const mainContent = document.getElementById('author-main-content');
+        let isLoading = false;
+
+        function showMessageToast() {
+            if (!message) {
+                return;
+            }
+
             setTimeout(() => {
                 message.classList.remove('translate-x-full');
             }, 100);
@@ -513,54 +540,79 @@ $popular_posts->execute([$author]);
             }, 3000);
         }
 
-        // Enhanced post card animations
-        const postCards = document.querySelectorAll('.post-card');
-        postCards.forEach((card, index) => {
-            card.style.opacity = '0';
-            card.style.transform = 'translateY(20px)';
-
-            setTimeout(() => {
-                card.style.transition = 'all 0.6s ease';
-                card.style.opacity = '1';
-                card.style.transform = 'translateY(0)';
-            }, index * 100);
-
-            card.addEventListener('mouseenter', function() {
-                this.style.transform = 'translateY(-8px) scale(1.02)';
-                this.style.boxShadow = '0 25px 50px rgba(0, 0, 0, 0.15)';
-            });
-
-            card.addEventListener('mouseleave', function() {
-                this.style.transform = 'translateY(0) scale(1)';
-                this.style.boxShadow = '';
-            });
-        });
-
-        // Stats counter animation
-        const statsElements = document.querySelectorAll('.text-3xl.font-bold');
-        statsElements.forEach(element => {
-            const finalValue = parseInt(element.textContent);
-            const duration = 2000;
-            const increment = finalValue / (duration / 16);
-            let current = 0;
-
-            const timer = setInterval(() => {
-                current += increment;
-                if (current >= finalValue) {
-                    element.textContent = finalValue;
-                    clearInterval(timer);
-                } else {
-                    element.textContent = Math.floor(current);
+        function animatePostCards(scope = document) {
+            const postCards = scope.querySelectorAll('.post-card');
+            postCards.forEach((card, index) => {
+                if (card.dataset.postFxReady === '1') {
+                    return;
                 }
-            }, 16);
-        });
 
-        // Form submission with loading states
-        const forms = document.querySelectorAll('form');
-        forms.forEach(form => {
-            form.addEventListener('submit', function(e) {
-                const submitBtn = this.querySelector('button[type="submit"]');
-                if (submitBtn) {
+                card.dataset.postFxReady = '1';
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+
+                setTimeout(() => {
+                    card.style.transition = 'all 0.6s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 100);
+
+                card.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-8px) scale(1.02)';
+                    this.style.boxShadow = '0 25px 50px rgba(0, 0, 0, 0.15)';
+                });
+
+                card.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0) scale(1)';
+                    this.style.boxShadow = '';
+                });
+            });
+        }
+
+        function animateStatsOnce() {
+            const statsElements = document.querySelectorAll('.text-3xl.font-bold');
+            statsElements.forEach(element => {
+                if (element.dataset.counterAnimated === '1') {
+                    return;
+                }
+
+                element.dataset.counterAnimated = '1';
+                const finalValue = parseInt(element.textContent, 10);
+
+                if (Number.isNaN(finalValue)) {
+                    return;
+                }
+
+                const duration = 2000;
+                const increment = finalValue / (duration / 16);
+                let current = 0;
+
+                const timer = setInterval(() => {
+                    current += increment;
+                    if (current >= finalValue) {
+                        element.textContent = String(finalValue);
+                        clearInterval(timer);
+                    } else {
+                        element.textContent = String(Math.floor(current));
+                    }
+                }, 16);
+            });
+        }
+
+        function bindPostActionForms(scope = document) {
+            const forms = scope.querySelectorAll('form[data-post-action-form="1"]');
+            forms.forEach(form => {
+                if (form.dataset.loadingBound === '1') {
+                    return;
+                }
+
+                form.dataset.loadingBound = '1';
+                form.addEventListener('submit', function() {
+                    const submitBtn = this.querySelector('button[type="submit"]');
+                    if (!submitBtn) {
+                        return;
+                    }
+
                     const originalContent = submitBtn.innerHTML;
                     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
                     submitBtn.disabled = true;
@@ -569,22 +621,131 @@ $popular_posts->execute([$author]);
                         submitBtn.innerHTML = originalContent;
                         submitBtn.disabled = false;
                     }, 1000);
-                }
+                });
             });
-        });
+        }
 
-        // Sidebar animations
-        const sidebarItems = document.querySelectorAll('.lg\\:col-span-1 > div');
-        sidebarItems.forEach((item, index) => {
-            item.style.opacity = '0';
-            item.style.transform = 'translateX(20px)';
+        function animateSidebarOnce() {
+            const sidebarItems = document.querySelectorAll('.lg\\:col-span-1 > div');
+            sidebarItems.forEach((item, index) => {
+                if (item.dataset.sidebarFxReady === '1') {
+                    return;
+                }
 
-            setTimeout(() => {
-                item.style.transition = 'all 0.6s ease';
-                item.style.opacity = '1';
-                item.style.transform = 'translateX(0)';
-            }, 200 + (index * 100));
-        });
+                item.dataset.sidebarFxReady = '1';
+                item.style.opacity = '0';
+                item.style.transform = 'translateX(20px)';
+
+                setTimeout(() => {
+                    item.style.transition = 'all 0.6s ease';
+                    item.style.opacity = '1';
+                    item.style.transform = 'translateX(0)';
+                }, 200 + (index * 100));
+            });
+        }
+
+        function attachLazyImages(scope = document) {
+            const images = scope.querySelectorAll('img[data-src]');
+            images.forEach(img => imageObserver.observe(img));
+        }
+
+        function initMainScope(scope = document) {
+            animatePostCards(scope);
+            bindPostActionForms(scope);
+            attachLazyImages(scope);
+        }
+
+        function renderMainContentSkeleton() {
+            return `
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-8 border border-gray-200 dark:border-gray-700 animate-pulse">
+                    <div class="h-6 w-40 rounded bg-gray-200 dark:bg-gray-700 mb-4"></div>
+                    <div class="flex gap-2 flex-wrap">
+                        <div class="h-9 w-24 rounded-lg bg-gray-200 dark:bg-gray-700"></div>
+                        <div class="h-9 w-24 rounded-lg bg-gray-200 dark:bg-gray-700"></div>
+                        <div class="h-9 w-24 rounded-lg bg-gray-200 dark:bg-gray-700"></div>
+                        <div class="h-9 w-28 rounded-lg bg-gray-200 dark:bg-gray-700"></div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 animate-pulse">
+                        <div class="h-5 w-1/2 rounded bg-gray-200 dark:bg-gray-700 mb-3"></div>
+                        <div class="h-40 rounded-lg bg-gray-200 dark:bg-gray-700 mb-4"></div>
+                        <div class="h-4 rounded bg-gray-200 dark:bg-gray-700 mb-2"></div>
+                        <div class="h-4 w-4/5 rounded bg-gray-200 dark:bg-gray-700 mb-4"></div>
+                        <div class="h-8 w-24 rounded-full bg-gray-200 dark:bg-gray-700"></div>
+                    </div>
+                    <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 animate-pulse">
+                        <div class="h-5 w-1/2 rounded bg-gray-200 dark:bg-gray-700 mb-3"></div>
+                        <div class="h-40 rounded-lg bg-gray-200 dark:bg-gray-700 mb-4"></div>
+                        <div class="h-4 rounded bg-gray-200 dark:bg-gray-700 mb-2"></div>
+                        <div class="h-4 w-4/5 rounded bg-gray-200 dark:bg-gray-700 mb-4"></div>
+                        <div class="h-8 w-24 rounded-full bg-gray-200 dark:bg-gray-700"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadAuthorMainContent(url, pushState = true) {
+            if (!mainContent || isLoading) {
+                return;
+            }
+
+            isLoading = true;
+            mainContent.classList.add('pointer-events-none');
+            mainContent.innerHTML = renderMainContentSkeleton();
+
+            try {
+                const requestUrl = new URL(url, window.location.href);
+                requestUrl.searchParams.set('ajax', '1');
+
+                const response = await fetch(requestUrl.toString(), {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Không thể tải dữ liệu bài viết tác giả.');
+                }
+
+                const html = await response.text();
+                mainContent.innerHTML = html;
+                initMainScope(mainContent);
+
+                if (pushState) {
+                    const cleanUrl = new URL(url, window.location.href);
+                    window.history.pushState({
+                        authorAjax: true
+                    }, '', cleanUrl.toString());
+                }
+            } catch (error) {
+                window.location.href = url;
+            } finally {
+                mainContent.classList.remove('pointer-events-none');
+                isLoading = false;
+            }
+        }
+
+        if (mainContent) {
+            mainContent.addEventListener('click', function(event) {
+                const link = event.target.closest('a[data-author-ajax-link="1"]');
+                if (!link) {
+                    return;
+                }
+
+                event.preventDefault();
+                loadAuthorMainContent(link.href, true);
+            });
+
+            window.addEventListener('popstate', function() {
+                loadAuthorMainContent(window.location.href, false);
+            });
+        }
+
+        showMessageToast();
+        animateStatsOnce();
+        animateSidebarOnce();
+        initMainScope(document);
     });
 
     // Lazy loading for images

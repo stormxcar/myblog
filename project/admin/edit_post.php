@@ -32,6 +32,7 @@ if (isset($_POST['save'])) {
     $category = trim((string)($_POST['category'] ?? ''));
     $status = trim((string)($_POST['status'] ?? 'deactive'));
     $tags_input = (string)($_POST['tags'] ?? '');
+    $image_url = trim((string)($_POST['image_url'] ?? ''));
 
     if ($title === '' || $content === '' || $category === '') {
         $message[] = 'Vui lòng nhập đầy đủ thông tin bắt buộc.';
@@ -42,10 +43,10 @@ if (isset($_POST['save'])) {
 
         $update_post = $conn->prepare('UPDATE posts SET title = ?, content = ?, category = ?, status = ? WHERE id = ? AND admin_id = ?');
         $update_post->execute([
-            htmlspecialchars($title, ENT_QUOTES, 'UTF-8'),
+            $title,
             $content,
-            htmlspecialchars($category, ENT_QUOTES, 'UTF-8'),
-            htmlspecialchars($status, ENT_QUOTES, 'UTF-8'),
+            $category,
+            $status,
             $post_id,
             (int)$admin_id,
         ]);
@@ -67,7 +68,9 @@ if (isset($_POST['save'])) {
         $image_size = (int)($_FILES['image']['size'] ?? 0);
         $image_type = (string)($_FILES['image']['type'] ?? '');
 
-        if (!empty($image_name)) {
+        if (!empty($image_name) && $image_url !== '') {
+            $message[] = 'Vui lòng chỉ chọn 1 cách cập nhật ảnh: upload file hoặc nhập URL.';
+        } elseif (!empty($image_name)) {
             $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
             if (!in_array($image_type, $allowedTypes, true)) {
                 $message[] = 'File ảnh không hợp lệ. Chỉ hỗ trợ JPG/PNG/WebP.';
@@ -87,6 +90,25 @@ if (isset($_POST['save'])) {
                     }
 
                     $message[] = 'Đã cập nhật ảnh bài viết.';
+                }
+            }
+        } elseif ($image_url !== '') {
+            if (!filter_var($image_url, FILTER_VALIDATE_URL)) {
+                $message[] = 'URL ảnh không hợp lệ.';
+            } else {
+                $uploadResult = blog_cloudinary_upload($image_url, blog_cloudinary_default_folder() . '/posts');
+                if (!($uploadResult['ok'] ?? false)) {
+                    $message[] = (string)($uploadResult['error'] ?? 'Không thể đồng bộ URL ảnh lên Cloudinary.');
+                } else {
+                    $newImageUrl = (string)$uploadResult['secure_url'];
+                    $update_image = $conn->prepare('UPDATE posts SET image = ? WHERE id = ? AND admin_id = ?');
+                    $update_image->execute([$newImageUrl, $post_id, (int)$admin_id]);
+
+                    if ($old_image !== '' && $old_image !== $newImageUrl) {
+                        blog_delete_image_resource($old_image);
+                    }
+
+                    $message[] = 'Đã cập nhật ảnh bài viết từ URL.';
                 }
             }
         }
@@ -130,6 +152,7 @@ $select_post = $conn->prepare('SELECT * FROM posts WHERE id = ? AND admin_id = ?
 $select_post->execute([$post_id, (int)$admin_id]);
 $post = $select_post->fetch(PDO::FETCH_ASSOC);
 $post_tags_csv = $post ? blog_get_post_tag_names_csv($conn, $post_id) : '';
+$post_category_value = $post ? blog_decode_html_entities_deep((string)($post['category'] ?? '')) : '';
 
 ?>
 
@@ -289,7 +312,7 @@ $post_tags_csv = $post ? blog_get_post_tag_names_csv($conn, $post_id) : '';
                     maxlength="150"
                     required
                     class="box ui-input"
-                    value="<?= htmlspecialchars((string)$post['title'], ENT_QUOTES, 'UTF-8'); ?>">
+                    value="<?= htmlspecialchars(blog_decode_html_entities_deep((string)$post['title']), ENT_QUOTES, 'UTF-8'); ?>">
 
                 <p>Nội dung <span>*</span></p>
                 <textarea
@@ -303,7 +326,7 @@ $post_tags_csv = $post ? blog_get_post_tag_names_csv($conn, $post_id) : '';
                 <select name="category" class="box ui-select" required>
                     <option value="" disabled>-- Chọn danh mục --</option>
                     <?php foreach ($categories as $cat): ?>
-                        <option value="<?= htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8'); ?>" <?= $post['category'] === $cat['name'] ? 'selected' : ''; ?>>
+                        <option value="<?= htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8'); ?>" <?= $post_category_value === (string)$cat['name'] ? 'selected' : ''; ?>>
                             <?= htmlspecialchars($cat['name'], ENT_QUOTES, 'UTF-8'); ?>
                         </option>
                     <?php endforeach; ?>
@@ -326,13 +349,28 @@ $post_tags_csv = $post ? blog_get_post_tag_names_csv($conn, $post_id) : '';
                     <small class="text-gray-500">Nhập tối đa 20 tag; Enter/dấu phẩy/paste để thêm; chuột hover chip để xóa; Esc đóng gợi ý; # sẽ gợi ý.</small>
                 </div>
 
-                <p>Cập nhật ảnh</p>
-                <input type="file" name="image" class="box ui-input" accept="image/jpg,image/jpeg,image/png,image/webp">
+                <p>Cập nhật ảnh thumbnail</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Upload file</label>
+                        <input type="file" id="imageFileInput" name="image" class="box ui-input" accept="image/jpg,image/jpeg,image/png,image/webp">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Hoặc URL</label>
+                        <input type="url" id="imageUrlInput" name="image_url" class="box ui-input" placeholder="https://example.com/path/to/image.jpg">
+                    </div>
+                </div>
 
                 <?php if (!empty($post['image'])): ?>
-                    <img src="<?= htmlspecialchars(blog_post_image_src((string)$post['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>" class="image" alt="Post image">
+                    <img id="imagePreview" src="<?= htmlspecialchars(blog_post_image_src((string)$post['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>" class="image" alt="Post image">
                     <div class="flex-btn" style="margin-top:.8rem; margin-bottom:1rem;">
+                        <button type="button" id="clearImage" class="option-btn ui-btn-warning">Xóa lựa chọn ảnh mới</button>
                         <button type="submit" name="delete_image" class="inline-delete-btn ui-btn-danger">Xóa ảnh hiện tại</button>
+                    </div>
+                <?php else: ?>
+                    <img id="imagePreview" src="#" class="image" alt="Post image" style="display:none;">
+                    <div class="flex-btn" style="margin-top:.8rem; margin-bottom:1rem;">
+                        <button type="button" id="clearImage" class="option-btn ui-btn-warning">Xóa lựa chọn ảnh mới</button>
                     </div>
                 <?php endif; ?>
 
@@ -362,6 +400,10 @@ $post_tags_csv = $post ? blog_get_post_tag_names_csv($conn, $post_id) : '';
         const tagsHidden = document.getElementById('tagsHidden');
         const tagSuggestionList = document.getElementById('tagSuggestionList');
         const tagStatus = document.getElementById('tagStatus');
+        const imageFileInput = document.getElementById('imageFileInput');
+        const imageUrlInput = document.getElementById('imageUrlInput');
+        const imagePreview = document.getElementById('imagePreview');
+        const clearImageBtn = document.getElementById('clearImage');
         let tagsState = String(tagsHidden.value || '')
             .split(',')
             .map((t) => t.trim())
@@ -424,6 +466,52 @@ $post_tags_csv = $post ? blog_get_post_tag_names_csv($conn, $post_id) : '';
             suggestionIndex = -1;
             tagSuggestionList.classList.add('hidden');
         }
+
+        function showImagePreview(src) {
+            if (!imagePreview) return;
+            if (!src) {
+                imagePreview.src = '#';
+                imagePreview.style.display = 'none';
+                return;
+            }
+            imagePreview.src = src;
+            imagePreview.style.display = 'block';
+        }
+
+        imageFileInput?.addEventListener('change', function() {
+            const file = this.files && this.files[0] ? this.files[0] : null;
+            if (!file) {
+                return;
+            }
+            if (imageUrlInput) {
+                imageUrlInput.value = '';
+            }
+            showImagePreview(URL.createObjectURL(file));
+        });
+
+        imageUrlInput?.addEventListener('input', function() {
+            const url = String(this.value || '').trim();
+            if (url === '') {
+                if (!imageFileInput?.files?.length) {
+                    showImagePreview('');
+                }
+                return;
+            }
+            if (imageFileInput) {
+                imageFileInput.value = '';
+            }
+            showImagePreview(url);
+        });
+
+        clearImageBtn?.addEventListener('click', function() {
+            if (imageFileInput) {
+                imageFileInput.value = '';
+            }
+            if (imageUrlInput) {
+                imageUrlInput.value = '';
+            }
+            showImagePreview('');
+        });
 
         function validateTagState() {
             if (tagsState.length > 20) {

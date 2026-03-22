@@ -31,6 +31,19 @@ function json_error(string $message, int $code = 400)
     exit;
 }
 
+function decode_deep(string $input, int $depth = 3): string
+{
+    $result = $input;
+    for ($i = 0; $i < $depth; $i++) {
+        $next = html_entity_decode($result, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if ($next === $result) {
+            break;
+        }
+        $result = $next;
+    }
+    return $result;
+}
+
 function build_pagination_html(int $page, int $totalPages): string
 {
     if ($totalPages <= 1) {
@@ -147,6 +160,8 @@ if ($action === 'posts_list') {
         $index = $offset + 1;
         foreach ($rows as $row) {
             $statusClass = $row['status'] === 'active' ? 'status-active' : 'status-draft';
+            $decodedCategory = decode_deep((string)($row['category'] ?? ''));
+            $decodedTitle = decode_deep((string)($row['title'] ?? ''));
             $imageHtml = $row['image'] !== ''
                 ? '<img src="../uploaded_img/' . htmlspecialchars($row['image'], ENT_QUOTES, 'UTF-8') . '" class="image" alt="post">'
                 : '<span class="admin-muted">-</span>';
@@ -157,8 +172,8 @@ if ($action === 'posts_list') {
             $html .= '<td>' . $imageHtml . '</td>';
             $html .= '<td><span class="admin-status-pill ' . $statusClass . '">' . htmlspecialchars($row['status'], ENT_QUOTES, 'UTF-8') . '</span></td>';
             $html .= '<td>' . htmlspecialchars($row['date'], ENT_QUOTES, 'UTF-8') . '</td>';
-            $html .= '<td>' . htmlspecialchars($row['category'] ?: 'chua co', ENT_QUOTES, 'UTF-8') . '</td>';
-            $html .= '<td><div class="title">' . htmlspecialchars($row['title'], ENT_QUOTES, 'UTF-8') . '</div></td>';
+            $html .= '<td>' . htmlspecialchars($decodedCategory !== '' ? $decodedCategory : 'chua co', ENT_QUOTES, 'UTF-8') . '</td>';
+            $html .= '<td><div class="title">' . htmlspecialchars($decodedTitle, ENT_QUOTES, 'UTF-8') . '</div></td>';
             $html .= '<td><div class="posts-content">' . htmlspecialchars(mb_substr(strip_tags((string)$row['content']), 0, 120, 'UTF-8'), ENT_QUOTES, 'UTF-8') . '</div></td>';
             $html .= '<td><span class="admin-kpi-chip"><i class="fas fa-heart"></i>' . (int)$row['total_likes'] . '</span></td>';
             $html .= '<td><span class="admin-kpi-chip"><i class="fas fa-comment"></i>' . (int)$row['total_comments'] . '</span></td>';
@@ -263,7 +278,7 @@ if ($action === 'comments_list') {
             $html .= '<strong>' . htmlspecialchars($row['user_name'], ENT_QUOTES, 'UTF-8') . '</strong>';
             $html .= '<span>' . htmlspecialchars($row['date'], ENT_QUOTES, 'UTF-8') . '</span>';
             $html .= '</div>';
-            $html .= '<p class="admin-comment-post">Bai viet: <a href="read_post.php?post_id=' . (int)$row['post_id'] . '">' . htmlspecialchars($row['post_title'], ENT_QUOTES, 'UTF-8') . '</a></p>';
+            $html .= '<p class="admin-comment-post">Bai viet: <a href="read_post.php?post_id=' . (int)$row['post_id'] . '">' . htmlspecialchars(decode_deep((string)$row['post_title']), ENT_QUOTES, 'UTF-8') . '</a></p>';
             $html .= '<p class="admin-comment-post"><span class="admin-status-pill ' . $statusClass . '">' . htmlspecialchars($row['post_status'], ENT_QUOTES, 'UTF-8') . '</span> <span class="admin-kpi-chip"><i class="fas fa-chart-line"></i>' . (int)$row['post_engagement_score'] . '</span></p>';
             $html .= '<p class="admin-comment-body">' . nl2br(htmlspecialchars($row['comment'], ENT_QUOTES, 'UTF-8')) . '</p>';
             $html .= '<label class="admin-inline-check"><input type="checkbox" class="admin-bulk-comment-check" value="' . (int)$row['id'] . '"> Chon xoa nhanh</label>';

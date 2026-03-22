@@ -232,8 +232,11 @@ render_breadcrumb($breadcrumb_items);
                         foreach ($posts_rows as $fetch_posts) {
                             $post_id = $fetch_posts['id'];
                             $post_tags = $tag_map[(int)$post_id] ?? [];
-                            $highlighted_title = highlight_search_term($fetch_posts['title'], $search_query);
-                            $content_plain = strip_tags((string)$fetch_posts['content']);
+                            $displayTitle = blog_decode_html_entities_deep((string)($fetch_posts['title'] ?? ''));
+                            $displayAuthor = blog_decode_html_entities_deep((string)($fetch_posts['name'] ?? ''));
+                            $displayCategory = blog_decode_html_entities_deep((string)($fetch_posts['category'] ?? ''));
+                            $content_plain = strip_tags(blog_decode_html_entities_deep((string)($fetch_posts['content'] ?? '')));
+                            $highlighted_title = highlight_search_term($displayTitle, $search_query);
                             $excerpt_raw = function_exists('mb_substr') ? mb_substr($content_plain, 0, 140) : substr($content_plain, 0, 140);
                             $highlighted_content = highlight_search_term($excerpt_raw, $search_query);
                     ?>
@@ -247,12 +250,12 @@ render_breadcrumb($breadcrumb_items);
                                     <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-600">
                                         <div class="flex items-center space-x-3">
                                             <div class="w-10 h-10 bg-main rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                                                <?= strtoupper(substr($fetch_posts['name'], 0, 1)) ?>
+                                                <?= strtoupper(substr((string)$displayAuthor, 0, 1)) ?>
                                             </div>
                                             <div>
-                                                <a href="author_posts.php?author=<?= $fetch_posts['name']; ?>"
+                                                <a href="author_posts.php?author=<?= urlencode($displayAuthor); ?>"
                                                     class="font-semibold text-gray-900 dark:text-white hover:text-main transition-colors text-sm">
-                                                    <?= $fetch_posts['name']; ?>
+                                                    <?= htmlspecialchars($displayAuthor, ENT_QUOTES, 'UTF-8'); ?>
                                                 </a>
                                                 <div class="text-xs text-gray-500 dark:text-gray-400">
                                                     <?= date('d/m/Y', strtotime($fetch_posts['date'])); ?>
@@ -269,7 +272,7 @@ render_breadcrumb($breadcrumb_items);
                                     <?php if ($fetch_posts['image'] != '') : ?>
                                         <div class="relative overflow-hidden h-48 rounded-lg mt-4">
                                             <img src="<?= htmlspecialchars(blog_post_image_src((string)$fetch_posts['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8'); ?>"
-                                                alt="<?= $fetch_posts['title']; ?>"
+                                                alt="<?= htmlspecialchars($displayTitle, ENT_QUOTES, 'UTF-8'); ?>"
                                                 class="blog-card-image">
                                             <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
                                         </div>
@@ -293,10 +296,10 @@ render_breadcrumb($breadcrumb_items);
                                         </a>
 
                                         <!-- Category -->
-                                        <a href="category.php?category=<?= $fetch_posts['category']; ?>"
+                                        <a href="category.php?category=<?= urlencode($displayCategory); ?>"
                                             class="inline-flex items-center space-x-1 bg-main/10 text-main px-3 py-1 rounded-full text-xs font-medium hover:bg-main/20 transition-colors w-fit">
                                             <i class="fas fa-tag"></i>
-                                            <span><?= $fetch_posts['category']; ?></span>
+                                            <span><?= htmlspecialchars($displayCategory, ENT_QUOTES, 'UTF-8'); ?></span>
                                         </a>
 
                                         <?php if (!empty($post_tags)): ?>
