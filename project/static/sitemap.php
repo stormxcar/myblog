@@ -1,6 +1,7 @@
 <?php
 include '../components/connect.php';
 include '../components/seo_helpers.php';
+include '../components/community_engine.php';
 
 header('Content-Type: application/xml; charset=UTF-8');
 
@@ -37,6 +38,7 @@ $addUrl($urls, $toAbsolute(site_url('search')), $now, 'daily', '0.7');
 $addUrl($urls, $toAbsolute(site_url('contact')), $now, 'monthly', '0.5');
 $addUrl($urls, $toAbsolute(site_url('introduce')), $now, 'monthly', '0.5');
 $addUrl($urls, $toAbsolute(site_url('all_photos')), $now, 'weekly', '0.6');
+$addUrl($urls, $toAbsolute(site_url('static/community_feed.php')), $now, 'daily', '0.8');
 
 try {
     $stmt = $conn->prepare("SELECT id, title, date FROM posts WHERE status = 'active' ORDER BY id DESC LIMIT 5000");
@@ -61,6 +63,57 @@ try {
     }
 } catch (Throwable $e) {
     // Keep sitemap available even if the DB query fails.
+}
+
+try {
+    community_ensure_tables($conn);
+
+    $communityPostStmt = $conn->prepare("SELECT id, post_title, created_at
+        FROM community_posts
+        WHERE status = 'published' AND privacy = 'public'
+        ORDER BY id DESC
+        LIMIT 5000");
+    $communityPostStmt->execute();
+
+    foreach ($communityPostStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $id = (int)($row['id'] ?? 0);
+        if ($id <= 0) {
+            continue;
+        }
+
+        $title = (string)($row['post_title'] ?? 'community-post');
+        $loc = $toAbsolute(community_post_path($id, $title));
+        $lastmod = null;
+        if (!empty($row['created_at'])) {
+            $ts = strtotime((string)$row['created_at']);
+            if ($ts !== false) {
+                $lastmod = gmdate('c', $ts);
+            }
+        }
+
+        $addUrl($urls, $loc, $lastmod, 'weekly', '0.7');
+    }
+
+    $communityProfileStmt = $conn->prepare("SELECT DISTINCT u.id, u.name
+        FROM users u
+        INNER JOIN community_posts p ON p.user_id = u.id
+        WHERE p.status = 'published' AND p.privacy = 'public'
+        ORDER BY u.id DESC
+        LIMIT 5000");
+    $communityProfileStmt->execute();
+
+    foreach ($communityProfileStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $userId = (int)($row['id'] ?? 0);
+        if ($userId <= 0) {
+            continue;
+        }
+
+        $name = (string)($row['name'] ?? 'user');
+        $loc = $toAbsolute(community_profile_path($userId, $name));
+        $addUrl($urls, $loc, $now, 'weekly', '0.6');
+    }
+} catch (Throwable $e) {
+    // Keep sitemap available even if community query fails.
 }
 
 echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";

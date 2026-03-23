@@ -166,7 +166,7 @@ render_breadcrumb($breadcrumb);
                             class="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors group">
                             <span class="flex items-center">
                                 <i class="fas fa-plus mr-3 text-gray-600 dark:text-gray-400 group-hover:text-main"></i>
-                                Viết bài mới
+                                Bài viết mới nhất
                             </span>
                             <i class="fas fa-arrow-right text-gray-400 group-hover:text-main transition-colors"></i>
                         </a>

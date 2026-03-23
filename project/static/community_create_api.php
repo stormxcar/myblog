@@ -4,6 +4,7 @@ ob_start();
 include_once __DIR__ . '/../components/connect.php';
 include_once __DIR__ . '/../components/seo_helpers.php';
 include_once __DIR__ . '/../components/community_engine.php';
+include_once __DIR__ . '/../components/feature_engine.php';
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
@@ -252,6 +253,37 @@ try {
     community_attach_topics_to_post($conn, $postId, $content);
 
     $conn->commit();
+
+    if (function_exists('community_get_follower_user_ids') && function_exists('blog_push_notification')) {
+        $followerIds = community_get_follower_user_ids($conn, $userId);
+        if (!empty($followerIds)) {
+            $postUrl = site_url('static/community_feed.php#community-post-' . $postId);
+            $postPreview = mb_substr($title, 0, 140, 'UTF-8');
+
+            foreach ($followerIds as $followerId) {
+                $followerId = (int)$followerId;
+                if ($followerId <= 0 || $followerId === $userId) {
+                    continue;
+                }
+
+                $followerPref = function_exists('community_get_notification_preference')
+                    ? community_get_notification_preference($conn, $followerId)
+                    : ['new_post_events_enabled' => 1];
+                if ((int)($followerPref['new_post_events_enabled'] ?? 1) !== 1) {
+                    continue;
+                }
+
+                blog_push_notification(
+                    $conn,
+                    $followerId,
+                    'community_new_post',
+                    'Nguoi ban theo doi vua dang bai moi',
+                    $postPreview,
+                    $postUrl
+                );
+            }
+        }
+    }
 
     if (ob_get_length() > 0) {
         ob_clean();

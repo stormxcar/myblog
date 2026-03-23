@@ -21,6 +21,37 @@ $trendingTopics = community_get_trending_topics($conn, $user_id, 10);
 $featured24h = community_get_featured_posts_24h($conn, 5);
 $interestPosts = community_get_posts_near_user_interests($conn, $user_id, 5);
 $viewerBadges = $user_id > 0 ? (community_build_user_badges_map($conn, [$user_id])[$user_id] ?? []) : [];
+$viewerFollowers = [];
+$viewerFollowing = [];
+$followSuggestions = [];
+$viewerNotifyPref = ['follow_events_enabled' => 1, 'new_post_events_enabled' => 1];
+
+if ($user_id > 0) {
+    $followersStmt = $conn->prepare('SELECT u.id, u.name
+        FROM community_user_follows f
+        INNER JOIN users u ON u.id = f.follower_user_id
+        WHERE f.following_user_id = ?
+        ORDER BY f.created_at DESC
+        LIMIT 8');
+    $followersStmt->execute([$user_id]);
+    $viewerFollowers = $followersStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $followingStmt = $conn->prepare('SELECT u.id, u.name
+        FROM community_user_follows f
+        INNER JOIN users u ON u.id = f.following_user_id
+        WHERE f.follower_user_id = ?
+        ORDER BY f.created_at DESC
+        LIMIT 8');
+    $followingStmt->execute([$user_id]);
+    $viewerFollowing = $followingStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (function_exists('community_get_follow_suggestions')) {
+        $followSuggestions = community_get_follow_suggestions($conn, $user_id, 6);
+    }
+    if (function_exists('community_get_notification_preference')) {
+        $viewerNotifyPref = community_get_notification_preference($conn, $user_id);
+    }
+}
 
 $activeTopicName = '';
 if ($activeTopicSlug !== '') {
@@ -263,6 +294,57 @@ render_breadcrumb($breadcrumb_items);
                 <?php if ($user_id > 0): ?>
                     <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow p-4">
                         <div class="flex items-center justify-between gap-2">
+                            <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Mang theo doi</h3>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 mt-3">
+                            <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+                                <p class="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">Nguoi theo doi</p>
+                                <p class="text-xl font-bold text-gray-900 dark:text-white mt-1"><?= count($viewerFollowers); ?></p>
+                            </div>
+                            <div class="rounded-xl border border-gray-200 dark:border-gray-700 p-3">
+                                <p class="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">Dang theo doi</p>
+                                <p class="text-xl font-bold text-gray-900 dark:text-white mt-1"><?= count($viewerFollowing); ?></p>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 grid grid-cols-1 gap-3">
+                            <div>
+                                <p class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">Ai dang theo doi ban</p>
+                                <?php if (!empty($viewerFollowers)): ?>
+                                    <div class="space-y-1.5">
+                                        <?php foreach ($viewerFollowers as $follower): ?>
+                                            <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200 mr-1 mb-1">
+                                                <i class="fas fa-user-check text-[10px]"></i>
+                                                <?= htmlspecialchars((string)($follower['name'] ?? 'User'), ENT_QUOTES, 'UTF-8'); ?>
+                                            </span>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Chua co nguoi theo doi.</p>
+                                <?php endif; ?>
+                            </div>
+
+                            <div>
+                                <p class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">Ban dang theo doi</p>
+                                <?php if (!empty($viewerFollowing)): ?>
+                                    <div class="space-y-1.5">
+                                        <?php foreach ($viewerFollowing as $following): ?>
+                                            <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-200 mr-1 mb-1">
+                                                <i class="fas fa-user-plus text-[10px]"></i>
+                                                <?= htmlspecialchars((string)($following['name'] ?? 'User'), ENT_QUOTES, 'UTF-8'); ?>
+                                            </span>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">Ban chua theo doi ai.</p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow p-4">
+                        <div class="flex items-center justify-between gap-2">
                             <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Hồ sơ cộng đồng</h3>
                             <a href="update.php" class="text-xs text-main hover:underline">Cập nhật hồ sơ</a>
                         </div>
@@ -307,7 +389,7 @@ render_breadcrumb($breadcrumb_items);
                         <?php if (!empty($featured24h)): ?>
                             <?php foreach ($featured24h as $item): ?>
                                 <?php $itemTitle = trim((string)($item['post_title'] ?? '')) !== '' ? (string)$item['post_title'] : community_extract_title((string)$item['content']); ?>
-                                <a href="#community-post-<?= (int)$item['id']; ?>" class="block rounded-lg border border-gray-200 dark:border-gray-700 p-3 hover:border-main transition-colors">
+                                <a href="<?= htmlspecialchars(community_post_path((int)$item['id'], (string)$itemTitle), ENT_QUOTES, 'UTF-8'); ?>" class="block rounded-lg border border-gray-200 dark:border-gray-700 p-3 hover:border-main transition-colors">
                                     <h4 class="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2"><?= htmlspecialchars((string)$itemTitle, ENT_QUOTES, 'UTF-8'); ?></h4>
                                     <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
                                         <span class="mr-2"><i class="fas fa-arrow-up mr-1"></i><?= (int)($item['total_upvotes'] ?? 0); ?></span>
@@ -329,7 +411,7 @@ render_breadcrumb($breadcrumb_items);
                         <?php if (!empty($interestPosts)): ?>
                             <?php foreach ($interestPosts as $item): ?>
                                 <?php $itemTitle = trim((string)($item['post_title'] ?? '')) !== '' ? (string)$item['post_title'] : community_extract_title((string)$item['content']); ?>
-                                <a href="#community-post-<?= (int)$item['id']; ?>" class="block rounded-lg border border-gray-200 dark:border-gray-700 p-3 hover:border-main transition-colors">
+                                <a href="<?= htmlspecialchars(community_post_path((int)$item['id'], (string)$itemTitle), ENT_QUOTES, 'UTF-8'); ?>" class="block rounded-lg border border-gray-200 dark:border-gray-700 p-3 hover:border-main transition-colors">
                                     <h4 class="text-sm font-semibold text-gray-900 dark:text-white line-clamp-2"><?= htmlspecialchars((string)$itemTitle, ENT_QUOTES, 'UTF-8'); ?></h4>
                                     <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400"><?= htmlspecialchars(community_time_ago((string)$item['created_at']), ENT_QUOTES, 'UTF-8'); ?></p>
                                 </a>
@@ -352,6 +434,68 @@ render_breadcrumb($breadcrumb_items);
                         <button type="button" data-community-digest="weekly" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-main/10">Bật digest tuần</button>
                     </div>
                 </section>
+
+                <?php if ($user_id > 0): ?>
+                    <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow p-4">
+                        <div class="flex items-center justify-between gap-2">
+                            <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Thong bao theo doi</h3>
+                        </div>
+                        <p class="mt-3 text-xs text-gray-600 dark:text-gray-300">Bat/tat rieng thong bao khi co follower moi va khi nguoi ban theo doi dang bai moi.</p>
+                        <div class="mt-3 space-y-2">
+                            <?php
+                            $followPrefOn = (int)($viewerNotifyPref['follow_events_enabled'] ?? 1) === 1;
+                            $newPostPrefOn = (int)($viewerNotifyPref['new_post_events_enabled'] ?? 1) === 1;
+                            ?>
+                            <button
+                                type="button"
+                                data-community-notify-pref="follow_events_enabled"
+                                data-enabled="<?= $followPrefOn ? '1' : '0'; ?>"
+                                class="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold <?= $followPrefOn ? 'bg-main text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200'; ?>">
+                                Follower moi: <?= $followPrefOn ? 'Dang bat' : 'Dang tat'; ?>
+                            </button>
+                            <button
+                                type="button"
+                                data-community-notify-pref="new_post_events_enabled"
+                                data-enabled="<?= $newPostPrefOn ? '1' : '0'; ?>"
+                                class="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold <?= $newPostPrefOn ? 'bg-main text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200'; ?>">
+                                Bai moi tu nguoi dang theo doi: <?= $newPostPrefOn ? 'Dang bat' : 'Dang tat'; ?>
+                            </button>
+                        </div>
+                    </section>
+                <?php endif; ?>
+
+                <?php if ($user_id > 0): ?>
+                    <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow p-4">
+                        <div class="flex items-center justify-between gap-2">
+                            <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Goi y nen theo doi</h3>
+                        </div>
+                        <div class="mt-3 space-y-2">
+                            <?php if (!empty($followSuggestions)): ?>
+                                <?php foreach ($followSuggestions as $suggest): ?>
+                                    <?php
+                                    $suggestUserId = (int)($suggest['user_id'] ?? 0);
+                                    $suggestName = (string)($suggest['user_name'] ?? 'User');
+                                    $suggestProfileUrl = function_exists('community_profile_path') ? community_profile_path($suggestUserId, $suggestName) : ('community_profile.php?user=' . $suggestUserId);
+                                    ?>
+                                    <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                                        <div class="flex items-center justify-between gap-2">
+                                            <a href="<?= htmlspecialchars($suggestProfileUrl, ENT_QUOTES, 'UTF-8'); ?>" class="text-sm font-semibold text-gray-900 dark:text-white hover:underline"><?= htmlspecialchars($suggestName, ENT_QUOTES, 'UTF-8'); ?></a>
+                                            <button
+                                                type="button"
+                                                class="px-2.5 py-1 rounded-md text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-main/10 hover:text-main"
+                                                data-community-follow-btn
+                                                data-target-user-id="<?= $suggestUserId; ?>"
+                                                data-following="0">Theo doi</button>
+                                        </div>
+                                        <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Hop chu de: <?= (int)($suggest['matched_posts'] ?? 0); ?> bai</p>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">Tuong tac them de nhan goi y theo doi phu hop hon.</p>
+                            <?php endif; ?>
+                        </div>
+                    </section>
+                <?php endif; ?>
 
                 <section class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow p-4">
                     <div class="flex items-center justify-between gap-2">
@@ -485,6 +629,13 @@ render_breadcrumb($breadcrumb_items);
                 return window.BLOG_ENDPOINTS.communityDigestPreference;
             }
             return 'community_digest_preference.php';
+        };
+
+        const getNotificationPreferenceEndpoint = () => {
+            if (window.BLOG_ENDPOINTS && window.BLOG_ENDPOINTS.communityNotificationPreference) {
+                return window.BLOG_ENDPOINTS.communityNotificationPreference;
+            }
+            return 'community_notification_preference.php';
         };
 
         const setLoading = (value) => {
@@ -853,6 +1004,37 @@ render_breadcrumb($breadcrumb_items);
                 return;
             }
 
+            if (action === 'pin') {
+                try {
+                    const fd = new FormData();
+                    fd.set('action', 'pin');
+                    fd.set('post_id', String(postId));
+                    const res = await fetch(getActionEndpoint(), {
+                        method: 'POST',
+                        body: fd,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin'
+                    });
+                    const payload = await res.json();
+                    if (!payload || payload.ok !== true) {
+                        showNotification((payload && payload.message) || 'Khong the cap nhat ghim bai viet.', 'error');
+                        return;
+                    }
+
+                    if (actionButton) {
+                        const isPinned = Number(payload.pinned || 0) === 1;
+                        actionButton.setAttribute('data-pinned', isPinned ? '1' : '0');
+                        actionButton.textContent = isPinned ? 'Bo ghim tren dau feed' : 'Ghim len dau feed';
+                    }
+                    showNotification(payload.message || 'Da cap nhat ghim bai viet.', 'success');
+                } catch (err) {
+                    showNotification('Loi ket noi khi cap nhat ghim bai viet.', 'error');
+                }
+                return;
+            }
+
             if (action === 'report') {
                 try {
                     const fd = new FormData();
@@ -882,6 +1064,116 @@ render_breadcrumb($breadcrumb_items);
                 } catch (err) {
                     showNotification('Loi ket noi khi bao cao bai viet.', 'error');
                 }
+            }
+        }
+
+        function syncFollowButtons(targetUserId, following, followersCount, followedByTarget) {
+            const selector = '[data-community-follow-btn][data-target-user-id="' + String(targetUserId) + '"]';
+            document.querySelectorAll(selector).forEach(function(btn) {
+                btn.setAttribute('data-following', following ? '1' : '0');
+                if (following) {
+                    btn.textContent = 'Dang theo doi';
+                    btn.classList.add('bg-main', 'text-white');
+                    btn.classList.remove('bg-gray-100', 'text-gray-700', 'dark:text-gray-200');
+                } else {
+                    btn.textContent = followedByTarget ? 'Theo doi lai' : 'Theo doi';
+                    btn.classList.remove('bg-main', 'text-white');
+                    btn.classList.add('bg-gray-100', 'text-gray-700', 'dark:text-gray-200');
+                }
+            });
+
+            const countSelector = '[data-community-followers-count][data-user-id="' + String(targetUserId) + '"]';
+            document.querySelectorAll(countSelector).forEach(function(el) {
+                el.textContent = String(Number(followersCount || 0));
+            });
+        }
+
+        async function submitFollow(button) {
+            const targetUserId = Number(button.getAttribute('data-target-user-id') || '0');
+            if (!targetUserId) {
+                return;
+            }
+
+            button.disabled = true;
+            try {
+                const fd = new FormData();
+                fd.set('action', 'follow');
+                fd.set('target_user_id', String(targetUserId));
+
+                const res = await fetch(getActionEndpoint(), {
+                    method: 'POST',
+                    body: fd,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                });
+                const payload = await res.json();
+                if (!payload || payload.ok !== true) {
+                    if (payload && payload.login_required && payload.login_url) {
+                        showNotification(payload.message || 'Ban can dang nhap.', 'warning');
+                        setTimeout(function() {
+                            window.location.href = payload.login_url;
+                        }, 500);
+                        return;
+                    }
+                    showNotification((payload && payload.message) || 'Khong the cap nhat theo doi.', 'error');
+                    return;
+                }
+
+                syncFollowButtons(
+                    Number(payload.target_user_id || targetUserId),
+                    Number(payload.following || 0) === 1,
+                    Number(payload.followers_count || 0),
+                    Boolean(payload.followed_by_target)
+                );
+                showNotification(payload.message || 'Da cap nhat theo doi.', 'success');
+            } catch (err) {
+                showNotification('Loi ket noi khi theo doi tac gia.', 'error');
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        async function toggleNotificationPreference(button) {
+            const key = String(button.getAttribute('data-community-notify-pref') || '');
+            const enabledNow = String(button.getAttribute('data-enabled') || '1') === '1';
+            if (!key) {
+                return;
+            }
+
+            try {
+                const fd = new FormData();
+                fd.set('key', key);
+                fd.set('enabled', enabledNow ? '0' : '1');
+                const res = await fetch(getNotificationPreferenceEndpoint(), {
+                    method: 'POST',
+                    body: fd,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                });
+                const payload = await res.json();
+                if (!payload || payload.ok !== true) {
+                    showNotification((payload && payload.message) || 'Khong the cap nhat cai dat thong bao.', 'error');
+                    return;
+                }
+
+                const enabled = (payload.preference && Number(payload.preference[key] || 0) === 1);
+                button.setAttribute('data-enabled', enabled ? '1' : '0');
+                button.classList.toggle('bg-main', enabled);
+                button.classList.toggle('text-white', enabled);
+                button.classList.toggle('bg-gray-100', !enabled);
+                button.classList.toggle('text-gray-700', !enabled);
+                if (key === 'follow_events_enabled') {
+                    button.textContent = 'Follower moi: ' + (enabled ? 'Dang bat' : 'Dang tat');
+                } else if (key === 'new_post_events_enabled') {
+                    button.textContent = 'Bai moi tu nguoi dang theo doi: ' + (enabled ? 'Dang bat' : 'Dang tat');
+                }
+                showNotification(payload.message || 'Da cap nhat cai dat thong bao.', 'success');
+            } catch (err) {
+                showNotification('Loi ket noi khi cap nhat cai dat thong bao.', 'error');
             }
         }
 
@@ -1163,6 +1455,13 @@ render_breadcrumb($breadcrumb_items);
                 return;
             }
 
+            const followButton = event.target.closest('[data-community-follow-btn]');
+            if (followButton) {
+                event.preventDefault();
+                submitFollow(followButton);
+                return;
+            }
+
             const pollButton = event.target.closest('[data-community-poll-option]');
             if (pollButton) {
                 event.preventDefault();
@@ -1201,6 +1500,13 @@ render_breadcrumb($breadcrumb_items);
                 } catch (err) {
                     showNotification('Loi ket noi khi cap nhat digest.', 'error');
                 }
+                return;
+            }
+
+            const notifyPrefBtn = event.target.closest('[data-community-notify-pref]');
+            if (notifyPrefBtn) {
+                event.preventDefault();
+                toggleNotificationPreference(notifyPrefBtn);
                 return;
             }
 

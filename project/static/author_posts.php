@@ -1,6 +1,7 @@
 <?php
 include '../components/connect.php';
 include '../components/seo_helpers.php';
+include_once '../components/breadcrumb.php';
 
 if (function_exists('blog_inject_lazy_loading_into_html')) {
     ob_start('blog_inject_lazy_loading_into_html');
@@ -8,11 +9,7 @@ if (function_exists('blog_inject_lazy_loading_into_html')) {
 
 session_start();
 
-if (isset($_SESSION['user_id'])) {
-    $user_id = $_SESSION['user_id'];
-} else {
-    $user_id = '';
-}
+$user_id = (string)($_SESSION['user_id'] ?? '');
 
 include '../components/like_post.php';
 include '../components/save_post.php';
@@ -135,8 +132,9 @@ $popular_posts = $conn->prepare("
 $popular_posts->execute([$author]);
 $display_author_name = blog_decode_html_entities_deep((string)$author);
 
-function render_author_posts_section(PDO $conn, array $posts_rows, string $user_id, string $author, string $sort, int $current_page, int $total_pages): string
+function render_author_posts_section(PDO $conn, array $posts_rows, ?string $user_id, string $author, string $sort, int $current_page, int $total_pages): string
 {
+    $user_id = (string)($user_id ?? '');
     ob_start();
 ?>
     <?php if (!empty($posts_rows)) : ?>
@@ -249,9 +247,13 @@ function render_author_posts_section(PDO $conn, array $posts_rows, string $user_
                     $start = max(1, $current_page - 2);
                     $end = min($total_pages, $current_page + 2);
 
-                    for ($i = $start; $i <= $end; $i++) : ?>
+                    for ($i = $start; $i <= $end; $i++) :
+                        $pageClass = $i === $current_page
+                            ? 'flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-300 shadow-lg bg-main text-white border-main'
+                            : 'flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-main hover:text-white hover:border-main';
+                    ?>
                         <a data-author-ajax-link="1" href="?author=<?= urlencode($author) ?>&sort=<?= urlencode($sort) ?>&page=<?= $i ?>"
-                            class="flex items-center justify-center w-10 h-10 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl <?= $i == $current_page ? 'bg-main text-white border-main' : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-main hover:text-white hover:border-main' ?>">
+                            class="<?= $pageClass; ?>">
                             <?= $i ?>
                         </a>
                     <?php endfor; ?>
@@ -296,8 +298,9 @@ function render_author_posts_section(PDO $conn, array $posts_rows, string $user_
     return ob_get_clean();
 }
 
-function render_author_main_content(PDO $conn, array $posts_rows, string $user_id, string $author, string $sort, int $total_posts, int $current_page, int $total_pages): string
+function render_author_main_content(PDO $conn, array $posts_rows, ?string $user_id, string $author, string $sort, int $total_posts, int $current_page, int $total_pages): string
 {
+    $user_id = (string)($user_id ?? '');
     ob_start();
     ?>
     <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-8 border border-gray-200 dark:border-gray-700">
@@ -316,9 +319,13 @@ function render_author_main_content(PDO $conn, array $posts_rows, string $user_i
                         'comments' => ['icon' => 'comments', 'label' => 'Nhiều bình luận']
                     ];
                     foreach ($sort_options as $sort_key => $sort_info) :
+                        $isActiveSort = $sort === $sort_key;
+                        $sortClass = $isActiveSort
+                            ? 'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 flex items-center space-x-2 bg-main text-white shadow-lg'
+                            : 'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-main hover:text-white';
                     ?>
                         <a data-author-ajax-link="1" href="?author=<?= urlencode($author) ?>&sort=<?= $sort_key ?>&page=1"
-                            class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 flex items-center space-x-2 <?= $sort == $sort_key ? 'bg-main text-white shadow-lg' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-main hover:text-white' ?>">
+                            class="<?= $sortClass; ?>">
                             <i class="fas fa-<?= $sort_info['icon'] ?>"></i>
                             <span><?= $sort_info['label'] ?></span>
                         </a>
@@ -339,28 +346,26 @@ function render_author_main_content(PDO $conn, array $posts_rows, string $user_i
 }
 
 $is_ajax_request = isset($_GET['ajax']) && $_GET['ajax'] === '1';
+$render_user_id = (string)($user_id ?? '');
 if ($is_ajax_request) {
-    echo render_author_main_content($conn, $posts_rows, $user_id, $author, $sort, (int)$total_posts, $current_page, (int)$total_pages);
+    echo render_author_main_content($conn, $posts_rows, $render_user_id, $author, $sort, (int)$total_posts, $current_page, (int)$total_pages);
     exit;
 }
 ?>
 
 <?php include '../components/layout_header.php'; ?>
 
+<?php
+$breadcrumb_items = [
+    ['title' => 'Trang chủ', 'url' => '../static/home.php'],
+    ['title' => 'Bài viết', 'url' => 'posts.php'],
+    ['title' => 'Tác giả: ' . $display_author_name, 'url' => '']
+];
+render_breadcrumb($breadcrumb_items);
+?>
+
 <main class="min-h-screen bg-gray-50 dark:bg-gray-900">
     <div class="container-custom py-8">
-        <!-- Breadcrumb -->
-        <nav class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 mb-8">
-            <a href="../static/home.php" class="hover:text-main transition-colors">
-                <i class="fas fa-home"></i>
-                Trang chủ
-            </a>
-            <i class="fas fa-chevron-right text-xs"></i>
-            <a href="posts.php" class="hover:text-main transition-colors">Bài viết</a>
-            <i class="fas fa-chevron-right text-xs"></i>
-            <span class="text-main font-medium">Tác giả: <?= htmlspecialchars($display_author_name, ENT_QUOTES, 'UTF-8') ?></span>
-        </nav>
-
         <!-- Author Profile Header -->
         <?php if ($author_data) : ?>
             <div class="bg-gradient-to-r from-main to-blue-600 rounded-3xl p-8 mb-8 text-white relative overflow-hidden">
@@ -413,7 +418,7 @@ if ($is_ajax_request) {
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <!-- Main Content -->
             <div class="lg:col-span-3" id="author-main-content">
-                <?= render_author_main_content($conn, $posts_rows, $user_id, $author, $sort, (int)$total_posts, $current_page, (int)$total_pages); ?>
+                <?= render_author_main_content($conn, $posts_rows, $render_user_id, $author, $sort, (int)$total_posts, $current_page, (int)$total_pages); ?>
             </div>
 
             <!-- Sidebar -->

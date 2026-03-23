@@ -1,5 +1,6 @@
 <?php
 include '../components/connect.php';
+include_once '../components/admin_pagination.php';
 session_start();
 
 $admin_id = $_SESSION['admin_id'] ?? null;
@@ -208,16 +209,7 @@ function categoriesPageUrl($targetPage)
 
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:1rem;">
                     <div>Trang <?= (int)$page; ?>/<?= (int)$totalPages; ?> - Tổng: <?= (int)$totalRows; ?> danh mục</div>
-                    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-                        <?php if ($page > 1): ?>
-                            <a data-admin-ajax-link="1" class="option-btn ui-btn-warning" href="<?= htmlspecialchars(categoriesPageUrl(1)); ?>">Đầu</a>
-                            <a data-admin-ajax-link="1" class="option-btn ui-btn-warning" href="<?= htmlspecialchars(categoriesPageUrl($page - 1)); ?>">Trước</a>
-                        <?php endif; ?>
-                        <?php if ($page < $totalPages): ?>
-                            <a data-admin-ajax-link="1" class="btn ui-btn" href="<?= htmlspecialchars(categoriesPageUrl($page + 1)); ?>">Sau</a>
-                            <a data-admin-ajax-link="1" class="btn ui-btn" href="<?= htmlspecialchars(categoriesPageUrl($totalPages)); ?>">Cuối</a>
-                        <?php endif; ?>
-                    </div>
+                    <?= admin_render_numeric_pagination($page, $totalPages, 'categoriesPageUrl', 'data-admin-ajax-link="1"'); ?>
                 </div>
             </form>
         </div>

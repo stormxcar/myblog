@@ -2,6 +2,7 @@
 include '../components/connect.php';
 include '../components/community_engine.php';
 include '../components/seo_helpers.php';
+include '../components/admin_pagination.php';
 session_start();
 
 $admin_id = $_SESSION['admin_id'] ?? null;
@@ -363,7 +364,7 @@ function communityAdminPageUrl($targetPage)
         </div>
 
         <article class="admin-panel-card" style="margin-bottom:1.2rem;">
-            <form method="get" style="display:flex;gap:.8rem;flex-wrap:wrap;align-items:center;">
+            <form method="get" data-admin-ajax-form="1" style="display:flex;gap:.8rem;flex-wrap:wrap;align-items:center;">
                 <input type="text" name="q" class="box" placeholder="Tìm theo ID, người đăng, nội dung" value="<?= htmlspecialchars($q, ENT_QUOTES, 'UTF-8'); ?>">
 
                 <select name="status" class="box ui-select">
@@ -404,12 +405,13 @@ function communityAdminPageUrl($targetPage)
 
                 <input type="hidden" name="page" value="1">
                 <button type="submit" class="btn ui-btn">Lọc</button>
-                <a href="community_posts.php" class="delete-btn ui-btn-danger" style="text-decoration:none;display:inline-flex;align-items:center;">Reset</a>
+                <a href="community_posts.php" data-admin-ajax-link="1" class="delete-btn ui-btn-danger" style="text-decoration:none;display:inline-flex;align-items:center;">Reset</a>
+                <button type="button" data-admin-refresh="1" class="option-btn ui-btn-warning">Làm mới</button>
             </form>
         </article>
 
         <div class="box-container ui-card">
-            <form method="post" action="<?= htmlspecialchars($_SERVER['REQUEST_URI'] ?? 'community_posts.php', ENT_QUOTES, 'UTF-8'); ?>" onsubmit="return confirm('Bạn chắc chắn thực hiện thao tác này?');">
+            <form method="post" data-admin-ajax-post-form="1" action="<?= htmlspecialchars($_SERVER['REQUEST_URI'] ?? 'community_posts.php', ENT_QUOTES, 'UTF-8'); ?>" onsubmit="return confirm('Bạn chắc chắn thực hiện thao tác này?');">
                 <div style="display:flex;gap:.8rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem;">
                     <label style="display:flex;align-items:center;gap:.4rem;">
                         <input type="checkbox" id="checkAllCommunityPosts"> Chọn tất cả
@@ -529,16 +531,9 @@ function communityAdminPageUrl($targetPage)
 
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:1rem;">
                     <div>Trang <?= (int)$page; ?>/<?= (int)$totalPages; ?> - Tổng: <?= (int)$totalRows; ?> bài community</div>
-                    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-                        <?php if ($page > 1): ?>
-                            <a class="option-btn ui-btn-warning" href="<?= htmlspecialchars(communityAdminPageUrl(1), ENT_QUOTES, 'UTF-8'); ?>">Đầu</a>
-                            <a class="option-btn ui-btn-warning" href="<?= htmlspecialchars(communityAdminPageUrl($page - 1), ENT_QUOTES, 'UTF-8'); ?>">Trước</a>
-                        <?php endif; ?>
-                        <?php if ($page < $totalPages): ?>
-                            <a class="btn ui-btn" href="<?= htmlspecialchars(communityAdminPageUrl($page + 1), ENT_QUOTES, 'UTF-8'); ?>">Sau</a>
-                            <a class="btn ui-btn" href="<?= htmlspecialchars(communityAdminPageUrl($totalPages), ENT_QUOTES, 'UTF-8'); ?>">Cuối</a>
-                        <?php endif; ?>
-                    </div>
+                    <?= admin_render_numeric_pagination((int)$page, (int)$totalPages, static function (int $targetPage): string {
+                        return communityAdminPageUrl($targetPage);
+                    }, 'data-admin-ajax-link="1"'); ?>
                 </div>
             </form>
         </div>

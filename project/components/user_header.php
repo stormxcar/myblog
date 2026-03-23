@@ -88,6 +88,7 @@ $avatarSrc = blog_user_avatar_src($avatar['avatar'] ?? null, '../uploaded_img/de
       communityCommentAdd: <?= json_encode(site_url('static/community_comment_add.php'), JSON_UNESCAPED_UNICODE); ?>,
       communityManage: <?= json_encode(site_url('static/community_post_manage_api.php'), JSON_UNESCAPED_UNICODE); ?>,
       communityDigestPreference: <?= json_encode(site_url('static/community_digest_preference.php'), JSON_UNESCAPED_UNICODE); ?>,
+      communityNotificationPreference: <?= json_encode(site_url('static/community_notification_preference.php'), JSON_UNESCAPED_UNICODE); ?>,
       commentVote: <?= json_encode(site_url('static/comment_vote.php'), JSON_UNESCAPED_UNICODE); ?>,
       notifications: <?= json_encode(site_url('static/notifications_api.php'), JSON_UNESCAPED_UNICODE); ?>
    };
@@ -193,7 +194,7 @@ $avatarSrc = blog_user_avatar_src($avatar['avatar'] ?? null, '../uploaded_img/de
                         Cập nhật hồ sơ
                      </a>
                      <a href="<?= get_user_link('new_post'); ?>" class="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                        Viết bài mới
+                        Bài viết mới nhất
                      </a>
                      <a href="<?= get_user_link('community_create'); ?>" class="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         Đăng bài cộng đồng
@@ -281,7 +282,7 @@ $avatarSrc = blog_user_avatar_src($avatar['avatar'] ?? null, '../uploaded_img/de
                      Cập nhật hồ sơ
                   </a>
                   <a href="<?= get_user_link('new_post'); ?>" class="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                     Viết bài mới
+                     Bài viết mới nhất
                   </a>
                   <a href="<?= get_user_link('community_create'); ?>" class="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                      Đăng bài cộng đồng

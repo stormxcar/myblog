@@ -14,6 +14,28 @@ if (!isset($page_robots)) {
 include_once 'navigation_links.php';
 include_once 'seo_helpers.php';
 
+if (!function_exists('layout_asset_url')) {
+    function layout_asset_url($path)
+    {
+        $path = trim((string)$path);
+        if ($path === '') {
+            return '';
+        }
+
+        if (
+            strpos($path, 'http://') === 0
+            || strpos($path, 'https://') === 0
+            || strpos($path, '//') === 0
+            || strpos($path, 'data:') === 0
+        ) {
+            return $path;
+        }
+
+        $normalized = preg_replace('#^(\./|\.\./)+#', '', $path);
+        return site_url(ltrim((string)$normalized, '/'));
+    }
+}
+
 if (!defined('BLOG_LAYOUT_ASSETS')) {
     define('BLOG_LAYOUT_ASSETS', true);
 }
@@ -64,16 +86,16 @@ $og_image = isset($page_og_image) && !empty($page_og_image)
     <meta name="twitter:image" content="<?= htmlspecialchars($og_image, ENT_QUOTES, 'UTF-8'); ?>">
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="../uploaded_img/logo-removebg.png">
+    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars(layout_asset_url('uploaded_img/logo-removebg.png'), ENT_QUOTES, 'UTF-8'); ?>">
 
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 
     <!-- Tailwind CSS Output -->
-    <link rel="stylesheet" href="../css/output.css">
-    <link rel="stylesheet" href="../css/ui-system.css">
-    <link rel="stylesheet" href="../css/blog-modern.css">
-    <link rel="stylesheet" href="../css/gooey-toast.css">
+    <link rel="stylesheet" href="<?= htmlspecialchars(layout_asset_url('css/output.css'), ENT_QUOTES, 'UTF-8'); ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(layout_asset_url('css/ui-system.css'), ENT_QUOTES, 'UTF-8'); ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(layout_asset_url('css/blog-modern.css'), ENT_QUOTES, 'UTF-8'); ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(layout_asset_url('css/gooey-toast.css'), ENT_QUOTES, 'UTF-8'); ?>">
 
     <!-- External Libraries -->
     <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css">
@@ -85,25 +107,48 @@ $og_image = isset($page_og_image) && !empty($page_og_image)
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
     <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/swiper@10/swiper-element-bundle.min.js"></script>
-    <script src="../js/gooey-toast.js"></script>
+    <script src="<?= htmlspecialchars(layout_asset_url('js/gooey-toast.js'), ENT_QUOTES, 'UTF-8'); ?>"></script>
 
     <!-- Custom Scripts -->
-    <script src="../js/blog-global.js" defer></script>
-    <script src="../js/script_edit.js" defer></script>
+    <script src="<?= htmlspecialchars(layout_asset_url('js/blog-global.js'), ENT_QUOTES, 'UTF-8'); ?>" defer></script>
+    <script src="<?= htmlspecialchars(layout_asset_url('js/script_edit.js'), ENT_QUOTES, 'UTF-8'); ?>" defer></script>
 
     <!-- Custom Styles for specific pages -->
     <?php if (isset($additional_styles)): ?>
         <?php foreach ($additional_styles as $style): ?>
-            <link rel="stylesheet" href="<?= $style; ?>">
+            <link rel="stylesheet" href="<?= htmlspecialchars(layout_asset_url($style), ENT_QUOTES, 'UTF-8'); ?>">
         <?php endforeach; ?>
     <?php endif; ?>
 
     <!-- Custom Scripts for specific pages -->
     <?php if (isset($additional_scripts)): ?>
         <?php foreach ($additional_scripts as $script): ?>
-            <script src="<?= $script; ?>" defer></script>
+            <script src="<?= htmlspecialchars(layout_asset_url($script), ENT_QUOTES, 'UTF-8'); ?>" defer></script>
         <?php endforeach; ?>
     <?php endif; ?>
+
+    <?php
+    if (isset($page_structured_data)) {
+        $structuredItems = [];
+        if (is_array($page_structured_data) && array_keys($page_structured_data) === range(0, count($page_structured_data) - 1)) {
+            $structuredItems = $page_structured_data;
+        } elseif (is_array($page_structured_data)) {
+            $structuredItems = [$page_structured_data];
+        }
+
+        foreach ($structuredItems as $structuredItem) {
+            if (!is_array($structuredItem) || empty($structuredItem)) {
+                continue;
+            }
+
+            $jsonLd = json_encode($structuredItem, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if (!is_string($jsonLd) || $jsonLd === '') {
+                continue;
+            }
+            echo '<script type="application/ld+json">' . $jsonLd . '</script>';
+        }
+    }
+    ?>
 </head>
 
 <body class="bg-light-bg dark:bg-main transition-colors duration-300">

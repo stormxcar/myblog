@@ -43,6 +43,27 @@
     document.head.appendChild(style);
   })();
 
+  (function addCommunityCarouselStyles() {
+    if (document.getElementById("community-carousel-shared-style")) {
+      return;
+    }
+    const style = document.createElement("style");
+    style.id = "community-carousel-shared-style";
+    style.textContent = `
+      .community-carousel{position:relative}
+      .community-carousel-track{display:flex;width:100%;transition:transform .35s ease}
+      .community-carousel-slide{position:relative;min-width:100%}
+      .community-carousel-nav{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:999px;border:1px solid rgba(255,255,255,.55);background:rgba(15,23,42,.55);color:#fff;z-index:4;transition:background-color .2s ease}
+      .community-carousel-nav:hover{background:rgba(15,23,42,.85)}
+      .community-carousel-nav.is-prev{left:10px}
+      .community-carousel-nav.is-next{right:10px}
+      .community-carousel-dots{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);display:inline-flex;align-items:center;gap:6px;z-index:4;padding:4px 8px;border-radius:999px;background:rgba(2,6,23,.45)}
+      .community-carousel-dot{width:8px;height:8px;border-radius:999px;background:rgba(255,255,255,.6);transition:transform .2s ease,background-color .2s ease}
+      .community-carousel-dot.is-active{background:#fff;transform:scale(1.18)}
+    `;
+    document.head.appendChild(style);
+  })();
+
   function ensureReportModal() {
     let modal = document.getElementById("community-report-modal");
     if (modal) {
@@ -174,6 +195,47 @@
     function initCarousels(root) {
       const scope = root || document;
       scope
+        .querySelectorAll("[data-community-lazy-image]")
+        .forEach(function (img) {
+          if (img.dataset.communityLazyBound === "1") {
+            return;
+          }
+          img.dataset.communityLazyBound = "1";
+
+          const reveal = function () {
+            img.classList.remove("opacity-0");
+            img.classList.add("opacity-100");
+            const spinner = img
+              .closest(".media-item")
+              ?.querySelector(".community-image-spinner");
+            if (spinner) {
+              spinner.style.display = "none";
+            }
+          };
+
+          if (img.complete && img.naturalWidth > 0) {
+            reveal();
+          } else {
+            img.addEventListener("load", reveal, { once: true });
+            img.addEventListener(
+              "error",
+              function () {
+                const spinner = img
+                  .closest(".media-item")
+                  ?.querySelector(".community-image-spinner");
+                if (spinner) {
+                  spinner.innerHTML =
+                    '<i class="fas fa-image text-gray-400"></i>';
+                }
+                img.classList.remove("opacity-0");
+                img.classList.add("opacity-100");
+              },
+              { once: true },
+            );
+          }
+        });
+
+      scope
         .querySelectorAll("[data-community-carousel]")
         .forEach(function (carousel) {
           if (carousel.dataset.carouselBound === "1") {
@@ -243,6 +305,32 @@
 
           update();
         });
+    }
+
+    function applyPinnedPlacement(postId, pinned) {
+      const postEl = document.getElementById(
+        "community-post-" + String(postId || ""),
+      );
+      if (!postEl) {
+        return;
+      }
+
+      const listRoot = postEl.closest("[data-community-feed-list]");
+      if (!listRoot) {
+        return;
+      }
+
+      if (pinned) {
+        const firstCard = listRoot.querySelector(".community-post-card");
+        if (firstCard && firstCard !== postEl) {
+          listRoot.insertBefore(postEl, firstCard);
+        }
+      }
+
+      postEl.classList.add("ring-2", "ring-main/40");
+      setTimeout(function () {
+        postEl.classList.remove("ring-2", "ring-main/40");
+      }, 1200);
     }
 
     async function submitVote(button) {
@@ -473,6 +561,59 @@
         return;
       }
 
+      if (action === "pin") {
+        try {
+          const fd = new FormData();
+          fd.set("action", "pin");
+          fd.set("post_id", String(postId));
+
+          const res = await fetch(getActionEndpoint(), {
+            method: "POST",
+            body: fd,
+            headers: {
+              "X-Requested-With": "XMLHttpRequest",
+            },
+            credentials: "same-origin",
+          });
+          const payload = await res.json();
+
+          if (!payload || payload.ok !== true) {
+            if (typeof showNotification === "function") {
+              showNotification(
+                (payload && payload.message) ||
+                  "Khong the cap nhat ghim bai viet.",
+                "error",
+              );
+            }
+            return;
+          }
+
+          if (actionButton) {
+            const pinned = Number(payload.pinned || 0) === 1;
+            actionButton.setAttribute("data-pinned", pinned ? "1" : "0");
+            actionButton.textContent = pinned
+              ? "Bo ghim tren dau feed"
+              : "Ghim len dau feed";
+            applyPinnedPlacement(postId, pinned);
+          }
+
+          if (typeof showNotification === "function") {
+            showNotification(
+              payload.message || "Da cap nhat ghim bai viet.",
+              "success",
+            );
+          }
+        } catch (err) {
+          if (typeof showNotification === "function") {
+            showNotification(
+              "Loi ket noi khi cap nhat ghim bai viet.",
+              "error",
+            );
+          }
+        }
+        return;
+      }
+
       if (action === "report") {
         const reason = await openReportReasonPicker();
         if (!reason) {
@@ -513,6 +654,126 @@
             showNotification("Lỗi kết nối khi báo cáo bài viết.", "error");
           }
         }
+      }
+    }
+
+    function updateFollowButtons(
+      targetUserId,
+      following,
+      followersCount,
+      followedByTarget,
+    ) {
+      const normalizedTarget = String(targetUserId || "");
+      if (!normalizedTarget) {
+        return;
+      }
+
+      const btnSelector =
+        '[data-community-follow-btn][data-target-user-id="' +
+        normalizedTarget +
+        '"]';
+      document.querySelectorAll(btnSelector).forEach(function (button) {
+        button.setAttribute("data-following", following ? "1" : "0");
+        if (following) {
+          button.textContent = "Dang theo doi";
+          button.classList.remove(
+            "bg-gray-100",
+            "dark:bg-gray-700",
+            "text-gray-700",
+            "dark:text-gray-200",
+            "hover:bg-main/10",
+            "hover:text-main",
+          );
+          button.classList.add("bg-main", "text-white", "hover:bg-main/90");
+        } else {
+          button.textContent = followedByTarget ? "Theo doi lai" : "Theo doi";
+          button.classList.remove("bg-main", "text-white", "hover:bg-main/90");
+          button.classList.add(
+            "bg-gray-100",
+            "dark:bg-gray-700",
+            "text-gray-700",
+            "dark:text-gray-200",
+            "hover:bg-main/10",
+            "hover:text-main",
+          );
+        }
+      });
+
+      const countSelector =
+        '[data-community-followers-count][data-user-id="' +
+        normalizedTarget +
+        '"]';
+      document.querySelectorAll(countSelector).forEach(function (countEl) {
+        countEl.textContent = String(Math.max(0, Number(followersCount || 0)));
+      });
+    }
+
+    async function submitFollow(button) {
+      const targetUserId = Number(
+        button.getAttribute("data-target-user-id") || "0",
+      );
+      if (!targetUserId) {
+        return;
+      }
+
+      button.disabled = true;
+      try {
+        const fd = new FormData();
+        fd.set("action", "follow");
+        fd.set("target_user_id", String(targetUserId));
+
+        const res = await fetch(getActionEndpoint(), {
+          method: "POST",
+          body: fd,
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+          },
+          credentials: "same-origin",
+        });
+
+        const payload = await res.json();
+        if (!payload || payload.ok !== true) {
+          if (payload && payload.login_required && payload.login_url) {
+            if (typeof showNotification === "function") {
+              showNotification(
+                payload.message || "Vui long dang nhap.",
+                "warning",
+              );
+            }
+            setTimeout(function () {
+              window.location.href = payload.login_url;
+            }, 500);
+            return;
+          }
+
+          if (typeof showNotification === "function") {
+            showNotification(
+              (payload && payload.message) || "Khong the cap nhat theo doi.",
+              "error",
+            );
+          }
+          return;
+        }
+
+        updateFollowButtons(
+          Number(payload.target_user_id || targetUserId),
+          Number(payload.following || 0) === 1,
+          Number(payload.followers_count || 0),
+          Boolean(payload.followed_by_target),
+        );
+
+        if (typeof showNotification === "function") {
+          showNotification(
+            payload.message || "Da cap nhat trang thai theo doi.",
+            "success",
+          );
+        }
+      } catch (err) {
+        if (typeof showNotification === "function") {
+          showNotification("Loi ket noi khi theo doi tac gia.", "error");
+        }
+      } finally {
+        button.disabled = false;
       }
     }
 
@@ -559,6 +820,13 @@
         return true;
       }
 
+      const followButton = event.target.closest("[data-community-follow-btn]");
+      if (followButton) {
+        event.preventDefault();
+        submitFollow(followButton);
+        return true;
+      }
+
       const voteButton = event.target.closest("[data-community-vote-btn]");
       if (voteButton) {
         event.preventDefault();
@@ -586,6 +854,7 @@
     return {
       initCarousels: initCarousels,
       submitVote: submitVote,
+      submitFollow: submitFollow,
       handleCardAction: handleCardAction,
       handleClick: handleClick,
       bindDelegation: bindDelegation,

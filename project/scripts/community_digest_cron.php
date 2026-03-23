@@ -48,6 +48,22 @@ $commentCountStmt = $conn->prepare("SELECT COUNT(*)
       AND c.status = 'active'
       AND c.created_at > ?");
 
+$followingWeeklyCountStmt = $conn->prepare("SELECT COUNT(*)
+        FROM community_user_follows f
+        INNER JOIN community_posts p ON p.user_id = f.following_user_id
+        WHERE f.follower_user_id = ?
+            AND p.status = 'published'
+            AND p.created_at > ?");
+
+$followingWeeklyTitlesStmt = $conn->prepare("SELECT p.post_title, p.content
+        FROM community_user_follows f
+        INNER JOIN community_posts p ON p.user_id = f.following_user_id
+        WHERE f.follower_user_id = ?
+            AND p.status = 'published'
+            AND p.created_at > ?
+        ORDER BY p.created_at DESC
+        LIMIT 3");
+
 $sent = 0;
 foreach ($users as $row) {
     $uid = (int)($row['user_id'] ?? 0);
@@ -61,20 +77,50 @@ foreach ($users as $row) {
         continue;
     }
 
-    $reactionCountStmt->execute([$uid, $lastSentAt]);
-    $reactionCount = (int)$reactionCountStmt->fetchColumn();
+    if ($frequency === 'weekly') {
+        $followingWeeklyCountStmt->execute([$uid, $lastSentAt]);
+        $newFollowingPosts = (int)$followingWeeklyCountStmt->fetchColumn();
 
-    $commentCountStmt->execute([$uid, $lastSentAt]);
-    $commentCount = (int)$commentCountStmt->fetchColumn();
+        if ($newFollowingPosts <= 0) {
+            $updateSentStmt->execute([$uid]);
+            continue;
+        }
 
-    if ($reactionCount <= 0 && $commentCount <= 0) {
-        $updateSentStmt->execute([$uid]);
-        continue;
+        $followingWeeklyTitlesStmt->execute([$uid, $lastSentAt]);
+        $rows = $followingWeeklyTitlesStmt->fetchAll(PDO::FETCH_ASSOC);
+        $titles = [];
+        foreach ($rows as $row) {
+            $title = trim((string)($row['post_title'] ?? ''));
+            if ($title === '') {
+                $title = community_extract_title((string)($row['content'] ?? ''));
+            }
+            if ($title !== '') {
+                $titles[] = mb_substr($title, 0, 50, 'UTF-8');
+            }
+        }
+
+        $title = 'Digest tuan tu nguoi ban theo doi';
+        $message = 'Tuan nay co ' . $newFollowingPosts . ' bai moi tu nguoi ban theo doi.';
+        if (!empty($titles)) {
+            $message .= ' Goi y: ' . implode(' | ', $titles);
+        }
+        blog_push_notification($conn, $uid, 'community_digest_following', $title, $message, site_url('static/community_feed.php'));
+    } else {
+        $reactionCountStmt->execute([$uid, $lastSentAt]);
+        $reactionCount = (int)$reactionCountStmt->fetchColumn();
+
+        $commentCountStmt->execute([$uid, $lastSentAt]);
+        $commentCount = (int)$commentCountStmt->fetchColumn();
+
+        if ($reactionCount <= 0 && $commentCount <= 0) {
+            $updateSentStmt->execute([$uid]);
+            continue;
+        }
+
+        $title = 'Digest ngay cong dong';
+        $message = 'Ban co ' . $reactionCount . ' luot react va ' . $commentCount . ' binh luan moi tren bai viet cong dong.';
+        blog_push_notification($conn, $uid, 'community_digest', $title, $message, site_url('static/community_feed.php'));
     }
-
-    $title = $frequency === 'weekly' ? 'Digest tuan cong dong' : 'Digest ngay cong dong';
-    $message = 'Ban co ' . $reactionCount . ' luot react va ' . $commentCount . ' binh luan moi tren bai viet cong dong.';
-    blog_push_notification($conn, $uid, 'community_digest', $title, $message, site_url('static/community_feed.php'));
 
     $updateSentStmt->execute([$uid]);
     $sent++;

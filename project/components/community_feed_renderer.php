@@ -10,12 +10,34 @@ if (!function_exists('community_fetch_feed_posts_page')) {
         $topicSlug = trim((string)$topicSlug);
 
         $params = [];
-        $where = "(p.status = 'published'";
+        $pinJoin = '';
+        $pinSelect = '';
         if ($userId > 0) {
-            $where .= " OR (p.status = 'draft' AND p.user_id = :viewer_id)";
-            $params[':viewer_id'] = $userId;
+            $where = "(
+                (p.status = 'published' AND (
+                    p.privacy = 'public'
+                        OR p.user_id = :viewer_id_owner
+                    OR (
+                        p.privacy = 'followers'
+                        AND EXISTS (
+                            SELECT 1
+                            FROM community_user_follows f
+                                WHERE f.follower_user_id = :viewer_id_follow
+                            AND f.following_user_id = p.user_id
+                        )
+                    )
+                ))
+                    OR (p.status = 'draft' AND p.user_id = :viewer_id_draft)
+            )";
+            $params[':viewer_id_owner'] = $userId;
+            $params[':viewer_id_follow'] = $userId;
+            $params[':viewer_id_draft'] = $userId;
+            $pinJoin = ' LEFT JOIN community_user_pins cup ON cup.post_id = p.id AND cup.user_id = :pin_user_id ';
+            $pinSelect = ', CASE WHEN cup.id IS NULL THEN 0 ELSE 1 END AS is_pinned';
+            $params[':pin_user_id'] = $userId;
+        } else {
+            $where = "(p.status = 'published' AND p.privacy = 'public')";
         }
-        $where .= ')';
 
         $topicJoin = '';
         if ($topicSlug !== '') {
@@ -24,16 +46,17 @@ if (!function_exists('community_fetch_feed_posts_page')) {
             $params[':topic_slug'] = $topicSlug;
         }
 
-        $sql = "SELECT DISTINCT p.*
+        $sql = "SELECT DISTINCT p.*{$pinSelect}
                 FROM community_posts p
                 {$topicJoin}
+                {$pinJoin}
                 WHERE {$where}
-                ORDER BY p.created_at DESC
+                ORDER BY " . ($userId > 0 ? 'is_pinned DESC, ' : '') . "p.created_at DESC
                 LIMIT :fetch_limit OFFSET :fetch_offset";
 
         $stmt = $conn->prepare($sql);
         foreach ($params as $k => $v) {
-            if ($k === ':viewer_id') {
+            if (in_array($k, [':viewer_id_owner', ':viewer_id_follow', ':viewer_id_draft', ':pin_user_id'], true)) {
                 $stmt->bindValue($k, (int)$v, PDO::PARAM_INT);
             } else {
                 $stmt->bindValue($k, (string)$v, PDO::PARAM_STR);
@@ -75,6 +98,9 @@ if (!function_exists('community_load_post_maps')) {
             'topicsByPost' => [],
             'badgesByUser' => [],
             'pollByPost' => [],
+            'followersCountByAuthor' => [],
+            'followingByAuthor' => [],
+            'followedByAuthor' => [],
         ];
 
         if (empty($postIds)) {
@@ -176,6 +202,22 @@ if (!function_exists('community_load_post_maps')) {
         $authorIds = array_values(array_unique(array_map(function ($row) {
             return (int)($row['user_id'] ?? 0);
         }, $posts)));
+
+        if (!empty($authorIds)) {
+            if (function_exists('community_get_follower_counts_by_author_ids')) {
+                $result['followersCountByAuthor'] = community_get_follower_counts_by_author_ids($conn, $authorIds);
+            }
+
+            if ($userId > 0) {
+                if (function_exists('community_get_viewer_following_author_map')) {
+                    $result['followingByAuthor'] = community_get_viewer_following_author_map($conn, $userId, $authorIds);
+                }
+                if (function_exists('community_get_authors_following_viewer_map')) {
+                    $result['followedByAuthor'] = community_get_authors_following_viewer_map($conn, $userId, $authorIds);
+                }
+            }
+        }
+
         if (!empty($authorIds) && function_exists('community_build_user_badges_map')) {
             $result['badgesByUser'] = community_build_user_badges_map($conn, $authorIds);
         }
@@ -214,14 +256,32 @@ if (!function_exists('community_fetch_saved_posts_page')) {
             INNER JOIN community_posts p ON p.id = sp.post_id
             {$topicJoin}
             WHERE sp.user_id = :user_id
-            AND (p.status = 'published' OR p.user_id = :owner_id)
+            AND (
+                p.user_id = :owner_id_self
+                OR (
+                    p.status = 'published'
+                    AND (
+                        p.privacy = 'public'
+                        OR (
+                            p.privacy = 'followers'
+                            AND EXISTS (
+                                SELECT 1
+                                FROM community_user_follows f
+                                WHERE f.follower_user_id = :owner_id_follow
+                                AND f.following_user_id = p.user_id
+                            )
+                        )
+                    )
+                )
+            )
             {$topicWhere}
             ORDER BY sp.created_at DESC
             LIMIT :fetch_limit OFFSET :fetch_offset";
 
         $stmt = $conn->prepare($sql);
         $stmt->bindValue(':user_id', $userId, PDO::PARAM_INT);
-        $stmt->bindValue(':owner_id', $userId, PDO::PARAM_INT);
+        $stmt->bindValue(':owner_id_self', $userId, PDO::PARAM_INT);
+        $stmt->bindValue(':owner_id_follow', $userId, PDO::PARAM_INT);
         if ($topicSlug !== '') {
             $stmt->bindValue(':topic_slug', $topicSlug, PDO::PARAM_STR);
         }
@@ -245,14 +305,18 @@ if (!function_exists('community_fetch_saved_posts_page')) {
 }
 
 if (!function_exists('community_render_feed_posts_html')) {
-    function community_render_feed_posts_html(array $posts, array $maps, $userId)
+    function community_render_feed_posts_html(array $posts, array $maps, $userId, array $options = [])
     {
         $userId = (int)$userId;
+        $isCompact = !empty($options['compact']);
         ob_start();
 
         foreach ($posts as $post) {
             $postId = (int)$post['id'];
+            $authorId = (int)($post['user_id'] ?? 0);
             $author = (string)$post['user_name'];
+            $postUrl = function_exists('community_post_path') ? community_post_path($postId, (string)($post['post_title'] ?? '')) : ('community_post.php?slug=' . $postId);
+            $authorUrl = function_exists('community_profile_path') ? community_profile_path($authorId, $author) : ('community_profile.php?user=' . $authorId);
             $contentRaw = html_entity_decode((string)$post['content'], ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $postMedia = $maps['mediaByPost'][$postId] ?? [];
             $postLinks = $maps['linksByPost'][$postId] ?? [];
@@ -267,10 +331,13 @@ if (!function_exists('community_render_feed_posts_html')) {
             $reaction = (int)($maps['reactionByPost'][$postId] ?? 0);
             $isUpvoted = $reaction === 1;
             $isDownvoted = $reaction === -1;
-            $isOwner = $userId > 0 && (int)$post['user_id'] === $userId;
+            $isOwner = $userId > 0 && $authorId === $userId;
             $isSaved = !empty($maps['savedByPost'][$postId]);
             $theme = function_exists('community_resolve_topic_theme') ? community_resolve_topic_theme($primaryTopicSlug) : ['card' => 'bg-gray-100 dark:bg-gray-800/70', 'badge' => 'bg-main/10 text-main', 'accent' => 'text-main'];
-            $authorBadges = $maps['badgesByUser'][(int)$post['user_id']] ?? [];
+            $authorBadges = $maps['badgesByUser'][$authorId] ?? [];
+            $authorFollowersCount = (int)($maps['followersCountByAuthor'][$authorId] ?? 0);
+            $isFollowingAuthor = !empty($maps['followingByAuthor'][$authorId]);
+            $isFollowedByAuthor = !empty($maps['followedByAuthor'][$authorId]);
             $dbPoll = $maps['pollByPost'][$postId] ?? ['options' => [], 'total_votes' => 0, 'user_option_id' => 0];
 
             $isFeedPage = isset($_SERVER['PHP_SELF']) && strpos((string)$_SERVER['PHP_SELF'], 'community_feed.php') !== false;
@@ -361,7 +428,18 @@ if (!function_exists('community_render_feed_posts_html')) {
                 }
             }
 ?>
-            <article id="community-post-<?= $postId; ?>" class="community-post-card <?= htmlspecialchars((string)$theme['card'], ENT_QUOTES, 'UTF-8'); ?> rounded-2xl shadow-md overflow-visible my-5 hover:shadow-xl transition-shadow duration-300 w-full max-w-[1200px] mx-auto">
+            <?php
+            $cardGapClass = $isCompact ? 'my-4' : 'my-5';
+            $contentWrapClass = $isCompact ? 'p-3 sm:p-4 space-y-3' : 'p-4 sm:p-5 space-y-4';
+            $titleClass = $isCompact
+                ? 'text-base sm:text-lg font-semibold leading-snug text-gray-900 dark:text-white break-words'
+                : 'text-lg sm:text-xl font-normal leading-tight text-gray-900 dark:text-white break-words';
+            $bodyClass = $isCompact
+                ? 'text-sm leading-6 text-gray-700 dark:text-gray-200 break-words overflow-hidden max-h-[7.2rem]'
+                : 'text-sm leading-7 text-gray-700 dark:text-gray-200 break-words';
+            $mediaHeightClass = $isCompact ? 'h-44 sm:h-56' : 'h-56 sm:h-72';
+            ?>
+            <article id="community-post-<?= $postId; ?>" class="community-post-card <?= htmlspecialchars((string)$theme['card'], ENT_QUOTES, 'UTF-8'); ?> rounded-2xl shadow-md overflow-visible <?= $cardGapClass; ?> hover:shadow-xl transition-shadow duration-300 w-full max-w-[850px] mx-auto">
                 <div class="p-4 sm:p-5 border-b border-black/5 dark:border-white/10">
                     <div class="flex items-center justify-between gap-3">
                         <div class="flex items-center gap-3 min-w-0">
@@ -369,8 +447,15 @@ if (!function_exists('community_render_feed_posts_html')) {
                                 <?= htmlspecialchars(strtoupper(mb_substr($author, 0, 1, 'UTF-8')), ENT_QUOTES, 'UTF-8'); ?>
                             </div>
                             <div class="min-w-0">
-                                <p class="font-semibold text-gray-900 dark:text-white truncate"><?= htmlspecialchars($author, ENT_QUOTES, 'UTF-8'); ?></p>
+
+                                <p class="font-semibold text-gray-900 dark:text-white truncate"><a href="<?= htmlspecialchars($authorUrl, ENT_QUOTES, 'UTF-8'); ?>" class="hover:underline"><?= htmlspecialchars($author, ENT_QUOTES, 'UTF-8'); ?></a></p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400 truncate"><span class="font-semibold <?= htmlspecialchars((string)$theme['accent'], ENT_QUOTES, 'UTF-8'); ?>"><?= htmlspecialchars($subredditName, ENT_QUOTES, 'UTF-8'); ?></span> • <?= htmlspecialchars(community_time_ago((string)$post['created_at']), ENT_QUOTES, 'UTF-8'); ?></p>
+                                <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                                    <span data-community-followers-count data-user-id="<?= $authorId; ?>"><?= $authorFollowersCount; ?></span> nguoi theo doi
+                                    <?php if ($isFollowedByAuthor && !$isOwner): ?>
+                                        <span class="ml-2 inline-flex items-center rounded-full px-1.5 py-0.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">Theo doi ban</span>
+                                    <?php endif; ?>
+                                </p>
                                 <?php if (!empty($authorBadges)): ?>
                                     <div class="mt-1 flex flex-wrap items-center gap-1.5">
                                         <?php foreach ($authorBadges as $badge): ?>
@@ -381,15 +466,36 @@ if (!function_exists('community_render_feed_posts_html')) {
                             </div>
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
+                            <?php if ($userId > 0 && !$isOwner): ?>
+                                <?php
+                                $followButtonClass = $isFollowingAuthor
+                                    ? 'px-3 py-1.5 rounded-full text-xs font-semibold bg-main text-white hover:bg-main/90 transition-colors'
+                                    : 'px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-main/10 hover:text-main transition-colors';
+                                $followButtonLabel = $isFollowingAuthor ? 'Dang theo doi' : ($isFollowedByAuthor ? 'Theo doi lai' : 'Theo doi');
+                                ?>
+                                <button type="button"
+                                    class="<?= htmlspecialchars($followButtonClass, ENT_QUOTES, 'UTF-8'); ?>"
+                                    data-community-follow-btn
+                                    data-target-user-id="<?= $authorId; ?>"
+                                    data-following="<?= $isFollowingAuthor ? '1' : '0'; ?>">
+                                    <?= htmlspecialchars($followButtonLabel, ENT_QUOTES, 'UTF-8'); ?>
+                                </button>
+                            <?php endif; ?>
                             <span class="text-[11px] sm:text-xs px-4 py-1 rounded-full font-semibold whitespace-nowrap <?= htmlspecialchars((string)$theme['badge'], ENT_QUOTES, 'UTF-8'); ?>">
                                 <?= htmlspecialchars(community_visibility_badge((string)$post['privacy'], (string)$post['status']), ENT_QUOTES, 'UTF-8'); ?>
                             </span>
+                            <?php if ((int)($post['is_pinned'] ?? 0) === 1): ?>
+                                <span class="text-[11px] sm:text-xs px-3 py-1 rounded-full font-semibold whitespace-nowrap bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
+                                    Da ghim
+                                </span>
+                            <?php endif; ?>
                             <div class="relative" data-community-action-wrap>
                                 <button type="button" class="w-8 h-8 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white transition-colors" data-community-action-trigger aria-label="Menu bài viết">
                                     <i class="fas fa-ellipsis"></i>
                                 </button>
                                 <div class="hidden absolute right-0 top-10 z-30 min-w-[240px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl overflow-hidden" style=" min-width: 260px;" data-community-action-menu>
                                     <button type="button" class="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700" data-community-action="save" data-post-id="<?= $postId; ?>" data-saved="<?= $isSaved ? '1' : '0'; ?>"><?= $isSaved ? 'Bỏ lưu bài viết' : 'Lưu bài viết'; ?></button>
+                                    <button type="button" class="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700" data-community-action="pin" data-post-id="<?= $postId; ?>" data-pinned="<?= ((int)($post['is_pinned'] ?? 0) === 1) ? '1' : '0'; ?>"><?= ((int)($post['is_pinned'] ?? 0) === 1) ? 'Bỏ ghim trên đầu feed' : 'Ghim lên đầu feed'; ?></button>
                                     <button type="button" class="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 dark:hover:bg-gray-700" data-community-action="hide" data-post-id="<?= $postId; ?>">Ẩn bài viết</button>
                                     <button type="button" class="w-full text-left px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20" data-community-action="report" data-post-id="<?= $postId; ?>">Báo cáo bài viết</button>
                                     <?php if ($isOwner): ?>
@@ -404,8 +510,12 @@ if (!function_exists('community_render_feed_posts_html')) {
 
                 </div>
 
-                <div class="p-4 sm:p-5 space-y-4">
-                    <h3 class="text-lg sm:text-xl font-normal leading-tight text-gray-900 dark:text-white break-words"><?= $safeTitleHtml; ?></h3>
+                <div class="<?= htmlspecialchars($contentWrapClass, ENT_QUOTES, 'UTF-8'); ?>">
+                    <h3 class="<?= htmlspecialchars($titleClass, ENT_QUOTES, 'UTF-8'); ?>"><a href="<?= htmlspecialchars($postUrl, ENT_QUOTES, 'UTF-8'); ?>" class="hover:underline"><?= $safeTitleHtml; ?></a></h3>
+
+                    <?php if (trim(strip_tags($postBodyRaw)) !== ''): ?>
+                        <div class="<?= htmlspecialchars($bodyClass, ENT_QUOTES, 'UTF-8'); ?>"><?= $safeContentHtml; ?></div>
+                    <?php endif; ?>
 
 
 
@@ -453,7 +563,20 @@ if (!function_exists('community_render_feed_posts_html')) {
                             if (blog_is_external_url($mediaPath)) {
                                 $allMediaUrls[] = $mediaPath;
                             } else {
-                                $allMediaUrls[] = site_url('uploaded_img/' . ltrim($mediaPath, '/'));
+                                $normalized = str_replace('\\', '/', trim($mediaPath));
+                                $normalized = preg_replace('#^(?:\./|\.\./)+#', '', $normalized);
+                                $normalized = ltrim((string)$normalized, '/');
+
+                                $uploadedPos = stripos($normalized, 'uploaded_img/');
+                                if ($uploadedPos !== false) {
+                                    $normalized = substr($normalized, $uploadedPos);
+                                } elseif ($normalized !== '' && strpos($normalized, 'static/uploaded_img/') === 0) {
+                                    $normalized = substr($normalized, strlen('static/'));
+                                } else {
+                                    $normalized = 'uploaded_img/' . ltrim($normalized, '/');
+                                }
+
+                                $allMediaUrls[] = site_url($normalized);
                             }
                         }
                         $allMediaJson = htmlspecialchars(json_encode($allMediaUrls, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), ENT_QUOTES, 'UTF-8');
@@ -466,7 +589,7 @@ if (!function_exists('community_render_feed_posts_html')) {
                                         <div class="community-image-spinner absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-700">
                                             <i class="fas fa-spinner fa-spin text-gray-400"></i>
                                         </div>
-                                        <img src="<?= htmlspecialchars($imageUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="community media" loading="lazy" class="w-full h-72 sm:h-96 object-cover bg-gray-100 dark:bg-gray-700 cursor-zoom-in community-gallery-image opacity-0 transition-opacity duration-300" data-community-lazy-image>
+                                        <img src="<?= htmlspecialchars($imageUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="community media" loading="lazy" class="w-full <?= htmlspecialchars($mediaHeightClass, ENT_QUOTES, 'UTF-8'); ?> object-cover bg-gray-100 dark:bg-gray-700 cursor-zoom-in community-gallery-image opacity-0 transition-opacity duration-300" data-community-lazy-image>
                                     </div>
                                 <?php endforeach; ?>
                             </div>

@@ -96,7 +96,7 @@ foreach ($countStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
         </div>
 
         <div class="admin-card" style="padding:1.2rem 1.4rem; margin-bottom:1rem;">
-            <form method="get" class="flex" style="gap:.6rem; align-items:center; flex-wrap:wrap;">
+            <form method="get" data-admin-ajax-form="1" class="flex" style="gap:.6rem; align-items:center; flex-wrap:wrap;">
                 <label for="status" style="font-weight:600;">Lọc trạng thái</label>
                 <select id="status" name="status" class="box" style="max-width:240px;">
                     <option value="all" <?= $filterStatus === 'all' ? 'selected' : ''; ?>>Tất cả</option>
@@ -105,6 +105,8 @@ foreach ($countStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
                     <option value="dismissed" <?= $filterStatus === 'dismissed' ? 'selected' : ''; ?>>Dismissed</option>
                 </select>
                 <button type="submit" class="btn">Áp dụng</button>
+                <a href="community_reports.php" data-admin-ajax-link="1" class="delete-btn ui-btn-danger" style="text-decoration:none;display:inline-flex;align-items:center;">Reset</a>
+                <button type="button" data-admin-refresh="1" class="option-btn ui-btn-warning">Làm mới</button>
             </form>
         </div>
 
@@ -160,6 +162,7 @@ foreach ($countStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
             </table>
         </div>
     </section>
+    <script src="../js/admin_script.js"></script>
 </body>
 
 </html>

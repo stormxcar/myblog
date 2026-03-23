@@ -19,6 +19,12 @@ RewriteRule ^(home|posts|category|all_photos|search|contact|login|register|forgo
 # SEO post route: /post/my-title-123 (allow any URL-safe slug part)
 RewriteRule ^post/([^/]+)/?$ static/view_post.php?slug=$1 [L,QSA,NC]
 
+# Community post detail route: /community/p/my-post-123
+RewriteRule ^community/p/([^/]+)/?$ static/community_post.php?slug=$1 [L,QSA,NC]
+
+# Community public profile route: /community/u/username-123
+RewriteRule ^community/u/([^/]+)/?$ static/community_profile.php?user=$1 [L,QSA,NC]
+
 # Chuyển hướng tất cả URL đến static/ nếu không phải file/thư mục trong root
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d

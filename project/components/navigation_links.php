@@ -5,10 +5,10 @@
  * Tập trung quản lý tất cả các liên kết trong website
  */
 
-// Định nghĩa base paths
-$base_path = '../static/';
-$admin_path = '../admin/';
-$component_path = '../components/';
+// Định nghĩa base paths theo site root để tránh lỗi ở clean URL (vd: /community/u/...)
+$base_path = 'static/';
+$admin_path = 'admin/';
+$component_path = 'components/';
 
 // Main Navigation Links
 $nav_links = [
@@ -59,19 +59,40 @@ $admin_links = [
 function get_nav_link($key)
 {
     global $nav_links;
-    return isset($nav_links[$key]) ? $nav_links[$key] : '#';
+    if (!isset($nav_links[$key])) {
+        return '#';
+    }
+    $path = (string)$nav_links[$key];
+    if (function_exists('site_url')) {
+        return site_url($path);
+    }
+    return '../' . ltrim($path, '/');
 }
 
 function get_user_link($key)
 {
     global $user_links;
-    return isset($user_links[$key]) ? $user_links[$key] : '#';
+    if (!isset($user_links[$key])) {
+        return '#';
+    }
+    $path = (string)$user_links[$key];
+    if (function_exists('site_url')) {
+        return site_url($path);
+    }
+    return '../' . ltrim($path, '/');
 }
 
 function get_admin_link($key)
 {
     global $admin_links;
-    return isset($admin_links[$key]) ? $admin_links[$key] : '#';
+    if (!isset($admin_links[$key])) {
+        return '#';
+    }
+    $path = (string)$admin_links[$key];
+    if (function_exists('site_url')) {
+        return site_url($path);
+    }
+    return '../' . ltrim($path, '/');
 }
 
 // Get current page name for active states

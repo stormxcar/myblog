@@ -1,6 +1,7 @@
 <?php
 include '../components/connect.php';
 include '../components/seo_helpers.php';
+include '../components/admin_pagination.php';
 session_start();
 
 $admin_id = $_SESSION['admin_id'] ?? null;
@@ -21,9 +22,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $inSql = implode(',', array_fill(0, count($selected), '?'));
 
         if ($bulkAction === 'delete') {
-            $imgSql = "SELECT image FROM posts WHERE id IN ({$inSql})";
+            $imgSql = "SELECT image FROM posts WHERE admin_id = ? AND id IN ({$inSql})";
             $imgStmt = $conn->prepare($imgSql);
-            $imgStmt->execute($selected);
+            $imgStmt->execute(array_merge([(int)$admin_id], $selected));
 
             while ($img = $imgStmt->fetch(PDO::FETCH_ASSOC)) {
                 if (!empty($img['image'])) {
@@ -31,17 +32,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            $delSql = "DELETE FROM posts WHERE id IN ({$inSql})";
+            $delSql = "DELETE FROM posts WHERE admin_id = ? AND id IN ({$inSql})";
             $delStmt = $conn->prepare($delSql);
-            $delStmt->execute($selected);
+            $delStmt->execute(array_merge([(int)$admin_id], $selected));
             $message[] = 'Đã xóa các bài viết đã chọn.';
         }
 
         if ($bulkAction === 'active' || $bulkAction === 'inactive') {
             $newStatus = $bulkAction === 'active' ? 'active' : 'deactive';
-            $updSql = "UPDATE posts SET status = ? WHERE id IN ({$inSql})";
+            $updSql = "UPDATE posts SET status = ? WHERE admin_id = ? AND id IN ({$inSql})";
             $updStmt = $conn->prepare($updSql);
-            $updStmt->execute(array_merge([$newStatus], $selected));
+            $updStmt->execute(array_merge([$newStatus, (int)$admin_id], $selected));
             $message[] = 'Đã cập nhật trạng thái bài viết đã chọn.';
         }
     }
@@ -69,6 +70,9 @@ $sortSql = $allowedSort[$sort] ?? 'p.date';
 $where = [];
 $params = [];
 
+$where[] = 'p.admin_id = ?';
+$params[] = (int)$admin_id;
+
 if ($q !== '') {
     $where[] = '(p.title LIKE ? OR p.content LIKE ? OR p.name LIKE ?)';
     $qLike = '%' . $q . '%';
@@ -89,8 +93,8 @@ if ($category !== 'all') {
 
 $whereSql = !empty($where) ? ('WHERE ' . implode(' AND ', $where)) : '';
 
-$categoryStmt = $conn->prepare('SELECT DISTINCT name FROM cart WHERE name IS NOT NULL AND name <> "" ORDER BY name ASC');
-$categoryStmt->execute();
+$categoryStmt = $conn->prepare('SELECT DISTINCT name FROM cart WHERE admin_id = ? AND name IS NOT NULL AND name <> "" ORDER BY name ASC');
+$categoryStmt->execute([(int)$admin_id]);
 $categories = $categoryStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $countSql = "
@@ -273,16 +277,9 @@ function postsPageUrl($targetPage)
 
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:1rem;">
                     <div>Trang <?= (int)$page; ?>/<?= (int)$totalPages; ?> - Tổng: <?= (int)$totalRows; ?> bài viết</div>
-                    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-                        <?php if ($page > 1): ?>
-                            <a data-admin-ajax-link="1" class="option-btn ui-btn-warning" href="<?= htmlspecialchars(postsPageUrl(1)); ?>">Đầu</a>
-                            <a data-admin-ajax-link="1" class="option-btn ui-btn-warning" href="<?= htmlspecialchars(postsPageUrl($page - 1)); ?>">Trước</a>
-                        <?php endif; ?>
-                        <?php if ($page < $totalPages): ?>
-                            <a data-admin-ajax-link="1" class="btn ui-btn" href="<?= htmlspecialchars(postsPageUrl($page + 1)); ?>">Sau</a>
-                            <a data-admin-ajax-link="1" class="btn ui-btn" href="<?= htmlspecialchars(postsPageUrl($totalPages)); ?>">Cuối</a>
-                        <?php endif; ?>
-                    </div>
+                    <?= admin_render_numeric_pagination((int)$page, (int)$totalPages, static function (int $targetPage): string {
+                        return postsPageUrl($targetPage);
+                    }, 'data-admin-ajax-link="1"'); ?>
                 </div>
             </form>
         </div>

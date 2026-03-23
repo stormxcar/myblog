@@ -1,6 +1,7 @@
 <?php
 include '../components/connect.php';
 include '../components/seo_helpers.php';
+include '../components/admin_pagination.php';
 session_start();
 
 $admin_id = $_SESSION['admin_id'] ?? null;
@@ -194,16 +195,9 @@ function commentsPageUrl($targetPage)
 
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:1rem;">
                     <div>Trang <?= (int)$page; ?>/<?= (int)$totalPages; ?> - Tổng: <?= (int)$totalRows; ?> bình luận</div>
-                    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-                        <?php if ($page > 1): ?>
-                            <a data-admin-ajax-link="1" class="option-btn ui-btn-warning" href="<?= htmlspecialchars(commentsPageUrl(1)); ?>">Đầu</a>
-                            <a data-admin-ajax-link="1" class="option-btn ui-btn-warning" href="<?= htmlspecialchars(commentsPageUrl($page - 1)); ?>">Trước</a>
-                        <?php endif; ?>
-                        <?php if ($page < $totalPages): ?>
-                            <a data-admin-ajax-link="1" class="btn ui-btn" href="<?= htmlspecialchars(commentsPageUrl($page + 1)); ?>">Sau</a>
-                            <a data-admin-ajax-link="1" class="btn ui-btn" href="<?= htmlspecialchars(commentsPageUrl($totalPages)); ?>">Cuối</a>
-                        <?php endif; ?>
-                    </div>
+                    <?= admin_render_numeric_pagination((int)$page, (int)$totalPages, static function (int $targetPage): string {
+                        return commentsPageUrl($targetPage);
+                    }, 'data-admin-ajax-link="1"'); ?>
                 </div>
             </form>
         </div>

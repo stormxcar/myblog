@@ -1,5 +1,6 @@
 <?php
 include '../components/connect.php';
+include '../components/admin_pagination.php';
 session_start();
 
 $admin_id = $_SESSION['admin_id'] ?? null;
@@ -313,16 +314,9 @@ function usersPageUrl($targetPage)
 
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-top:1rem;">
                     <div>Trang <?= (int)$page; ?>/<?= (int)$totalPages; ?> - Tổng: <?= (int)$totalRows; ?> tài khoản</div>
-                    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-                        <?php if ($page > 1): ?>
-                            <a data-admin-ajax-link="1" class="option-btn ui-btn-warning" href="<?= htmlspecialchars(usersPageUrl(1)); ?>">Đầu</a>
-                            <a data-admin-ajax-link="1" class="option-btn ui-btn-warning" href="<?= htmlspecialchars(usersPageUrl($page - 1)); ?>">Trước</a>
-                        <?php endif; ?>
-                        <?php if ($page < $totalPages): ?>
-                            <a data-admin-ajax-link="1" class="btn ui-btn" href="<?= htmlspecialchars(usersPageUrl($page + 1)); ?>">Sau</a>
-                            <a data-admin-ajax-link="1" class="btn ui-btn" href="<?= htmlspecialchars(usersPageUrl($totalPages)); ?>">Cuối</a>
-                        <?php endif; ?>
-                    </div>
+                    <?= admin_render_numeric_pagination((int)$page, (int)$totalPages, static function (int $targetPage): string {
+                        return usersPageUrl($targetPage);
+                    }, 'data-admin-ajax-link="1"'); ?>
                 </div>
             </form>
         </div>

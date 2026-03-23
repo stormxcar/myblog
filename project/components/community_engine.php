@@ -147,6 +147,38 @@ if (!function_exists('community_ensure_tables')) {
             CONSTRAINT `fk_community_saved_posts_post` FOREIGN KEY (`post_id`) REFERENCES `community_posts` (`id`) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
+        $conn->exec("CREATE TABLE IF NOT EXISTS `community_user_follows` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `follower_user_id` INT UNSIGNED NOT NULL,
+            `following_user_id` INT UNSIGNED NOT NULL,
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uniq_community_follow_pair` (`follower_user_id`, `following_user_id`),
+            KEY `idx_community_following_user` (`following_user_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        $conn->exec("CREATE TABLE IF NOT EXISTS `community_user_pins` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `user_id` INT UNSIGNED NOT NULL,
+            `post_id` INT UNSIGNED NOT NULL,
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uniq_community_user_pin` (`user_id`, `post_id`),
+            KEY `idx_community_user_pin_post` (`post_id`),
+            CONSTRAINT `fk_community_user_pin_post` FOREIGN KEY (`post_id`) REFERENCES `community_posts` (`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        $conn->exec("CREATE TABLE IF NOT EXISTS `community_notification_preferences` (
+            `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `user_id` INT UNSIGNED NOT NULL,
+            `follow_events_enabled` TINYINT(1) NOT NULL DEFAULT 1,
+            `new_post_events_enabled` TINYINT(1) NOT NULL DEFAULT 1,
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uniq_community_notification_pref_user` (`user_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
         $conn->exec("CREATE TABLE IF NOT EXISTS `community_post_reports` (
             `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
             `post_id` INT UNSIGNED NOT NULL,
@@ -215,6 +247,121 @@ if (!function_exists('community_visibility_badge')) {
             return 'Follower';
         }
         return 'Public';
+    }
+}
+
+if (!function_exists('community_get_follower_counts_by_author_ids')) {
+    function community_get_follower_counts_by_author_ids($conn, array $authorIds)
+    {
+        $authorIds = array_values(array_unique(array_filter(array_map('intval', $authorIds), function ($id) {
+            return $id > 0;
+        })));
+
+        if (empty($authorIds)) {
+            return [];
+        }
+
+        $counts = array_fill_keys($authorIds, 0);
+        $placeholders = implode(',', array_fill(0, count($authorIds), '?'));
+
+        $stmt = $conn->prepare("SELECT following_user_id, COUNT(*) AS follower_count
+            FROM community_user_follows
+            WHERE following_user_id IN ({$placeholders})
+            GROUP BY following_user_id");
+        $stmt->execute($authorIds);
+
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $authorId = (int)($row['following_user_id'] ?? 0);
+            if ($authorId > 0) {
+                $counts[$authorId] = (int)($row['follower_count'] ?? 0);
+            }
+        }
+
+        return $counts;
+    }
+}
+
+if (!function_exists('community_get_viewer_following_author_map')) {
+    function community_get_viewer_following_author_map($conn, $viewerUserId, array $authorIds)
+    {
+        $viewerUserId = (int)$viewerUserId;
+        $authorIds = array_values(array_unique(array_filter(array_map('intval', $authorIds), function ($id) {
+            return $id > 0;
+        })));
+
+        $map = [];
+        foreach ($authorIds as $authorId) {
+            $map[$authorId] = false;
+        }
+
+        if ($viewerUserId <= 0 || empty($authorIds)) {
+            return $map;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($authorIds), '?'));
+        $params = array_merge([$viewerUserId], $authorIds);
+        $stmt = $conn->prepare("SELECT following_user_id
+            FROM community_user_follows
+            WHERE follower_user_id = ? AND following_user_id IN ({$placeholders})");
+        $stmt->execute($params);
+
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $followedAuthorId) {
+            $authorId = (int)$followedAuthorId;
+            if (isset($map[$authorId])) {
+                $map[$authorId] = true;
+            }
+        }
+
+        return $map;
+    }
+}
+
+if (!function_exists('community_get_authors_following_viewer_map')) {
+    function community_get_authors_following_viewer_map($conn, $viewerUserId, array $authorIds)
+    {
+        $viewerUserId = (int)$viewerUserId;
+        $authorIds = array_values(array_unique(array_filter(array_map('intval', $authorIds), function ($id) {
+            return $id > 0;
+        })));
+
+        $map = [];
+        foreach ($authorIds as $authorId) {
+            $map[$authorId] = false;
+        }
+
+        if ($viewerUserId <= 0 || empty($authorIds)) {
+            return $map;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($authorIds), '?'));
+        $params = array_merge([$viewerUserId], $authorIds);
+        $stmt = $conn->prepare("SELECT follower_user_id
+            FROM community_user_follows
+            WHERE following_user_id = ? AND follower_user_id IN ({$placeholders})");
+        $stmt->execute($params);
+
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $authorWhoFollowedViewer) {
+            $authorId = (int)$authorWhoFollowedViewer;
+            if (isset($map[$authorId])) {
+                $map[$authorId] = true;
+            }
+        }
+
+        return $map;
+    }
+}
+
+if (!function_exists('community_get_follower_user_ids')) {
+    function community_get_follower_user_ids($conn, $targetUserId)
+    {
+        $targetUserId = (int)$targetUserId;
+        if ($targetUserId <= 0) {
+            return [];
+        }
+
+        $stmt = $conn->prepare('SELECT follower_user_id FROM community_user_follows WHERE following_user_id = ?');
+        $stmt->execute([$targetUserId]);
+        return array_values(array_unique(array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN))));
     }
 }
 
@@ -843,5 +990,181 @@ if (!function_exists('community_get_posts_near_user_interests')) {
             LIMIT {$limit}");
         $postStmt->execute($postParams);
         return $postStmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+}
+
+if (!function_exists('community_post_slug')) {
+    function community_post_slug($title, $id)
+    {
+        $id = (int)$id;
+        $base = function_exists('slugify') ? slugify((string)$title) : community_slugify_topic((string)$title);
+        if ($base === '') {
+            $base = 'community-post';
+        }
+        return $base . '-' . $id;
+    }
+}
+
+if (!function_exists('community_post_path')) {
+    function community_post_path($id, $title = '')
+    {
+        $id = (int)$id;
+        $slug = community_post_slug((string)$title, $id);
+        return site_url('community/p/' . rawurlencode($slug));
+    }
+}
+
+if (!function_exists('community_extract_post_id_from_slug')) {
+    function community_extract_post_id_from_slug($slug)
+    {
+        $slug = trim((string)$slug);
+        if ($slug === '') {
+            return 0;
+        }
+
+        if (preg_match('/^(\d+)$/', $slug, $m)) {
+            return (int)$m[1];
+        }
+
+        if (preg_match('/-(\d+)$/', $slug, $m)) {
+            return (int)$m[1];
+        }
+
+        return 0;
+    }
+}
+
+if (!function_exists('community_profile_path')) {
+    function community_profile_path($userId, $name = '')
+    {
+        $userId = (int)$userId;
+        $slugBase = function_exists('slugify') ? slugify((string)$name) : community_slugify_topic((string)$name);
+        if ($slugBase === '') {
+            $slugBase = 'user';
+        }
+        return site_url('community/u/' . rawurlencode($slugBase . '-' . $userId));
+    }
+}
+
+if (!function_exists('community_extract_profile_user_id')) {
+    function community_extract_profile_user_id($slug)
+    {
+        $slug = trim((string)$slug);
+        if ($slug === '') {
+            return 0;
+        }
+
+        if (preg_match('/^(\d+)$/', $slug, $m)) {
+            return (int)$m[1];
+        }
+
+        if (preg_match('/-(\d+)$/', $slug, $m)) {
+            return (int)$m[1];
+        }
+
+        return 0;
+    }
+}
+
+if (!function_exists('community_get_follow_suggestions')) {
+    function community_get_follow_suggestions($conn, $viewerUserId, $limit = 6)
+    {
+        $viewerUserId = (int)$viewerUserId;
+        $limit = max(1, min(20, (int)$limit));
+        if ($viewerUserId <= 0) {
+            return [];
+        }
+
+        $sql = "SELECT
+                p.user_id,
+                p.user_name,
+                COUNT(*) AS matched_posts,
+                COALESCE(SUM(p.vote_score), 0) AS total_score
+            FROM community_posts p
+            INNER JOIN community_post_topics pt ON pt.post_id = p.id
+            INNER JOIN community_topics t ON t.id = pt.topic_id
+            WHERE p.status = 'published'
+              AND p.user_id <> :viewer_id
+              AND t.slug IN (
+                SELECT DISTINCT t2.slug
+                FROM community_posts p2
+                INNER JOIN community_post_topics pt2 ON pt2.post_id = p2.id
+                INNER JOIN community_topics t2 ON t2.id = pt2.topic_id
+                LEFT JOIN community_post_reactions r2 ON r2.post_id = p2.id AND r2.user_id = :viewer_react
+                LEFT JOIN community_post_comments c2 ON c2.post_id = p2.id AND c2.user_id = :viewer_comment AND c2.status = 'active'
+                LEFT JOIN community_saved_posts s2 ON s2.post_id = p2.id AND s2.user_id = :viewer_saved
+                WHERE r2.user_id IS NOT NULL OR c2.user_id IS NOT NULL OR s2.user_id IS NOT NULL
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM community_user_follows f
+                WHERE f.follower_user_id = :viewer_follow
+                AND f.following_user_id = p.user_id
+              )
+            GROUP BY p.user_id, p.user_name
+            ORDER BY matched_posts DESC, total_score DESC, p.user_id DESC
+            LIMIT {$limit}";
+
+        $stmt = $conn->prepare($sql);
+        $stmt->bindValue(':viewer_id', $viewerUserId, PDO::PARAM_INT);
+        $stmt->bindValue(':viewer_react', $viewerUserId, PDO::PARAM_INT);
+        $stmt->bindValue(':viewer_comment', $viewerUserId, PDO::PARAM_INT);
+        $stmt->bindValue(':viewer_saved', $viewerUserId, PDO::PARAM_INT);
+        $stmt->bindValue(':viewer_follow', $viewerUserId, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+}
+
+if (!function_exists('community_get_notification_preference')) {
+    function community_get_notification_preference($conn, $userId)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return [
+                'follow_events_enabled' => 1,
+                'new_post_events_enabled' => 1,
+            ];
+        }
+
+        $stmt = $conn->prepare('SELECT follow_events_enabled, new_post_events_enabled FROM community_notification_preferences WHERE user_id = ? LIMIT 1');
+        $stmt->execute([$userId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return [
+                'follow_events_enabled' => 1,
+                'new_post_events_enabled' => 1,
+            ];
+        }
+
+        return [
+            'follow_events_enabled' => (int)($row['follow_events_enabled'] ?? 1),
+            'new_post_events_enabled' => (int)($row['new_post_events_enabled'] ?? 1),
+        ];
+    }
+}
+
+if (!function_exists('community_set_notification_preference')) {
+    function community_set_notification_preference($conn, $userId, array $changes)
+    {
+        $userId = (int)$userId;
+        if ($userId <= 0) {
+            return false;
+        }
+
+        $followEvents = isset($changes['follow_events_enabled']) ? (int)((int)$changes['follow_events_enabled'] > 0 ? 1 : 0) : null;
+        $newPostEvents = isset($changes['new_post_events_enabled']) ? (int)((int)$changes['new_post_events_enabled'] > 0 ? 1 : 0) : null;
+
+        $current = community_get_notification_preference($conn, $userId);
+        if ($followEvents === null) {
+            $followEvents = (int)$current['follow_events_enabled'];
+        }
+        if ($newPostEvents === null) {
+            $newPostEvents = (int)$current['new_post_events_enabled'];
+        }
+
+        $stmt = $conn->prepare('INSERT INTO community_notification_preferences (user_id, follow_events_enabled, new_post_events_enabled)
+            VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE follow_events_enabled = VALUES(follow_events_enabled), new_post_events_enabled = VALUES(new_post_events_enabled), updated_at = CURRENT_TIMESTAMP');
+        return $stmt->execute([$userId, $followEvents, $newPostEvents]);
     }
 }

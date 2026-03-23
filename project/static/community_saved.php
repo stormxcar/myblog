@@ -30,11 +30,28 @@ $savedTopicsStmt = $conn->prepare("SELECT ct.slug, ct.name, COUNT(*) AS post_cou
     INNER JOIN community_post_topics cpt ON cpt.post_id = p.id
     INNER JOIN community_topics ct ON ct.id = cpt.topic_id
     WHERE sp.user_id = ?
-    AND (p.status = 'published' OR p.user_id = ?)
+    AND (
+        p.user_id = ?
+        OR (
+            p.status = 'published'
+            AND (
+                p.privacy = 'public'
+                OR (
+                    p.privacy = 'followers'
+                    AND EXISTS (
+                        SELECT 1
+                        FROM community_user_follows f
+                        WHERE f.follower_user_id = ?
+                        AND f.following_user_id = p.user_id
+                    )
+                )
+            )
+        )
+    )
     GROUP BY ct.id, ct.slug, ct.name
     ORDER BY post_count DESC, ct.name ASC
     LIMIT 16");
-$savedTopicsStmt->execute([$user_id, $user_id]);
+$savedTopicsStmt->execute([$user_id, $user_id, $user_id]);
 $savedTopics = $savedTopicsStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $activeTopicName = '';
