@@ -1,8 +1,10 @@
 <?php
 include '../components/connect.php';
 include '../components/seo_helpers.php';
+include '../components/security_helpers.php';
 
 session_start();
+blog_security_ensure_tables($conn);
 $toastMessage = '';
 $toastType = 'info';
 
@@ -14,35 +16,46 @@ if (!isset($_GET['email']) || !isset($_GET['code'])) {
     exit();
 }
 
-$email = $_GET['email'];
-$reset_code = $_GET['code'];
+$email = trim((string)($_GET['email'] ?? ''));
+$reset_code = trim((string)($_GET['code'] ?? ''));
+$masked_reset_code = blog_mask_secret($reset_code, 4, 4);
 
-if (isset($_POST['submit'])) {
-    $email = $_POST['email'];
-    $reset_code = $_POST['reset_code'];
-    $new_pass = sha1($_POST['new_pass']);
-    $confirm_pass = sha1($_POST['confirm_pass']);
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    $email = trim((string)($_POST['email'] ?? ''));
+    $reset_code = trim((string)($_POST['reset_code'] ?? ''));
+    $new_pass = (string)($_POST['new_pass'] ?? '');
+    $confirm_pass = (string)($_POST['confirm_pass'] ?? '');
 
-    // Kiểm tra mã xác nhận
-    $select_user = $conn->prepare("SELECT * FROM `users` WHERE email = ? AND reset_code = ?");
-    $select_user->execute([$email, $reset_code]);
+    if (!blog_csrf_validate('reset_password_form', $_POST['_csrf_token'] ?? '')) {
+        $toastMessage = 'Phiên làm việc không hợp lệ. Vui lòng tải lại trang và thử lại.';
+        $toastType = 'error';
+    } else {
 
-    if ($select_user->rowCount() > 0) {
-        if ($new_pass == $confirm_pass) {
-            // Cập nhật mật khẩu mới
-            $update_user = $conn->prepare("UPDATE `users` SET password = ?, reset_code = NULL WHERE email = ?");
-            $update_user->execute([$new_pass, $email]);
-            $_SESSION['flash_message'] = 'Mật khẩu của bạn đã được thay đổi thành công. Vui lòng đăng nhập lại.';
-            $_SESSION['flash_type'] = 'success';
-            header('Location: login.php');
-            exit();
+        // Kiểm tra mã xác nhận
+        $select_user = $conn->prepare("SELECT * FROM `users` WHERE email = ? AND reset_code = ?");
+        $select_user->execute([$email, $reset_code]);
+
+        if ($select_user->rowCount() > 0) {
+            if ($new_pass === '' || strlen($new_pass) < 6) {
+                $toastMessage = 'Mật khẩu phải có ít nhất 6 ký tự.';
+                $toastType = 'error';
+            } elseif ($new_pass === $confirm_pass) {
+                // Cập nhật mật khẩu mới
+                $newPassHash = password_hash($new_pass, PASSWORD_DEFAULT);
+                $update_user = $conn->prepare("UPDATE `users` SET password = ?, reset_code = NULL WHERE email = ?");
+                $update_user->execute([$newPassHash, $email]);
+                $_SESSION['flash_message'] = 'Mật khẩu của bạn đã được thay đổi thành công. Vui lòng đăng nhập lại.';
+                $_SESSION['flash_type'] = 'success';
+                header('Location: login.php');
+                exit();
+            } else {
+                $toastMessage = 'Mật khẩu xác nhận không khớp.';
+                $toastType = 'error';
+            }
         } else {
-            $toastMessage = 'Mật khẩu xác nhận không khớp.';
+            $toastMessage = 'Mã xác nhận không đúng hoặc đã hết hạn.';
             $toastType = 'error';
         }
-    } else {
-        $toastMessage = 'Mã xác nhận không đúng hoặc đã hết hạn.';
-        $toastType = 'error';
     }
 }
 
@@ -115,6 +128,7 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
                     </div>
 
                     <form action="" method="post" class="space-y-6">
+                        <?= blog_csrf_input('reset_password_form'); ?>
                         <!-- Hidden Fields -->
                         <input type="hidden" name="email" value="<?= htmlspecialchars($email) ?>">
                         <input type="hidden" name="reset_code" value="<?= htmlspecialchars($reset_code) ?>">
@@ -127,11 +141,11 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
                             <div class="bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-4">
                                 <div class="flex items-center justify-between">
                                     <span class="font-mono text-lg text-gray-900 dark:text-white tracking-wider">
-                                        <?= htmlspecialchars($reset_code) ?>
+                                        <?= htmlspecialchars($masked_reset_code) ?>
                                     </span>
                                     <i class="fas fa-check-circle text-green-500"></i>
                                 </div>
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Mã này đã được xác thực</p>
+
                             </div>
                         </div>
 
@@ -143,13 +157,11 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
                             <div class="relative">
                                 <input type="password" name="new_pass" id="new_pass" required
                                     placeholder="Nhập mật khẩu mới"
-                                    class="form-input pl-12 pr-12"
+                                    class="form-input pr-12"
                                     maxlength="50"
                                     oninput="this.value = this.value.replace(/\s/g, '')"
                                     onkeyup="checkPasswordStrength(this.value)">
-                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <i class="fas fa-lock text-gray-400"></i>
-                                </div>
+
                                 <button type="button" onclick="togglePassword('new_pass')" class="absolute inset-y-0 right-0 pr-3 flex items-center">
                                     <i id="eyeIcon1" class="fas fa-eye text-gray-400 hover:text-gray-600 transition-colors"></i>
                                 </button>
@@ -198,16 +210,14 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
                             <div class="relative">
                                 <input type="password" name="confirm_pass" id="confirm_pass" required
                                     placeholder="Nhập lại mật khẩu mới"
-                                    class="form-input pl-12 pr-12"
+                                    class="form-input pr-12"
                                     maxlength="50"
                                     oninput="this.value = this.value.replace(/\s/g, '')"
                                     onkeyup="checkPasswordMatch()"
                                     onpaste="return false"
                                     ondrop="return false"
                                     autocomplete="new-password">
-                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <i class="fas fa-lock text-gray-400"></i>
-                                </div>
+
                                 <button type="button" onclick="togglePassword('confirm_pass')" class="absolute inset-y-0 right-0 pr-3 flex items-center">
                                     <i id="eyeIcon2" class="fas fa-eye text-gray-400 hover:text-gray-600 transition-colors"></i>
                                 </button>

@@ -1,55 +1,93 @@
 <?php
 include '../components/connect.php';
 include '../components/seo_helpers.php';
+include '../components/security_helpers.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 require '../../vendor/autoload.php';
 
+session_start();
+blog_security_ensure_tables($conn);
+
 $message = '';
 $message_type = '';
+$forgotCaptchaRequired = false;
+$forgotChallengeProvider = '';
+$forgotChallengeSiteKey = '';
 
-if (isset($_POST['submit'])) {
-    $email = $_POST['email'];
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    $email = trim((string)($_POST['email'] ?? ''));
     $email = filter_var($email, FILTER_SANITIZE_EMAIL);
+    $captchaIdentifier = $email !== '' ? $email : 'anonymous';
+    $forgotCaptchaRequired = blog_captcha_should_show($conn, 'forgot_password', $captchaIdentifier, 3, 900);
+    $forgotChallengeProvider = blog_human_challenge_provider();
+    $forgotChallengeSiteKey = blog_human_challenge_site_key();
 
-    // Kiểm tra xem email có tồn tại trong cơ sở dữ liệu không
-    $select_user = $conn->prepare("SELECT * FROM `users` WHERE email = ?");
-    $select_user->execute([$email]);
+    if (!blog_csrf_validate('forgot_password_form', $_POST['_csrf_token'] ?? '')) {
+        $message = 'Phiên làm việc không hợp lệ. Vui lòng tải lại trang và thử lại.';
+        $message_type = 'error';
+    } else {
+        $limitState = blog_rate_limit_state($conn, 'forgot_password', $email, 5, 900, 900);
+        if (!empty($limitState['blocked'])) {
+            $retryAfter = max(1, (int)($limitState['retry_after'] ?? 0));
+            $minutes = (int)ceil($retryAfter / 60);
+            $message = 'Bạn đã gửi yêu cầu quá nhiều lần. Vui lòng thử lại sau khoảng ' . $minutes . ' phút.';
+            $message_type = 'error';
+        } elseif ($forgotCaptchaRequired && ($forgotChallengeProvider === '' || $forgotChallengeSiteKey === '')) {
+            blog_rate_limit_record_failure($conn, 'forgot_password', $captchaIdentifier, 5, 900, 900);
+            $message = 'Hệ thống xác thực bot chưa được cấu hình. Vui lòng liên hệ quản trị viên.';
+            $message_type = 'error';
+        } elseif ($forgotCaptchaRequired && !blog_human_challenge_verify($_POST[blog_human_challenge_token_field()] ?? '')) {
+            blog_rate_limit_record_failure($conn, 'forgot_password', $captchaIdentifier, 5, 900, 900);
+            $message = 'Vui lòng xác thực CAPTCHA hợp lệ.';
+            $message_type = 'error';
+        } else {
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                blog_rate_limit_record_failure($conn, 'forgot_password', $email, 5, 900, 900);
+                $message = 'Email không hợp lệ. Vui lòng kiểm tra lại.';
+                $message_type = 'error';
+            } else {
 
-    if ($select_user->rowCount() > 0) {
-        // Tạo mã xác nhận
-        $reset_code = bin2hex(random_bytes(16));
+                // Kiểm tra xem email có tồn tại trong cơ sở dữ liệu không
+                $select_user = $conn->prepare("SELECT * FROM `users` WHERE email = ?");
+                $select_user->execute([$email]);
 
-        // Lưu mã xác nhận vào cơ sở dữ liệu
-        $update_user = $conn->prepare("UPDATE `users` SET reset_code = ? WHERE email = ?");
-        $update_user->execute([$reset_code, $email]);
+                if ($select_user->rowCount() > 0) {
+                    // Tạo mã xác nhận
+                    $reset_code = bin2hex(random_bytes(16));
 
-        // Gửi mã xác nhận đến email của người dùng
-        $mail = new PHPMailer(true);
+                    // Lưu mã xác nhận vào cơ sở dữ liệu
+                    $update_user = $conn->prepare("UPDATE `users` SET reset_code = ? WHERE email = ?");
+                    $update_user->execute([$reset_code, $email]);
 
-        try {
-            //Server settings
-            $mail->isSMTP();
-            $mail->Host = $_ENV['SMTP_HOST'];
-            $mail->SMTPAuth = true;
-            $mail->Username = $_ENV['SMTP_USER']; // Thay thế bằng email của bạn
-            $mail->Password = $_ENV['SMTP_PASS']; // Thay thế bằng mật khẩu ứng dụng của bạn
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Port = 587;
+                    $resetLink = site_url('static/reset_pass.php') . '?email=' . rawurlencode($email) . '&code=' . rawurlencode($reset_code);
 
-            // Thiết lập mã hóa ký tự
-            $mail->CharSet = 'UTF-8';
+                    // Gửi mã xác nhận đến email của người dùng
+                    $mail = new PHPMailer(true);
 
-            //Recipients
-            $mail->setFrom($_ENV['SMTP_USER'], 'blog website');
-            $mail->addAddress($email);
+                    try {
+                        //Server settings
+                        $mail->isSMTP();
+                        $mail->Host = $_ENV['SMTP_HOST'];
+                        $mail->SMTPAuth = true;
+                        $mail->Username = $_ENV['SMTP_USER']; // Thay thế bằng email của bạn
+                        $mail->Password = $_ENV['SMTP_PASS']; // Thay thế bằng mật khẩu ứng dụng của bạn
+                        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                        $mail->Port = 587;
 
-            //Content
-            $mail->isHTML(true);
-            $mail->Subject = "Mã xác nhận đặt lại mật khẩu";
-            $mail->Body = "
+                        // Thiết lập mã hóa ký tự
+                        $mail->CharSet = 'UTF-8';
+
+                        //Recipients
+                        $mail->setFrom($_ENV['SMTP_USER'], 'blog website');
+                        $mail->addAddress($email);
+
+                        //Content
+                        $mail->isHTML(true);
+                        $mail->Subject = "Mã xác nhận đặt lại mật khẩu";
+                        $mail->Body = "
                 <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc;'>
                     <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; text-align: center; color: white; margin-bottom: 20px;'>
                         <h1 style='margin: 0; font-size: 24px;'>Đặt lại mật khẩu</h1>
@@ -71,7 +109,7 @@ if (isset($_POST['submit'])) {
                         </div>
                         
                         <div style='text-align: center; margin: 30px 0;'>
-                            <a href='http://localhost/blogging%20website/project/static/reset_pass.php?email=$email&code=$reset_code' 
+                            <a href='{$resetLink}' 
                                style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold; transition: all 0.3s ease;'>
                                 Đặt lại mật khẩu ngay
                             </a>
@@ -91,18 +129,32 @@ if (isset($_POST['submit'])) {
                 </div>
             ";
 
-            $mail->send();
-            $message = 'Mã xác nhận đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư đến hoặc thư mục spam.';
-            $message_type = 'success';
-        } catch (Exception $e) {
-            $message = 'Gửi email thất bại. Vui lòng thử lại sau. Lỗi: ' . $mail->ErrorInfo;
-            $message_type = 'error';
+                        $mail->send();
+                        blog_rate_limit_record_success($conn, 'forgot_password', $email);
+                        $message = 'Mã xác nhận đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư đến hoặc thư mục spam.';
+                        $message_type = 'success';
+                    } catch (Exception $e) {
+                        blog_rate_limit_record_failure($conn, 'forgot_password', $email, 5, 900, 900);
+                        $message = 'Gửi email thất bại. Vui lòng thử lại sau. Lỗi: ' . $mail->ErrorInfo;
+                        $message_type = 'error';
+                    }
+                } else {
+                    blog_rate_limit_record_failure($conn, 'forgot_password', $email, 5, 900, 900);
+                    $message = 'Email không tồn tại trong hệ thống. Vui lòng kiểm tra lại hoặc đăng ký tài khoản mới.';
+                    $message_type = 'error';
+                }
+            }
         }
-    } else {
-        $message = 'Email không tồn tại trong hệ thống. Vui lòng kiểm tra lại hoặc đăng ký tài khoản mới.';
-        $message_type = 'error';
     }
 }
+
+if (!$forgotCaptchaRequired) {
+    $emailFromRequest = trim((string)($_POST['email'] ?? ''));
+    $probeIdentifier = $emailFromRequest !== '' ? $emailFromRequest : 'anonymous';
+    $forgotCaptchaRequired = blog_captcha_should_show($conn, 'forgot_password', $probeIdentifier, 3, 900);
+}
+$forgotChallengeProvider = blog_human_challenge_provider();
+$forgotChallengeSiteKey = blog_human_challenge_site_key();
 
 $page_title = 'Quên mật khẩu - My Blog';
 $page_description = 'Nhập email để nhận mã xác nhận và đặt lại mật khẩu tài khoản My Blog.';
@@ -138,6 +190,7 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
             <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div class="p-5">
                     <form action="" method="post" id="forgotPasswordForm" novalidate>
+                        <?= blog_csrf_input('forgot_password_form'); ?>
                         <div class="space-y-6">
                             <!-- Email Input -->
                             <div>
@@ -185,6 +238,21 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
                                     </span>
                                 </button>
                             </div>
+
+                            <?php if ($forgotCaptchaRequired): ?>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        <i class="fas fa-shield-alt text-main mr-2"></i>Xác minh an toàn
+                                    </label>
+                                    <?php if ($forgotChallengeProvider === 'turnstile' && $forgotChallengeSiteKey !== ''): ?>
+                                        <div class="cf-turnstile" data-sitekey="<?= htmlspecialchars($forgotChallengeSiteKey, ENT_QUOTES, 'UTF-8'); ?>"></div>
+                                    <?php elseif ($forgotChallengeProvider === 'recaptcha' && $forgotChallengeSiteKey !== ''): ?>
+                                        <div class="g-recaptcha" data-sitekey="<?= htmlspecialchars($forgotChallengeSiteKey, ENT_QUOTES, 'UTF-8'); ?>"></div>
+                                    <?php else: ?>
+                                        <p class="text-sm text-red-600">Chưa cấu hình Turnstile/reCAPTCHA cho môi trường này.</p>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
                         </div>
                     </form>
 
@@ -337,5 +405,11 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
 `;
     document.head.appendChild(style);
 </script>
+
+<?php if ($forgotCaptchaRequired && $forgotChallengeProvider === 'turnstile' && $forgotChallengeSiteKey !== ''): ?>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<?php elseif ($forgotCaptchaRequired && $forgotChallengeProvider === 'recaptcha' && $forgotChallengeSiteKey !== ''): ?>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+<?php endif; ?>
 
 <?php include '../components/layout_footer.php'; ?>

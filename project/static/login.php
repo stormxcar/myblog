@@ -2,8 +2,15 @@
 
 include '../components/connect.php';
 include '../components/seo_helpers.php';
+include '../components/security_helpers.php';
 
 session_start();
+blog_security_ensure_tables($conn);
+
+if (empty($_SESSION['user_id'])) {
+    blog_restore_login_from_remember_cookie($conn);
+}
+
 $toastMessage = '';
 $toastType = 'info';
 $submittedIdentifier = '';
@@ -45,118 +52,170 @@ if (isset($_SESSION['user_id'])) {
     $user_id = '';
 };
 
-$rememberedEmail = isset($_COOKIE['remembered_email']) ? filter_var($_COOKIE['remembered_email'], FILTER_SANITIZE_EMAIL) : '';
+$rememberedEmail = '';
+$rememberChecked = blog_has_remember_cookie();
 $nextTarget = trim((string)($_GET['next'] ?? $_POST['next'] ?? ''));
 $nextTarget = $nextTarget === 'admin' ? 'admin' : '';
+$loginCaptchaRequired = false;
+$loginChallengeProvider = '';
+$loginChallengeSiteKey = '';
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $identifier = trim((string)($_POST['email'] ?? ''));
     $identifier = filter_var($identifier, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+    $captchaIdentifier = $identifier !== '' ? $identifier : 'anonymous';
+    $loginCaptchaRequired = blog_captcha_should_show($conn, 'login', $captchaIdentifier, 3, 900);
+    $loginChallengeProvider = blog_human_challenge_provider();
+    $loginChallengeSiteKey = blog_human_challenge_site_key();
     $submittedIdentifier = $identifier;
+    $rememberChecked = isset($_POST['remember_me']);
     $rawPass = (string)($_POST['pass'] ?? '');
 
-    if ($identifier === '' || $rawPass === '') {
-        $toastMessage = 'Vui lòng nhập đầy đủ tài khoản và mật khẩu.';
+    if (!blog_csrf_validate('login_form', $_POST['_csrf_token'] ?? '')) {
+        $toastMessage = 'Phiên làm việc không hợp lệ. Vui lòng tải lại trang và thử lại.';
         $toastType = 'error';
     } else {
-
-        try {
-            $selectColumns = 'id, name, email, password';
-            if (blog_has_admin_role_column($conn)) {
-                $selectColumns .= ', role';
-            }
-            if (blog_db_has_column($conn, 'users', 'banned')) {
-                $selectColumns .= ', banned';
-            }
-            if (blog_has_legacy_admin_id_column($conn)) {
-                $selectColumns .= ', legacy_admin_id';
-            }
-
-            $select_user = $conn->prepare("SELECT {$selectColumns} FROM `users` WHERE (email = ? OR name = ?) ORDER BY id DESC LIMIT 30");
-            $select_user->execute([$identifier, $identifier]);
-
-            $row = null;
-            while ($candidate = $select_user->fetch(PDO::FETCH_ASSOC)) {
-                if (blog_password_matches($rawPass, $candidate['password'] ?? '')) {
-                    $row = $candidate;
-                    break;
-                }
-            }
-
-            if ($row) {
-                $isBanned = isset($row['banned']) && (int)$row['banned'] === 1;
-                if ($isBanned) {
-                    $toastMessage = 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên để biết thêm chi tiết.';
-                    $toastType = 'error';
-                } else {
-                    // Normalize legacy plaintext passwords to SHA1 after a successful login.
-                    $currentStoredPass = (string)($row['password'] ?? '');
-                    $sha1Pass = sha1($rawPass);
-                    if ($currentStoredPass !== '' && $currentStoredPass !== $sha1Pass && strlen($currentStoredPass) < 60) {
-                        $upgradeStmt = $conn->prepare('UPDATE users SET password = ? WHERE id = ? LIMIT 1');
-                        $upgradeStmt->execute([$sha1Pass, (int)$row['id']]);
-                    }
-
-                    $rememberMe = isset($_POST['remember_me']);
-                    if ($rememberMe) {
-                        $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
-                        setcookie('remembered_email', $identifier, [
-                            'expires' => time() + (60 * 60 * 24 * 30),
-                            'path' => '/',
-                            'secure' => $isSecure,
-                            'httponly' => true,
-                            'samesite' => 'Lax'
-                        ]);
-                    } else {
-                        setcookie('remembered_email', '', [
-                            'expires' => time() - 3600,
-                            'path' => '/',
-                            'secure' => false,
-                            'httponly' => true,
-                            'samesite' => 'Lax'
-                        ]);
-                    }
-
-                    session_regenerate_id(true);
-                    $_SESSION['user_id'] = $row['id'];
-
-                    $roleRaw = $row['role'] ?? '';
-                    $role = strtolower(trim((string)$roleRaw));
-                    $isAdminRole = ($role === 'admin');
-                    if (!$isAdminRole && isset($row['legacy_admin_id']) && (int)$row['legacy_admin_id'] > 0) {
-                        $isAdminRole = true;
-                    }
-
-                    if ($nextTarget === 'admin' && !$isAdminRole) {
-                        unset($_SESSION['admin_id']);
-                        $_SESSION['flash_message'] = 'Tài khoản này không có quyền quản trị.';
-                        $_SESSION['flash_type'] = 'error';
-                        redirect_with_fallback('login.php?next=admin');
-                    }
-
-                    if ($isAdminRole) {
-                        $adminIdentity = !empty($row['legacy_admin_id']) ? (int)$row['legacy_admin_id'] : (int)$row['id'];
-                        $_SESSION['admin_id'] = $adminIdentity;
-                        $_SESSION['flash_message'] = 'Đăng nhập quản trị thành công';
-                        $_SESSION['flash_type'] = 'success';
-                        redirect_with_fallback('../admin/dashboard.php');
-                    }
-
-                    unset($_SESSION['admin_id']);
-                    $_SESSION['flash_message'] = 'Đăng nhập thành công';
-                    $_SESSION['flash_type'] = 'success';
-                    redirect_with_fallback('home.php?message=' . urlencode('Đăng nhập thành công'));
-                }
-            } else {
-                $toastMessage = 'Tên đăng nhập hoặc mật khẩu không đúng! Vui lòng thử lại.';
-                $toastType = 'error';
-            }
-        } catch (Exception $e) {
-            $toastMessage = 'Có lỗi đăng nhập. Vui lòng thử lại sau.';
+        $limitState = blog_rate_limit_state($conn, 'login', $identifier, 5, 900, 900);
+        if (!empty($limitState['blocked'])) {
+            $retryAfter = max(1, (int)($limitState['retry_after'] ?? 0));
+            $minutes = (int)ceil($retryAfter / 60);
+            $toastMessage = 'Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau khoảng ' . $minutes . ' phút.';
             $toastType = 'error';
+        } elseif ($loginCaptchaRequired && ($loginChallengeProvider === '' || $loginChallengeSiteKey === '')) {
+            blog_rate_limit_record_failure($conn, 'login', $captchaIdentifier, 5, 900, 900);
+            $toastMessage = 'Hệ thống xác thực bot chưa được cấu hình. Vui lòng liên hệ quản trị viên.';
+            $toastType = 'error';
+        } elseif ($loginCaptchaRequired && !blog_human_challenge_verify($_POST[blog_human_challenge_token_field()] ?? '')) {
+            blog_rate_limit_record_failure($conn, 'login', $captchaIdentifier, 5, 900, 900);
+            $toastMessage = 'Vui lòng xác thực CAPTCHA hợp lệ.';
+            $toastType = 'error';
+        } elseif ($identifier === '' || $rawPass === '') {
+            $toastMessage = 'Vui lòng nhập đầy đủ tài khoản và mật khẩu.';
+            $toastType = 'error';
+        } else {
+
+            try {
+                $selectColumns = 'id, name, email, password';
+                if (blog_has_admin_role_column($conn)) {
+                    $selectColumns .= ', role';
+                }
+                if (blog_db_has_column($conn, 'users', 'banned')) {
+                    $selectColumns .= ', banned';
+                }
+                if (blog_has_legacy_admin_id_column($conn)) {
+                    $selectColumns .= ', legacy_admin_id';
+                }
+
+                $select_user = $conn->prepare("SELECT {$selectColumns} FROM `users` WHERE (email = ? OR name = ?) ORDER BY id DESC LIMIT 30");
+                $select_user->execute([$identifier, $identifier]);
+
+                $row = null;
+                while ($candidate = $select_user->fetch(PDO::FETCH_ASSOC)) {
+                    if (blog_password_matches($rawPass, $candidate['password'] ?? '')) {
+                        $row = $candidate;
+                        break;
+                    }
+                }
+
+                if ($row) {
+                    $isBanned = isset($row['banned']) && (int)$row['banned'] === 1;
+                    if ($isBanned) {
+                        blog_rate_limit_record_failure($conn, 'login', $identifier, 5, 900, 900);
+                        $toastMessage = 'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên để biết thêm chi tiết.';
+                        $toastType = 'error';
+                    } else {
+                        $verificationState = blog_user_verification_state($conn, (int)$row['id']);
+                        if (empty($verificationState['is_verified'])) {
+                            blog_rate_limit_record_failure($conn, 'login', $identifier, 5, 900, 900);
+                            $_SESSION['flash_message'] = 'Tài khoản chưa xác minh email. Vui lòng xác minh trước khi đăng nhập.';
+                            $_SESSION['flash_type'] = 'warning';
+                            redirect_with_fallback('resend_verification.php?email=' . rawurlencode((string)($row['email'] ?? $identifier)));
+                        }
+
+                        // Normalize legacy password formats to password_hash after successful login.
+                        $currentStoredPass = (string)($row['password'] ?? '');
+                        $storedInfo = password_get_info($currentStoredPass);
+                        $needsRehash = !empty($storedInfo['algo']) && password_needs_rehash($currentStoredPass, PASSWORD_DEFAULT);
+                        if ($currentStoredPass !== '' && (blog_password_needs_migration($currentStoredPass) || $needsRehash)) {
+                            try {
+                                $newPassHash = password_hash($rawPass, PASSWORD_DEFAULT);
+                                $upgradeStmt = $conn->prepare('UPDATE users SET password = ? WHERE id = ? LIMIT 1');
+                                $upgradeStmt->execute([$newPassHash, (int)$row['id']]);
+                            } catch (Throwable $migrateError) {
+                                error_log('Password migration skipped for user ' . (int)$row['id'] . ': ' . $migrateError->getMessage());
+                            }
+                        }
+
+                        blog_rate_limit_record_success($conn, 'login', $identifier);
+
+                        $rememberMe = isset($_POST['remember_me']);
+                        if ($rememberMe) {
+                            blog_issue_remember_login($conn, (int)$row['id'], 30);
+                        } else {
+                            blog_forget_remember_login($conn);
+                        }
+
+                        session_regenerate_id(true);
+                        $_SESSION['user_id'] = $row['id'];
+
+                        $roleRaw = $row['role'] ?? '';
+                        $role = strtolower(trim((string)$roleRaw));
+                        $isAdminRole = ($role === 'admin');
+                        if (!$isAdminRole && isset($row['legacy_admin_id']) && (int)$row['legacy_admin_id'] > 0) {
+                            $isAdminRole = true;
+                        }
+
+                        if ($nextTarget === 'admin' && !$isAdminRole) {
+                            unset($_SESSION['admin_id']);
+                            $_SESSION['flash_message'] = 'Tài khoản này không có quyền quản trị.';
+                            $_SESSION['flash_type'] = 'error';
+                            redirect_with_fallback('login.php?next=admin');
+                        }
+
+                        if ($isAdminRole) {
+                            $adminIdentity = !empty($row['legacy_admin_id']) ? (int)$row['legacy_admin_id'] : (int)$row['id'];
+                            $_SESSION['admin_id'] = $adminIdentity;
+                            $_SESSION['flash_message'] = 'Đăng nhập quản trị thành công';
+                            $_SESSION['flash_type'] = 'success';
+                            redirect_with_fallback('../admin/dashboard.php');
+                        }
+
+                        unset($_SESSION['admin_id']);
+                        $_SESSION['flash_message'] = 'Đăng nhập thành công';
+                        $_SESSION['flash_type'] = 'success';
+                        redirect_with_fallback('home.php?message=' . urlencode('Đăng nhập thành công'));
+                    }
+                } else {
+                    blog_rate_limit_record_failure($conn, 'login', $identifier, 5, 900, 900);
+                    $toastMessage = 'Tên đăng nhập hoặc mật khẩu không đúng! Vui lòng thử lại.';
+                    $toastType = 'error';
+                    $loginCaptchaRequired = blog_captcha_should_show($conn, 'login', $captchaIdentifier, 3, 900);
+                }
+            } catch (Throwable $e) {
+                try {
+                    blog_rate_limit_record_failure($conn, 'login', $identifier, 5, 900, 900);
+                } catch (Throwable $innerError) {
+                    // Keep original exception context and avoid masking login failure details.
+                }
+
+                error_log('Login error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+
+                $toastMessage = 'Có lỗi đăng nhập. Vui lòng thử lại sau.';
+                if (getenv('DYNO') === false) {
+                    $toastMessage .= ' [Debug: ' . $e->getMessage() . ']';
+                }
+                $toastType = 'error';
+                $loginCaptchaRequired = blog_captcha_should_show($conn, 'login', $captchaIdentifier, 3, 900);
+            }
         }
     }
 }
+
+if (!$loginCaptchaRequired && $submittedIdentifier !== '') {
+    $loginCaptchaRequired = blog_captcha_should_show($conn, 'login', $submittedIdentifier, 3, 900);
+}
+$loginChallengeProvider = blog_human_challenge_provider();
+$loginChallengeSiteKey = blog_human_challenge_site_key();
 
 if (isset($_SESSION['admin_id']) && $_SERVER['REQUEST_METHOD'] === 'GET') {
     $_SESSION['flash_message'] = 'Bạn đã đăng nhập với quyền quản trị.';
@@ -231,12 +290,13 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
 
                     <!-- Login Form -->
                     <form action="" method="post" class="space-y-6">
+                        <?= blog_csrf_input('login_form'); ?>
                         <!-- Identifier Field -->
                         <div>
                             <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 <i class="fas fa-user mr-2 text-main"></i>Tài khoản (email hoặc username)
                             </label>
-                            <div class="relative">
+                            <div class="relative rounded-xl">
                                 <input type="text" name="email" id="email" required
                                     placeholder="Nhập email hoặc username"
                                     class="form-input"
@@ -253,7 +313,7 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
                             <label for="pass" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                 <i class="fas fa-lock mr-2 text-main"></i>Mật khẩu
                             </label>
-                            <div class="relative">
+                            <div class="relative rounded-xl">
                                 <input type="password" name="pass" id="pass" required
                                     placeholder="Nhập mật khẩu"
                                     class="form-input pr-12"
@@ -272,7 +332,7 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
                         <!-- Forgot Password -->
                         <div class="flex items-center justify-between">
                             <div class="flex items-center">
-                                <input id="remember-me" name="remember_me" type="checkbox" <?= $rememberedEmail !== '' ? 'checked' : ''; ?>
+                                <input id="remember-me" name="remember_me" type="checkbox" <?= $rememberChecked ? 'checked' : ''; ?>
                                     class="h-4 w-4 text-main focus:ring-main border-gray-300 rounded">
                                 <label for="remember-me" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
                                     Ghi nhớ đăng nhập
@@ -289,6 +349,21 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
                             và
                             <button type="button" id="openPrivacy" class="text-main hover:text-blue-700">Chính sách bảo mật</button>.
                         </p>
+
+                        <?php if ($loginCaptchaRequired): ?>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <i class="fas fa-shield-alt mr-2 text-main"></i>Xác minh an toàn
+                                </label>
+                                <?php if ($loginChallengeProvider === 'turnstile' && $loginChallengeSiteKey !== ''): ?>
+                                    <div class="cf-turnstile" data-sitekey="<?= htmlspecialchars($loginChallengeSiteKey, ENT_QUOTES, 'UTF-8'); ?>"></div>
+                                <?php elseif ($loginChallengeProvider === 'recaptcha' && $loginChallengeSiteKey !== ''): ?>
+                                    <div class="g-recaptcha" data-sitekey="<?= htmlspecialchars($loginChallengeSiteKey, ENT_QUOTES, 'UTF-8'); ?>"></div>
+                                <?php else: ?>
+                                    <p class="text-sm text-red-600">Chưa cấu hình Turnstile/reCAPTCHA cho môi trường này.</p>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
 
                         <!-- Submit Button -->
                         <button type="submit" name="submit" class="w-full btn-primary py-3 text-base font-semibold">
@@ -599,6 +674,11 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
             });
         });
     </script>
+    <?php if ($loginCaptchaRequired && $loginChallengeProvider === 'turnstile' && $loginChallengeSiteKey !== ''): ?>
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <?php elseif ($loginCaptchaRequired && $loginChallengeProvider === 'recaptcha' && $loginChallengeSiteKey !== ''): ?>
+        <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <?php endif; ?>
 </body>
 
 </html>

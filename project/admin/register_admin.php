@@ -37,8 +37,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if ($rawPass !== $rawConfirmPass) {
                 $message[] = 'Mật khẩu nhập lại không khớp.';
             } else {
-                $passwordHash = sha1($rawPass);
-                $passwordHash = filter_var($passwordHash, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+                $passwordHash = password_hash($rawPass, PASSWORD_DEFAULT);
                 $conn->beginTransaction();
                 try {
                     $legacyAdminId = null;
@@ -76,6 +75,21 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     if (blog_db_has_column($conn, 'users', 'legacy_admin_id')) {
                         $insertColumns[] = 'legacy_admin_id';
                         $insertValues[] = $legacyAdminId;
+                    }
+
+                    if (blog_db_has_column($conn, 'users', 'is_verified')) {
+                        $insertColumns[] = 'is_verified';
+                        $insertValues[] = 1;
+                    }
+
+                    if (blog_db_has_column($conn, 'users', 'verified_at')) {
+                        $insertColumns[] = 'verified_at';
+                        $insertValues[] = gmdate('Y-m-d H:i:s');
+                    }
+
+                    if (blog_db_has_column($conn, 'users', 'verified_by_admin_id')) {
+                        $insertColumns[] = 'verified_by_admin_id';
+                        $insertValues[] = (int)$admin_id;
                     }
 
                     $colsSql = implode(', ', $insertColumns);
@@ -122,6 +136,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
         <form action="" method="POST">
             <h3>Tạo tài khoản mới</h3>
+            <p style="margin-bottom:1rem;color:#334155;font-size:.92rem;">Tài khoản tạo sẽ được xác thực email tự động bởi admin.</p>
             <?php if (!empty($message) && is_array($message)): ?>
                 <div style="margin-bottom:1rem;padding:.9rem 1rem;border-radius:.6rem;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;">
                     <?php foreach ($message as $msg): ?>

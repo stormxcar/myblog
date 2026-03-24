@@ -237,6 +237,7 @@ render_breadcrumb($breadcrumb_items);
 
             const input = card.querySelector('[data-community-comment-input]');
             const parentInput = card.querySelector('[data-community-parent-comment-id]');
+            const honeypotInput = card.querySelector('[name="comment_hp"]');
             if (!input) {
                 return;
             }
@@ -253,6 +254,7 @@ render_breadcrumb($breadcrumb_items);
             fd.set('post_id', String(postId));
             fd.set('comment', comment);
             fd.set('parent_comment_id', parentInput ? String(parentInput.value || '0') : '0');
+            fd.set('comment_hp', honeypotInput ? String(honeypotInput.value || '') : '');
 
             const endpoint = (window.BLOG_ENDPOINTS && window.BLOG_ENDPOINTS.communityCommentAdd) ?
                 window.BLOG_ENDPOINTS.communityCommentAdd :

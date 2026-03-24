@@ -138,7 +138,7 @@ if ($tab === 'posts') {
     $countStmt->execute([$profileUserId]);
     $listTotal = (int)$countStmt->fetchColumn();
 
-    $listStmt = $conn->prepare('SELECT u.id, u.name, f.created_at
+    $listStmt = $conn->prepare('SELECT u.id, u.name, u.avatar, f.created_at
         FROM community_user_follows f
         INNER JOIN users u ON u.id = f.follower_user_id
         WHERE f.following_user_id = ?
@@ -151,7 +151,7 @@ if ($tab === 'posts') {
     $countStmt->execute([$profileUserId]);
     $listTotal = (int)$countStmt->fetchColumn();
 
-    $listStmt = $conn->prepare('SELECT u.id, u.name, f.created_at
+    $listStmt = $conn->prepare('SELECT u.id, u.name, u.avatar, f.created_at
         FROM community_user_follows f
         INNER JOIN users u ON u.id = f.following_user_id
         WHERE f.follower_user_id = ?
@@ -196,11 +196,11 @@ render_breadcrumb($breadcrumb_items);
                     <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white"><?= htmlspecialchars($profileName, ENT_QUOTES, 'UTF-8'); ?></h1>
                     <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">Community profile public</p>
                     <div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
-                        <span class="px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-700"><?= $totalPosts; ?> bai viet</span>
-                        <span class="px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-700"><?= $totalFollowers; ?> followers</span>
-                        <span class="px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-700"><?= $totalFollowing; ?> following</span>
+                        <span class="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-700"><?php echo $totalPosts; ?> bài đăng</span>
+                        <span class="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-700"><?php echo $totalFollowers; ?> người theo dõi</span>
+                        <span class="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-700"><?php echo $totalFollowing; ?> người đang theo dõi</span>
                         <?php if ($followedByProfile && !$isOwner): ?>
-                            <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200">Theo doi ban</span>
+                            <span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-200">Theo doi ban</span>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -212,7 +212,7 @@ render_breadcrumb($breadcrumb_items);
                         : 'px-4 py-2 rounded-lg text-sm font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-main/10 hover:text-main';
                     ?>
                     <button type="button" class="<?= $followClass; ?>" data-community-follow-btn data-target-user-id="<?= $profileUserId; ?>" data-following="<?= $isFollowing ? '1' : '0'; ?>">
-                        <?= $isFollowing ? 'Dang theo doi' : ($followedByProfile ? 'Theo doi lai' : 'Theo doi'); ?>
+                        <?= $isFollowing ? 'Đang theo dõi' : ($followedByProfile ? 'Theo dõi lại' : 'Theo dõi'); ?>
                     </button>
                 <?php endif; ?>
             </div>
@@ -220,9 +220,9 @@ render_breadcrumb($breadcrumb_items);
 
         <section id="community-profile-ajax-root">
             <section class="mb-5 flex flex-wrap items-center gap-2">
-                <a data-community-profile-ajax="1" href="<?= htmlspecialchars($profileUrl . '?tab=posts', ENT_QUOTES, 'UTF-8'); ?>" class="px-3 py-2 rounded-lg text-sm font-semibold <?= $tab === 'posts' ? 'bg-main text-white' : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200'; ?>">Posts</a>
-                <a data-community-profile-ajax="1" href="<?= htmlspecialchars($profileUrl . '?tab=followers', ENT_QUOTES, 'UTF-8'); ?>" class="px-3 py-2 rounded-lg text-sm font-semibold <?= $tab === 'followers' ? 'bg-main text-white' : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200'; ?>">Followers</a>
-                <a data-community-profile-ajax="1" href="<?= htmlspecialchars($profileUrl . '?tab=following', ENT_QUOTES, 'UTF-8'); ?>" class="px-3 py-2 rounded-lg text-sm font-semibold <?= $tab === 'following' ? 'bg-main text-white' : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200'; ?>">Following</a>
+                <a data-community-profile-ajax="1" href="<?= htmlspecialchars($profileUrl . '?tab=posts', ENT_QUOTES, 'UTF-8'); ?>" class="px-3 py-2 rounded-lg text-sm font-semibold <?= $tab === 'posts' ? 'bg-main text-white' : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200'; ?>">Bài đăng</a>
+                <a data-community-profile-ajax="1" href="<?= htmlspecialchars($profileUrl . '?tab=followers', ENT_QUOTES, 'UTF-8'); ?>" class="px-3 py-2 rounded-lg text-sm font-semibold <?= $tab === 'followers' ? 'bg-main text-white' : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200'; ?>">Người theo dõi</a>
+                <a data-community-profile-ajax="1" href="<?= htmlspecialchars($profileUrl . '?tab=following', ENT_QUOTES, 'UTF-8'); ?>" class="px-3 py-2 rounded-lg text-sm font-semibold <?= $tab === 'following' ? 'bg-main text-white' : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200'; ?>">Người đang theo dõi</a>
             </section>
 
             <?php if ($tab === 'posts'): ?>
@@ -240,9 +240,16 @@ render_breadcrumb($breadcrumb_items);
                             <?php foreach ($listRows as $row): ?>
                                 <?php $rowUrl = community_profile_path((int)$row['id'], (string)($row['name'] ?? 'User')); ?>
                                 <a href="<?= htmlspecialchars($rowUrl, ENT_QUOTES, 'UTF-8'); ?>" class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 hover:border-main transition-colors">
-                                    <div>
-                                        <p class="text-sm font-semibold text-gray-900 dark:text-white"><?= htmlspecialchars((string)($row['name'] ?? 'User'), ENT_QUOTES, 'UTF-8'); ?></p>
-                                        <p class="text-xs text-gray-500 dark:text-gray-400"><?= htmlspecialchars(date('d/m/Y H:i', strtotime((string)($row['created_at'] ?? 'now'))), ENT_QUOTES, 'UTF-8'); ?></p>
+                                    <div class="flex items-center gap-3">
+                                        <img
+                                            src="<?= htmlspecialchars(site_url('uploaded_img/' . (string)($row['avatar'] ?? 'default-avatar.png')), ENT_QUOTES, 'UTF-8'); ?>"
+                                            alt="<?= htmlspecialchars((string)($row['name'] ?? 'User'), ENT_QUOTES, 'UTF-8'); ?>"
+                                            class="h-10 w-10 rounded-full object-cover border border-gray-200 dark:border-gray-700"
+                                            onerror="this.onerror=null;this.src='<?= htmlspecialchars(site_url('uploaded_img/default-avatar.png'), ENT_QUOTES, 'UTF-8'); ?>';" />
+                                        <div>
+                                            <p class="text-sm font-semibold text-gray-900 dark:text-white"><?= htmlspecialchars((string)($row['name'] ?? 'User'), ENT_QUOTES, 'UTF-8'); ?></p>
+                                            <p class="text-xs text-gray-500 dark:text-gray-400"><?= htmlspecialchars(date('d/m/Y H:i', strtotime((string)($row['created_at'] ?? 'now'))), ENT_QUOTES, 'UTF-8'); ?></p>
+                                        </div>
                                     </div>
                                     <span class="text-xs text-main">Xem profile</span>
                                 </a>
@@ -400,6 +407,7 @@ render_breadcrumb($breadcrumb_items);
 
             const input = card.querySelector('[data-community-comment-input]');
             const parentInput = card.querySelector('[data-community-parent-comment-id]');
+            const honeypotInput = card.querySelector('[name="comment_hp"]');
             if (!input) {
                 return;
             }
@@ -420,6 +428,7 @@ render_breadcrumb($breadcrumb_items);
             fd.set('post_id', String(postId));
             fd.set('comment', comment);
             fd.set('parent_comment_id', parentInput ? String(parentInput.value || '0') : '0');
+            fd.set('comment_hp', honeypotInput ? String(honeypotInput.value || '') : '');
 
             try {
                 const res = await fetch(endpoint, {

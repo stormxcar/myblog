@@ -8,6 +8,7 @@ if ($is_direct_ajax_call) {
 include_once __DIR__ . '/connect.php';
 include_once __DIR__ . '/seo_helpers.php';
 include_once __DIR__ . '/feature_engine.php';
+include_once __DIR__ . '/security_helpers.php';
 
 if (isset($_POST['like_post'])) {
    if (session_status() !== PHP_SESSION_ACTIVE) {
@@ -42,9 +43,22 @@ if (isset($_POST['like_post'])) {
    };
 
    blog_ensure_feature_tables($conn);
+   blog_security_ensure_tables($conn);
 
    // người dùng đã đăng nhập
    if ($user_id != '') {
+      $verifyState = blog_user_verification_state($conn, (int)$user_id);
+      if (empty($verifyState['is_verified'])) {
+         $json_fail('Tai khoan chua xac minh email. Vui long xac minh de tiep tuc.', [
+            'verification_required' => true,
+            'resend_url' => site_url('static/resend_verification.php') . '?email=' . rawurlencode((string)($verifyState['email'] ?? ''))
+         ]);
+         if ($is_ajax) {
+            exit;
+         }
+         header('Location: ' . site_url('static/resend_verification.php') . '?email=' . rawurlencode((string)($verifyState['email'] ?? '')));
+         exit;
+      }
 
       $post_id = (int)($_POST['post_id'] ?? 0);
       $admin_id = (int)($_POST['admin_id'] ?? 0);

@@ -3,10 +3,12 @@ ob_start();
 include_once __DIR__ . '/../components/connect.php';
 include_once __DIR__ . '/../components/seo_helpers.php';
 include_once __DIR__ . '/../components/feature_engine.php';
+include_once __DIR__ . '/../components/security_helpers.php';
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
+blog_security_ensure_tables($conn);
 
 ini_set('display_errors', '0');
 header('Content-Type: application/json; charset=utf-8');
@@ -83,11 +85,24 @@ try {
         ]);
     }
 
+    $verifyState = blog_user_verification_state($conn, (int)$user_id);
+    if (empty($verifyState['is_verified'])) {
+        json_fail('Tài khoản chưa xác minh email. Vui lòng xác minh để bình luận.', [
+            'verification_required' => true,
+            'resend_url' => site_url('static/resend_verification.php') . '?email=' . rawurlencode((string)($verifyState['email'] ?? ''))
+        ]);
+    }
+
     $post_id = (int)($_POST['post_id'] ?? 0);
     $admin_id = (int)($_POST['admin_id'] ?? 0);
     $parent_comment_id = (int)($_POST['parent_comment_id'] ?? 0);
+    $honeypot = trim((string)($_POST['comment_hp'] ?? ''));
     $comment = trim((string)($_POST['comment'] ?? ''));
     $comment = filter_var($comment, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+
+    if ($honeypot !== '') {
+        json_fail('Không thể gửi bình luận lúc này.');
+    }
 
     if ($post_id <= 0 || $admin_id <= 0 || $comment === '') {
         json_fail('Dữ liệu bình luận không hợp lệ.', $is_local_debug ? [
@@ -97,6 +112,49 @@ try {
 
     if ($parent_comment_id < 0) {
         $parent_comment_id = 0;
+    }
+
+    $commentIdentifier = 'user:' . (int)$user_id;
+    $commentLimitState = blog_rate_limit_state($conn, 'comment_add', $commentIdentifier, 8, 60, 120);
+    if (!empty($commentLimitState['blocked'])) {
+        $retryAfter = max(1, (int)($commentLimitState['retry_after'] ?? 0));
+        json_fail('Bạn đang gửi bình luận quá nhanh. Vui lòng thử lại sau ' . $retryAfter . ' giây.');
+    }
+
+    $linkCount = blog_comment_link_count($comment);
+    if ($linkCount > 2) {
+        json_fail('Bình luận chứa quá nhiều liên kết. Tối đa 2 liên kết cho mỗi bình luận.');
+    }
+
+    $commentDateColumn = null;
+    if (function_exists('blog_db_has_column') && blog_db_has_column($conn, 'comments', 'date')) {
+        $commentDateColumn = 'date';
+    } elseif (function_exists('blog_db_has_column') && blog_db_has_column($conn, 'comments', 'created_at')) {
+        $commentDateColumn = 'created_at';
+    }
+
+    if ($commentDateColumn !== null) {
+        $latestStmt = $conn->prepare("SELECT {$commentDateColumn} AS submitted_at FROM comments WHERE user_id = ? ORDER BY id DESC LIMIT 1");
+        $latestStmt->execute([(int)$user_id]);
+        $latest = $latestStmt->fetch(PDO::FETCH_ASSOC);
+        if ($latest && !empty($latest['submitted_at'])) {
+            $lastTs = strtotime((string)$latest['submitted_at']);
+            if ($lastTs !== false) {
+                $cooldownLeft = 15 - (time() - $lastTs);
+                if ($cooldownLeft > 0) {
+                    json_fail('Bạn vừa bình luận. Vui lòng chờ ' . $cooldownLeft . ' giây rồi thử lại.');
+                }
+            }
+        }
+
+        $normalizedCurrent = blog_comment_normalize_text($comment);
+        $repeatStmt = $conn->prepare("SELECT comment FROM comments WHERE user_id = ? AND {$commentDateColumn} >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE) ORDER BY id DESC LIMIT 5");
+        $repeatStmt->execute([(int)$user_id]);
+        foreach ($repeatStmt->fetchAll(PDO::FETCH_ASSOC) as $recentRow) {
+            if ($normalizedCurrent !== '' && $normalizedCurrent === blog_comment_normalize_text((string)($recentRow['comment'] ?? ''))) {
+                json_fail('Bình luận bị trùng lặp liên tục. Vui lòng thay đổi nội dung trước khi gửi lại.');
+            }
+        }
     }
 
     $profileStmt = $conn->prepare('SELECT id, name, COALESCE(level_of_interaction, 0) AS interaction_score FROM users WHERE id = ? LIMIT 1');
@@ -202,6 +260,8 @@ try {
     ];
 
     $comment_html = render_comment_html_fragment($commentRow, true);
+
+    blog_rate_limit_record_failure($conn, 'comment_add', $commentIdentifier, 8, 60, 120);
 
     if (ob_get_length() > 0) {
         ob_clean();

@@ -5,6 +5,7 @@ include_once __DIR__ . '/../components/connect.php';
 include_once __DIR__ . '/../components/seo_helpers.php';
 include_once __DIR__ . '/../components/community_engine.php';
 include_once __DIR__ . '/../components/feature_engine.php';
+include_once __DIR__ . '/../components/security_helpers.php';
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
@@ -12,6 +13,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 
 header('Content-Type: application/json; charset=utf-8');
 community_ensure_tables($conn);
+blog_security_ensure_tables($conn);
 
 function community_json_fail($message, $statusCode = 400, array $extra = [])
 {
@@ -36,6 +38,14 @@ if ($userId <= 0) {
     community_json_fail('Vui long dang nhap de dang bai cong dong.', 401, [
         'login_required' => true,
         'login_url' => site_url('static/login.php')
+    ]);
+}
+
+$verifyState = blog_user_verification_state($conn, $userId);
+if (empty($verifyState['is_verified'])) {
+    community_json_fail('Tai khoan chua xac minh email. Vui long xac minh de dang bai.', 403, [
+        'verification_required' => true,
+        'resend_url' => site_url('static/resend_verification.php') . '?email=' . rawurlencode((string)($verifyState['email'] ?? ''))
     ]);
 }
 

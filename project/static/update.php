@@ -1,5 +1,6 @@
 <?php
 include '../components/connect.php';
+include '../components/security_helpers.php';
 
 session_start();
 $message = [];
@@ -66,25 +67,22 @@ if (isset($_POST['submit'])) {
     }
 
     // Update password
-    $empty_pass = 'da39a3ee5e6b4b0d3255bfef95601890afd80709';
-    $old_pass = sha1($_POST['old_pass']);
-    $old_pass = filter_var($old_pass, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-    $new_pass = sha1($_POST['new_pass']);
-    $new_pass = filter_var($new_pass, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-    $confirm_pass = sha1($_POST['confirm_pass']);
-    $confirm_pass = filter_var($confirm_pass, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+    $old_pass = trim((string)($_POST['old_pass'] ?? ''));
+    $new_pass = (string)($_POST['new_pass'] ?? '');
+    $confirm_pass = (string)($_POST['confirm_pass'] ?? '');
 
-    if ($old_pass != $empty_pass) {
-        if ($old_pass != $fetch_user['password']) {
+    if ($old_pass !== '') {
+        if (!blog_password_matches($old_pass, (string)($fetch_user['password'] ?? ''))) {
             $error_messages[] = 'Mật khẩu cũ không đúng!';
-        } elseif ($new_pass != $confirm_pass) {
+        } elseif ($new_pass !== $confirm_pass) {
             $error_messages[] = 'Mật khẩu mới không khớp!';
-        } elseif (strlen($_POST['new_pass']) < 6) {
+        } elseif (strlen($new_pass) < 6) {
             $error_messages[] = 'Mật khẩu mới phải có ít nhất 6 ký tự!';
         } else {
-            if ($new_pass != $empty_pass) {
+            if ($new_pass !== '') {
+                $newPassHash = password_hash($confirm_pass, PASSWORD_DEFAULT);
                 $update_pass = $conn->prepare("UPDATE `users` SET password = ? WHERE id = ?");
-                $update_pass->execute([$confirm_pass, $user_id]);
+                $update_pass->execute([$newPassHash, $user_id]);
                 $success_messages[] = 'Mật khẩu đã cập nhật thành công!';
             } else {
                 $error_messages[] = 'Vui lòng nhập mật khẩu mới!';

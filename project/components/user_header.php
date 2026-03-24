@@ -232,7 +232,7 @@ $avatarSrc = blog_user_avatar_src($avatar['avatar'] ?? null, '../uploaded_img/de
 
             <!-- Mobile Menu Toggle -->
             <button class="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors mobile-menu-toggle">
-               Menu
+               <i class="fa-solid fa-bars"></i>
             </button>
          </div>
       </div>

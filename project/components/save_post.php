@@ -7,6 +7,7 @@ if ($is_direct_ajax_call) {
 }
 include __DIR__ . '/connect.php';
 include __DIR__ . '/seo_helpers.php';
+include __DIR__ . '/security_helpers.php';
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
@@ -43,6 +44,29 @@ if ($user_id === '') {
     $_SESSION['message'] = $response_message;
 
     header('Location: ' . site_url('static/login.php'));
+    exit;
+}
+
+blog_security_ensure_tables($conn);
+$verifyState = blog_user_verification_state($conn, (int)$user_id);
+if (empty($verifyState['is_verified'])) {
+    $response_message = 'Tai khoan chua xac minh email. Vui long xac minh de luu bai viet.';
+
+    if ($is_ajax) {
+        if (ob_get_length() > 0) {
+            ob_clean();
+        }
+        echo json_encode([
+            'ok' => false,
+            'verification_required' => true,
+            'resend_url' => site_url('static/resend_verification.php') . '?email=' . rawurlencode((string)($verifyState['email'] ?? '')),
+            'message' => $response_message
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $_SESSION['message'] = $response_message;
+    header('Location: ' . site_url('static/resend_verification.php') . '?email=' . rawurlencode((string)($verifyState['email'] ?? '')));
     exit;
 }
 

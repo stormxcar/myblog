@@ -2,10 +2,15 @@
 
 include '../components/connect.php';
 include '../components/seo_helpers.php';
+include '../components/security_helpers.php';
 
 session_start();
+blog_security_ensure_tables($conn);
 $toastMessage = '';
 $toastType = 'info';
+$registerCaptchaRequired = false;
+$registerChallengeProvider = '';
+$registerChallengeSiteKey = '';
 
 if (!function_exists('redirect_with_fallback')) {
     function redirect_with_fallback($url)
@@ -13,6 +18,18 @@ if (!function_exists('redirect_with_fallback')) {
         header('Location: ' . $url);
         echo '<script>window.location.href=' . json_encode($url, JSON_UNESCAPED_UNICODE) . ';</script>';
         exit;
+    }
+}
+
+if (!function_exists('blog_is_gmail_address')) {
+    function blog_is_gmail_address($email)
+    {
+        $email = trim((string)$email);
+        if ($email === '') {
+            return false;
+        }
+
+        return (bool)preg_match('/^[A-Z0-9._%+-]+@gmail\.com$/i', $email);
     }
 }
 
@@ -26,58 +43,115 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     $name = trim(strip_tags((string)($_POST['name'] ?? '')));
     $email = trim((string)($_POST['email'] ?? ''));
     $email = filter_var($email, FILTER_SANITIZE_EMAIL);
+    $captchaIdentifier = $email !== '' ? $email : 'anonymous';
+    $registerCaptchaRequired = blog_captcha_should_show($conn, 'register', $captchaIdentifier, 3, 900);
+    $registerChallengeProvider = blog_human_challenge_provider();
+    $registerChallengeSiteKey = blog_human_challenge_site_key();
     $rawPass = (string)($_POST['pass'] ?? '');
     $rawCpass = (string)($_POST['cpass'] ?? '');
 
-    if ($name === '' || mb_strlen($name, 'UTF-8') < 2) {
-        $toastMessage = 'Ten nguoi dung toi thieu 2 ky tu.';
-        $toastType = 'error';
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $toastMessage = 'Email khong hop le.';
-        $toastType = 'error';
-    } elseif ($rawPass === '' || strlen($rawPass) < 6) {
-        $toastMessage = 'Mat khau toi thieu 6 ky tu.';
-        $toastType = 'error';
-    } elseif (!hash_equals($rawPass, $rawCpass)) {
-        $toastMessage = 'Mat khau nhap lai khong khop!';
+    if (!blog_csrf_validate('register_form', $_POST['_csrf_token'] ?? '')) {
+        $toastMessage = 'Phiên làm việc không hợp lệ. Vui lòng tải lại trang và thử lại.';
         $toastType = 'error';
     } else {
-        $checkUser = $conn->prepare("SELECT id FROM `users` WHERE email = ? OR name = ? LIMIT 1");
-        $checkUser->execute([$email, $name]);
-        if ($checkUser->fetch(PDO::FETCH_ASSOC)) {
-            $toastMessage = 'Email hoac ten nguoi dung da ton tai!';
+        $limitState = blog_rate_limit_state($conn, 'register', $captchaIdentifier, 8, 900, 900);
+        if (!empty($limitState['blocked'])) {
+            $retryAfter = max(1, (int)($limitState['retry_after'] ?? 0));
+            $minutes = (int)ceil($retryAfter / 60);
+            $toastMessage = 'Bạn đang thử đăng ký quá nhiều lần. Vui lòng thử lại sau khoảng ' . $minutes . ' phút.';
             $toastType = 'error';
+        } elseif ($registerCaptchaRequired && ($registerChallengeProvider === '' || $registerChallengeSiteKey === '')) {
+            blog_rate_limit_record_failure($conn, 'register', $captchaIdentifier, 8, 900, 900);
+            $toastMessage = 'Hệ thống xác thực bot chưa được cấu hình. Vui lòng liên hệ quản trị viên.';
+            $toastType = 'error';
+        } elseif ($registerCaptchaRequired && !blog_human_challenge_verify($_POST[blog_human_challenge_token_field()] ?? '')) {
+            blog_rate_limit_record_failure($conn, 'register', $captchaIdentifier, 8, 900, 900);
+            $toastMessage = 'Vui lòng xác thực CAPTCHA hợp lệ.';
+            $toastType = 'error';
+        } elseif ($name === '' || mb_strlen($name, 'UTF-8') < 2) {
+            $toastMessage = 'Ten nguoi dung toi thieu 2 ky tu.';
+            $toastType = 'error';
+            blog_rate_limit_record_failure($conn, 'register', $captchaIdentifier, 8, 900, 900);
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $toastMessage = 'Email khong hop le.';
+            $toastType = 'error';
+            blog_rate_limit_record_failure($conn, 'register', $captchaIdentifier, 8, 900, 900);
+        } elseif (!blog_is_gmail_address($email)) {
+            $toastMessage = 'He thong hien chi ho tro dang ky bang email @gmail.com.';
+            $toastType = 'error';
+            blog_rate_limit_record_failure($conn, 'register', $captchaIdentifier, 8, 900, 900);
+        } elseif ($rawPass === '' || strlen($rawPass) < 6) {
+            $toastMessage = 'Mat khau toi thieu 6 ky tu.';
+            $toastType = 'error';
+            blog_rate_limit_record_failure($conn, 'register', $captchaIdentifier, 8, 900, 900);
+        } elseif (!hash_equals($rawPass, $rawCpass)) {
+            $toastMessage = 'Mat khau nhap lai khong khop!';
+            $toastType = 'error';
+            blog_rate_limit_record_failure($conn, 'register', $captchaIdentifier, 8, 900, 900);
         } else {
-            $avatar = null;
-            if (isset($_FILES['avatar']) && (int)($_FILES['avatar']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
-                $uploadResult = blog_cloudinary_upload($_FILES['avatar'], blog_cloudinary_default_folder() . '/avatars');
-                if (!($uploadResult['ok'] ?? false)) {
-                    $toastMessage = (string)($uploadResult['error'] ?? 'Không thể upload ảnh đại diện.');
-                    $toastType = 'error';
-                } else {
-                    $avatar = (string)$uploadResult['secure_url'];
-                }
-            }
-
-            if ($toastType === 'error' && $toastMessage !== '') {
-                // Avatar upload failed, keep validation error and stop creating account.
+            $checkUser = $conn->prepare("SELECT id FROM `users` WHERE email = ? OR name = ? LIMIT 1");
+            $checkUser->execute([$email, $name]);
+            if ($checkUser->fetch(PDO::FETCH_ASSOC)) {
+                $toastMessage = 'Email hoac ten nguoi dung da ton tai!';
+                $toastType = 'error';
+                blog_rate_limit_record_failure($conn, 'register', $captchaIdentifier, 8, 900, 900);
             } else {
-                $passHash = sha1($rawPass);
-                $insertUser = $conn->prepare("INSERT INTO `users` (name, email, password, avatar) VALUES (?, ?, ?, ?)");
-                if ($insertUser->execute([$name, $email, $passHash, $avatar])) {
-                    session_regenerate_id(true);
-                    $_SESSION['flash_message'] = 'Dang ky tai khoan thanh cong';
-                    $_SESSION['flash_type'] = 'success';
-                    $_SESSION['user_id'] = (int)$conn->lastInsertId();
-                    redirect_with_fallback('home.php?message=' . urlencode('Dang ky tai khoan thanh cong'));
+                $avatar = null;
+                if (isset($_FILES['avatar']) && (int)($_FILES['avatar']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+                    $uploadResult = blog_cloudinary_upload($_FILES['avatar'], blog_cloudinary_default_folder() . '/avatars');
+                    if (!($uploadResult['ok'] ?? false)) {
+                        $toastMessage = (string)($uploadResult['error'] ?? 'Không thể upload ảnh đại diện.');
+                        $toastType = 'error';
+                        blog_rate_limit_record_failure($conn, 'register', $captchaIdentifier, 8, 900, 900);
+                    } else {
+                        $avatar = (string)$uploadResult['secure_url'];
+                    }
+                }
+
+                if ($toastType === 'error' && $toastMessage !== '') {
+                    // Avatar upload failed, keep validation error and stop creating account.
                 } else {
-                    $toastMessage = 'Co loi xay ra khi dang ky tai khoan!';
-                    $toastType = 'error';
+                    $passHash = password_hash($rawPass, PASSWORD_DEFAULT);
+                    $insertColumns = ['name', 'email', 'password', 'avatar'];
+                    $insertValues = [$name, $email, $passHash, $avatar];
+                    if (blog_db_has_column($conn, 'users', 'is_verified')) {
+                        $insertColumns[] = 'is_verified';
+                        $insertValues[] = 0;
+                    }
+                    $insertSql = 'INSERT INTO `users` (' . implode(', ', $insertColumns) . ') VALUES (' . implode(', ', array_fill(0, count($insertColumns), '?')) . ')';
+                    $insertUser = $conn->prepare($insertSql);
+                    if ($insertUser->execute($insertValues)) {
+                        blog_rate_limit_record_success($conn, 'register', $captchaIdentifier);
+                        $newUserId = (int)$conn->lastInsertId();
+
+                        $verifyResult = blog_issue_and_send_verification($conn, $newUserId, $email, $name);
+                        if (!empty($verifyResult['ok'])) {
+                            $_SESSION['flash_message'] = 'Dang ky thanh cong. Vui long kiem tra email de xac minh tai khoan.';
+                            $_SESSION['flash_type'] = 'success';
+                        } else {
+                            $_SESSION['flash_message'] = 'Dang ky thanh cong. Khong gui duoc email xac minh, vui long yeu cau gui lai.';
+                            $_SESSION['flash_type'] = 'warning';
+                        }
+
+                        redirect_with_fallback('resend_verification.php?email=' . rawurlencode($email));
+                    } else {
+                        $toastMessage = 'Co loi xay ra khi dang ky tai khoan!';
+                        $toastType = 'error';
+                        blog_rate_limit_record_failure($conn, 'register', $captchaIdentifier, 8, 900, 900);
+                    }
                 }
             }
         }
     }
 }
+
+if (!$registerCaptchaRequired) {
+    $registerEmailProbe = trim((string)($_POST['email'] ?? ''));
+    $registerIdentifierProbe = $registerEmailProbe !== '' ? $registerEmailProbe : 'anonymous';
+    $registerCaptchaRequired = blog_captcha_should_show($conn, 'register', $registerIdentifierProbe, 3, 900);
+}
+$registerChallengeProvider = blog_human_challenge_provider();
+$registerChallengeSiteKey = blog_human_challenge_site_key();
 
 if (!empty($user_id) && $_SERVER['REQUEST_METHOD'] === 'GET') {
     $_SESSION['flash_message'] = 'Bạn đã đăng nhập.';
@@ -200,6 +274,7 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
 
                     <!-- Register Form -->
                     <form action="" method="post" enctype="multipart/form-data" class="space-y-6">
+                        <?= blog_csrf_input('register_form'); ?>
                         <!-- Avatar Upload -->
                         <div class="text-center">
                             <label for="avatar" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
@@ -245,9 +320,11 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
                             </label>
                             <div class="relative">
                                 <input type="email" name="email" id="email" required
-                                    placeholder="Nhập email của bạn"
+                                    placeholder="Nhập email Gmail của bạn"
                                     class="form-input "
                                     maxlength="50"
+                                    pattern="^[A-Za-z0-9._%+-]+@gmail\.com$"
+                                    title="Vui lòng dùng email @gmail.com"
                                     oninput="this.value = this.value.replace(/\s/g, '')">
 
                             </div>
@@ -318,6 +395,21 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
                                 <button type="button" id="openPrivacy" class="text-main hover:text-blue-700 font-medium">Chính sách bảo mật</button>
                             </label>
                         </div>
+
+                        <?php if ($registerCaptchaRequired): ?>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <i class="fas fa-shield-alt mr-2 text-main"></i>Xác minh an toàn
+                                </label>
+                                <?php if ($registerChallengeProvider === 'turnstile' && $registerChallengeSiteKey !== ''): ?>
+                                    <div class="cf-turnstile" data-sitekey="<?= htmlspecialchars($registerChallengeSiteKey, ENT_QUOTES, 'UTF-8'); ?>"></div>
+                                <?php elseif ($registerChallengeProvider === 'recaptcha' && $registerChallengeSiteKey !== ''): ?>
+                                    <div class="g-recaptcha" data-sitekey="<?= htmlspecialchars($registerChallengeSiteKey, ENT_QUOTES, 'UTF-8'); ?>"></div>
+                                <?php else: ?>
+                                    <p class="text-sm text-red-600">Chưa cấu hình Turnstile/reCAPTCHA cho môi trường này.</p>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
 
                         <!-- Submit Button -->
                         <button type="submit" name="submit" id="submitBtn"
@@ -454,12 +546,13 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
 
             function validateForm() {
                 const isNameValid = nameInput.value.trim().length >= 2;
-                const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.value);
+                const isEmailValid = /^[A-Za-z0-9._%+-]+@gmail\.com$/i.test(emailInput.value.trim());
                 const isPasswordValid = passwordInput.value.length >= 6;
                 const isPasswordMatch = passwordInput.value === confirmPasswordInput.value && confirmPasswordInput.value.length > 0;
                 const isTermsAccepted = termsCheckbox.checked;
+                const isCaptchaValid = true;
 
-                if (isNameValid && isEmailValid && isPasswordValid && isPasswordMatch && isTermsAccepted) {
+                if (isNameValid && isEmailValid && isPasswordValid && isPasswordMatch && isTermsAccepted && isCaptchaValid) {
                     submitBtn.disabled = false;
                     submitBtn.classList.remove('bg-gray-400');
                     submitBtn.classList.add('bg-main', 'hover:bg-blue-700');
@@ -621,6 +714,11 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
             }
         }
     </script>
+    <?php if ($registerCaptchaRequired && $registerChallengeProvider === 'turnstile' && $registerChallengeSiteKey !== ''): ?>
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <?php elseif ($registerCaptchaRequired && $registerChallengeProvider === 'recaptcha' && $registerChallengeSiteKey !== ''): ?>
+        <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <?php endif; ?>
 </body>
 
 </html>

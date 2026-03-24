@@ -3,12 +3,14 @@ include '../components/connect.php';
 include '../components/community_engine.php';
 include '../components/feature_engine.php';
 include '../components/seo_helpers.php';
+include '../components/security_helpers.php';
 
 session_start();
 header('Content-Type: application/json; charset=utf-8');
 
 community_ensure_tables($conn);
 blog_ensure_feature_tables($conn);
+blog_security_ensure_tables($conn);
 
 function comment_fail($message, $code = 400, array $extra = [])
 {
@@ -29,9 +31,22 @@ if ($userId <= 0) {
     ]);
 }
 
+$verifyState = blog_user_verification_state($conn, $userId);
+if (empty($verifyState['is_verified'])) {
+    comment_fail('Tai khoan chua xac minh email. Vui long xac minh de binh luan.', 403, [
+        'verification_required' => true,
+        'resend_url' => site_url('static/resend_verification.php') . '?email=' . rawurlencode((string)($verifyState['email'] ?? ''))
+    ]);
+}
+
 $postId = (int)($_POST['post_id'] ?? 0);
 $parentCommentId = (int)($_POST['parent_comment_id'] ?? 0);
+$honeypot = trim((string)($_POST['comment_hp'] ?? ''));
 $commentRaw = trim((string)($_POST['comment'] ?? ''));
+
+if ($honeypot !== '') {
+    comment_fail('Khong the gui binh luan luc nay.');
+}
 
 if ($postId <= 0 || $commentRaw === '') {
     comment_fail('Noi dung binh luan khong hop le.');
@@ -39,6 +54,40 @@ if ($postId <= 0 || $commentRaw === '') {
 
 if (mb_strlen($commentRaw, 'UTF-8') > 1200) {
     comment_fail('Binh luan toi da 1200 ky tu.');
+}
+
+$commentIdentifier = 'user:' . $userId;
+$commentLimitState = blog_rate_limit_state($conn, 'community_comment_add', $commentIdentifier, 8, 60, 120);
+if (!empty($commentLimitState['blocked'])) {
+    $retryAfter = max(1, (int)($commentLimitState['retry_after'] ?? 0));
+    comment_fail('Ban dang gui binh luan qua nhanh. Vui long thu lai sau ' . $retryAfter . ' giay.');
+}
+
+$linkCount = blog_comment_link_count($commentRaw);
+if ($linkCount > 2) {
+    comment_fail('Binh luan chua qua nhieu lien ket. Toi da 2 lien ket cho moi binh luan.');
+}
+
+$latestCommentStmt = $conn->prepare('SELECT created_at, comment FROM community_post_comments WHERE user_id = ? ORDER BY id DESC LIMIT 1');
+$latestCommentStmt->execute([$userId]);
+$latestComment = $latestCommentStmt->fetch(PDO::FETCH_ASSOC);
+if ($latestComment && !empty($latestComment['created_at'])) {
+    $lastTs = strtotime((string)$latestComment['created_at']);
+    if ($lastTs !== false) {
+        $cooldownLeft = 15 - (time() - $lastTs);
+        if ($cooldownLeft > 0) {
+            comment_fail('Ban vua binh luan. Vui long cho ' . $cooldownLeft . ' giay roi thu lai.');
+        }
+    }
+}
+
+$normalizedCurrent = blog_comment_normalize_text($commentRaw);
+$repeatStmt = $conn->prepare('SELECT comment FROM community_post_comments WHERE user_id = ? AND created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE) ORDER BY id DESC LIMIT 5');
+$repeatStmt->execute([$userId]);
+foreach ($repeatStmt->fetchAll(PDO::FETCH_ASSOC) as $recentRow) {
+    if ($normalizedCurrent !== '' && $normalizedCurrent === blog_comment_normalize_text((string)($recentRow['comment'] ?? ''))) {
+        comment_fail('Binh luan bi trung lap lien tuc. Vui long doi noi dung truoc khi gui lai.');
+    }
 }
 
 $postStmt = $conn->prepare('SELECT id, user_id, status FROM community_posts WHERE id = ? LIMIT 1');
@@ -119,6 +168,8 @@ $commentRow = [
     'comment' => $commentRaw,
     'created_at' => date('Y-m-d H:i:s')
 ];
+
+blog_rate_limit_record_failure($conn, 'community_comment_add', $commentIdentifier, 8, 60, 120);
 
 echo json_encode([
     'ok' => true,

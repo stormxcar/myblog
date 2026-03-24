@@ -871,6 +871,7 @@ render_breadcrumb($breadcrumb_items);
                             <input type="hidden" name="admin_id" value="<?= $fetch_admin_id['admin_id']; ?>">
                             <input type="hidden" name="user_name" value="<?= $fetch_profile['name']; ?>">
                             <input type="hidden" name="parent_comment_id" id="parentCommentId" value="0">
+                            <input type="text" name="comment_hp" value="" tabindex="-1" autocomplete="off" class="hidden" aria-hidden="true">
 
                             <div class="flex items-center space-x-3 mb-4">
                                 <div class="w-10 h-10 bg-main rounded-full flex items-center justify-center text-white font-semibold">

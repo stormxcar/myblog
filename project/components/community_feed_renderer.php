@@ -451,9 +451,9 @@ if (!function_exists('community_render_feed_posts_html')) {
                                 <p class="font-semibold text-gray-900 dark:text-white truncate"><a href="<?= htmlspecialchars($authorUrl, ENT_QUOTES, 'UTF-8'); ?>" class="hover:underline"><?= htmlspecialchars($author, ENT_QUOTES, 'UTF-8'); ?></a></p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400 truncate"><span class="font-semibold <?= htmlspecialchars((string)$theme['accent'], ENT_QUOTES, 'UTF-8'); ?>"><?= htmlspecialchars($subredditName, ENT_QUOTES, 'UTF-8'); ?></span> • <?= htmlspecialchars(community_time_ago((string)$post['created_at']), ENT_QUOTES, 'UTF-8'); ?></p>
                                 <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                                    <span data-community-followers-count data-user-id="<?= $authorId; ?>"><?= $authorFollowersCount; ?></span> nguoi theo doi
+                                    <span data-community-followers-count data-user-id="<?= $authorId; ?>"><?= $authorFollowersCount; ?></span> người theo dõi
                                     <?php if ($isFollowedByAuthor && !$isOwner): ?>
-                                        <span class="ml-2 inline-flex items-center rounded-full px-1.5 py-0.5 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">Theo doi ban</span>
+                                        <span class="ml-2 inline-flex items-center rounded-full px-3 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">Theo dõi bạn</span>
                                     <?php endif; ?>
                                 </p>
                                 <?php if (!empty($authorBadges)): ?>
@@ -469,9 +469,9 @@ if (!function_exists('community_render_feed_posts_html')) {
                             <?php if ($userId > 0 && !$isOwner): ?>
                                 <?php
                                 $followButtonClass = $isFollowingAuthor
-                                    ? 'px-3 py-1.5 rounded-full text-xs font-semibold bg-main text-white hover:bg-main/90 transition-colors'
-                                    : 'px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-main/10 hover:text-main transition-colors';
-                                $followButtonLabel = $isFollowingAuthor ? 'Dang theo doi' : ($isFollowedByAuthor ? 'Theo doi lai' : 'Theo doi');
+                                    ? 'px-4 py-1 rounded-full text-xs font-semibold bg-main text-white hover:bg-main/90 transition-colors'
+                                    : 'px-4 py-1 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-main/10 hover:text-main transition-colors';
+                                $followButtonLabel = $isFollowingAuthor ? 'Đang theo dõi' : ($isFollowedByAuthor ? 'Theo dõi lại' : 'Theo dõi');
                                 ?>
                                 <button type="button"
                                     class="<?= htmlspecialchars($followButtonClass, ENT_QUOTES, 'UTF-8'); ?>"
@@ -681,6 +681,7 @@ if (!function_exists('community_render_feed_posts_html')) {
                             <form class="mt-3" data-community-comment-form data-post-id="<?= $postId; ?>">
                                 <input type="hidden" name="post_id" value="<?= $postId; ?>">
                                 <input type="hidden" name="parent_comment_id" id="community-parent-comment-<?= $postId; ?>" value="0">
+                                <input type="text" name="comment_hp" value="" tabindex="-1" autocomplete="off" class="hidden" aria-hidden="true">
                                 <div id="community-reply-indicator-<?= $postId; ?>" class="hidden text-xs text-main mb-1"></div>
                                 <textarea name="comment" rows="3" maxlength="1200" class="form-textarea text-sm" placeholder="Viết bình luận..." required></textarea>
                                 <div class="mt-2 flex items-center gap-2">

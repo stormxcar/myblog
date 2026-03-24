@@ -639,7 +639,7 @@ if ($action === 'create_admin') {
 
     $cols = ['name', 'email', 'password'];
     $vals = ['?', '?', '?'];
-    $params = [$name, $email, sha1($password)];
+    $params = [$name, $email, password_hash($password, PASSWORD_DEFAULT)];
 
     if (blog_has_admin_role_column($conn)) {
         $cols[] = 'role';
@@ -655,6 +655,24 @@ if ($action === 'create_admin') {
         $cols[] = 'legacy_admin_id';
         $vals[] = '?';
         $params[] = $nextId;
+    }
+
+    if (blog_db_has_column($conn, 'users', 'is_verified')) {
+        $cols[] = 'is_verified';
+        $vals[] = '?';
+        $params[] = 1;
+    }
+
+    if (blog_db_has_column($conn, 'users', 'verified_at')) {
+        $cols[] = 'verified_at';
+        $vals[] = '?';
+        $params[] = gmdate('Y-m-d H:i:s');
+    }
+
+    if (blog_db_has_column($conn, 'users', 'verified_by_admin_id')) {
+        $cols[] = 'verified_by_admin_id';
+        $vals[] = '?';
+        $params[] = (int)$admin_id;
     }
 
     $insertSql = 'INSERT INTO users(' . implode(',', $cols) . ') VALUES(' . implode(',', $vals) . ')';
@@ -697,7 +715,7 @@ if ($action === 'update_admin') {
 
     if ($newPassword !== '') {
         $update = $conn->prepare('UPDATE users SET name = ?, password = ? WHERE id = ?');
-        $update->execute([$newName, sha1($newPassword), $targetId]);
+        $update->execute([$newName, password_hash($newPassword, PASSWORD_DEFAULT), $targetId]);
     } else {
         $update = $conn->prepare('UPDATE users SET name = ? WHERE id = ?');
         $update->execute([$newName, $targetId]);
