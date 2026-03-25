@@ -8,6 +8,10 @@ if (!isset($conn)) {
     include '../components/connect.php';
 }
 
+if (!function_exists('blog_brand_logo_url')) {
+    include_once '../components/seo_helpers.php';
+}
+
 try {
     // Lấy tất cả settings cần thiết trong 1 query
     $select_settings = $conn->prepare("
@@ -39,6 +43,9 @@ try {
     $link_facebook = $link_google = $link_twitter = $link_youtube = '#';
     $diachi_text = $dienthoai_text = $fax_text = $email_text = $zalo_text = $name_text = 'Đang cập nhật...';
 }
+
+$brand_name = blog_brand_name();
+$brand_logo = blog_brand_logo_url();
 ?>
 
 <!-- ========================================
@@ -53,10 +60,18 @@ try {
             <!-- About Section -->
             <div class="space-y-6">
                 <div>
-                    <h2 class="text-2xl font-bold text-white mb-4 relative">
-                        BLOG CỦA TÔI
-                        <div class="absolute bottom-0 left-0 w-12 h-1 bg-main rounded-full"></div>
-                    </h2>
+                    <div class="flex gap-2">
+
+
+                        <a href="home.php" class="inline-flex items-center gap-3 mb-4 group" aria-label="<?= htmlspecialchars($brand_name, ENT_QUOTES, 'UTF-8'); ?>">
+                            <img src="<?= htmlspecialchars($brand_logo, ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($brand_name, ENT_QUOTES, 'UTF-8'); ?> logo" class="h-8 w-8 object-contain drop-shadow-md group-hover:scale-105 transition-transform duration-200">
+
+                        </a>
+                        <h2 class="text-2xl font-bold text-white mb-4 relative">
+                            BLOG CỦA TÔI
+                            <div class="absolute bottom-0 left-0 w-12 h-1 bg-main rounded-full"></div>
+                        </h2>
+                    </div>
                     <p class="text-gray-300 leading-relaxed">
                         Một hành trình lan tỏa niềm đam mê với một tinh thần lạc quan. Hãy cùng tôi khám phá những trải nghiệm sống đầy màu sắc và tìm thấy cảm hứng trong từng câu chuyện của chính mình.
                     </p>

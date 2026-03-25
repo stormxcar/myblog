@@ -580,7 +580,7 @@ render_breadcrumb($breadcrumb_items);
                 'name' => 'My Blog',
                 'logo' => [
                     '@type' => 'ImageObject',
-                    'url' => site_url('uploaded_img/logo-removebg.png'),
+                    'url' => blog_brand_logo_url(),
                 ],
             ],
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); ?>

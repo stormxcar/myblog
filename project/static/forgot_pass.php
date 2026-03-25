@@ -160,7 +160,9 @@ $page_title = 'Quên mật khẩu - My Blog';
 $page_description = 'Nhập email để nhận mã xác nhận và đặt lại mật khẩu tài khoản My Blog.';
 $page_robots = 'noindex,follow,max-image-preview:large';
 $page_canonical = canonical_current_url();
-$page_og_image = site_url('uploaded_img/logo-removebg.png');
+$page_og_image = blog_brand_logo_url();
+$brand_name = blog_brand_name();
+$brand_logo = blog_brand_logo_url();
 ?>
 
 <?php include '../components/layout_header.php'; ?>
@@ -177,8 +179,8 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
         <div class="max-w-sm mx-auto auth-card">
             <!-- Header Section -->
             <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mb-4">
-                    <i class="fas fa-key text-white text-2xl"></i>
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-4 shadow-sm border border-gray-200 dark:border-gray-700">
+                    <img src="<?= htmlspecialchars($brand_logo, ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($brand_name, ENT_QUOTES, 'UTF-8'); ?> logo" class="w-10 h-10 object-contain">
                 </div>
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Quên mật khẩu?</h1>
                 <p class="text-gray-600 dark:text-gray-400">

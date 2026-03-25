@@ -74,7 +74,7 @@ $page_title = 'My Blog - Blog du lich, cong nghe va trai nghiem song moi ngay';
 $page_description = 'Doc bai viet moi nhat ve du lich, cong nghe va trai nghiem song. Cap nhat lien tuc, de tim kiem tren Google va de theo doi xu huong nhanh nhat.';
 $page_robots = 'index,follow,max-image-preview:large';
 $page_canonical = canonical_current_url();
-$page_og_image = site_url('uploaded_img/logo-removebg.png');
+$page_og_image = blog_brand_logo_url();
 
 ?>
 <?php include '../components/layout_header.php'; ?>

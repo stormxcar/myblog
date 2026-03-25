@@ -5,7 +5,7 @@ include '../components/seo_helpers.php';
 $page_title = '404 - Không tìm thấy trang';
 $page_description = 'Trang bạn đang tìm không tồn tại hoặc đã được di chuyển.';
 $page_canonical = canonical_current_url();
-$page_og_image = site_url('uploaded_img/logo-removebg.png');
+$page_og_image = blog_brand_logo_url();
 ?>
 
 <!DOCTYPE html>

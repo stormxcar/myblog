@@ -1,5 +1,24 @@
 <?php
 
+if (!function_exists('blog_brand_name')) {
+    function blog_brand_name()
+    {
+        return 'Blog';
+    }
+}
+
+if (!function_exists('blog_brand_logo_url')) {
+    function blog_brand_logo_url()
+    {
+        $configured = trim((string)(getenv('SITE_LOGO_URL') ?: ''));
+        if ($configured !== '') {
+            return $configured;
+        }
+
+        return 'https://res.cloudinary.com/dzwjgfd7t/image/upload/c_thumb,w_200,g_face/v1774397898/myblog/LOGO-removebg-preview_ykzzmy.png';
+    }
+}
+
 if (!function_exists('site_base_path')) {
     function site_base_path()
     {
@@ -106,6 +125,102 @@ if (!function_exists('site_url')) {
         }
 
         return $prefix . '/' . $path;
+    }
+}
+
+if (!function_exists('blog_site_origin_host')) {
+    function blog_site_origin_host()
+    {
+        $origin = (string)site_origin_url();
+        $host = parse_url($origin, PHP_URL_HOST);
+        return strtolower(trim((string)$host));
+    }
+}
+
+if (!function_exists('blog_extract_internal_path')) {
+    function blog_extract_internal_path($path)
+    {
+        $rawPath = trim((string)$path);
+        if ($rawPath === '') {
+            return '';
+        }
+
+        $decoded = rawurldecode($rawPath);
+        $decoded = preg_replace('#/+#', '/', $decoded);
+
+        $basePath = '/' . trim(rawurldecode((string)site_base_path()), '/');
+        if ($basePath !== '/' && stripos($decoded, $basePath . '/') === 0) {
+            return ltrim(substr($decoded, strlen($basePath) + 1), '/');
+        }
+        if ($basePath !== '/' && strcasecmp($decoded, $basePath) === 0) {
+            return '';
+        }
+
+        if (preg_match('#/(?:[^/]+/)?project/(.+)$#i', $decoded, $m)) {
+            return ltrim((string)$m[1], '/');
+        }
+
+        if (preg_match('#/(post|community|static|admin|components|uploaded_img)/(.+)$#i', $decoded, $m)) {
+            return strtolower((string)$m[1]) . '/' . ltrim((string)$m[2], '/');
+        }
+
+        return ltrim($decoded, '/');
+    }
+}
+
+if (!function_exists('blog_normalize_site_link')) {
+    function blog_normalize_site_link($url)
+    {
+        $url = trim((string)$url);
+        if ($url === '') {
+            return null;
+        }
+
+        if (preg_match('#^(javascript|data):#i', $url)) {
+            return null;
+        }
+
+        $appendQueryAndFragment = static function ($base, array $parts) {
+            $result = (string)$base;
+            if (!empty($parts['query'])) {
+                $result .= '?' . $parts['query'];
+            }
+            if (!empty($parts['fragment'])) {
+                $result .= '#' . $parts['fragment'];
+            }
+            return $result;
+        };
+
+        if (preg_match('#^https?://#i', $url)) {
+            $parts = parse_url($url);
+            if (!is_array($parts)) {
+                return $url;
+            }
+
+            $host = strtolower(trim((string)($parts['host'] ?? '')));
+            if ($host === '') {
+                return $url;
+            }
+
+            $originHost = blog_site_origin_host();
+            if (blog_is_local_host($host) || ($originHost !== '' && $host === $originHost)) {
+                $normalizedPath = blog_extract_internal_path((string)($parts['path'] ?? ''));
+                $base = site_url($normalizedPath);
+                return $appendQueryAndFragment($base, $parts);
+            }
+
+            return $url;
+        }
+
+        if (str_starts_with($url, '//')) {
+            return blog_request_scheme() . ':' . $url;
+        }
+
+        if (str_starts_with($url, '/')) {
+            return site_url(blog_extract_internal_path($url));
+        }
+
+        return site_url($url);
     }
 }
 

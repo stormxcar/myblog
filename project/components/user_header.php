@@ -55,6 +55,9 @@ try {
 }
 
 $display_name = $avatar && !empty($avatar['name']) ? $avatar['name'] : 'bạn';
+$is_admin_session = isset($_SESSION['admin_id']) && (int)$_SESSION['admin_id'] > 0;
+$brand_name = blog_brand_name();
+$brand_logo = blog_brand_logo_url();
 
 $avatarSrc = blog_user_avatar_src($avatar['avatar'] ?? null, '../uploaded_img/default_avatar.png');
 ?>
@@ -107,10 +110,10 @@ $avatarSrc = blog_user_avatar_src($avatar['avatar'] ?? null, '../uploaded_img/de
 
          <!-- Logo Section -->
          <a href="<?= get_nav_link('home'); ?>" class="flex items-center space-x-3 group">
-            <!-- <img src="<?= $logo_path; ?>" alt="Logo"
-               class="h-10 w-10 rounded-full object-cover group-hover:scale-110 transition-transform duration-200"> -->
+            <img src="<?= htmlspecialchars($brand_logo, ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($brand_name, ENT_QUOTES, 'UTF-8'); ?> logo"
+               class="h-10 w-10 object-contain drop-shadow-sm group-hover:scale-105 transition-transform duration-200">
             <span class="text-xl font-bold text-gray-900 dark:text-white group-hover:text-main transition-colors">
-               My Blog
+               <?= htmlspecialchars($brand_name, ENT_QUOTES, 'UTF-8'); ?>
             </span>
          </a>
 
@@ -190,6 +193,15 @@ $avatarSrc = blog_user_avatar_src($avatar['avatar'] ?? null, '../uploaded_img/de
 
                   <!-- Dropdown Menu -->
                   <div class="user-dropdown absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 hidden">
+                     <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Đang đăng nhập</p>
+                        <p class="text-sm font-semibold text-gray-900 dark:text-white truncate"><?= htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?></p>
+                     </div>
+                     <?php if ($is_admin_session): ?>
+                        <a href="<?= get_admin_link('dashboard'); ?>" class="block px-4 py-3 text-sm text-main font-semibold hover:bg-main/10 transition-colors">
+                           Admin panel
+                        </a>
+                     <?php endif; ?>
                      <a href="<?= get_user_link('update_profile'); ?>" class="block px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                         Cập nhật hồ sơ
                      </a>
@@ -278,6 +290,15 @@ $avatarSrc = blog_user_avatar_src($avatar['avatar'] ?? null, '../uploaded_img/de
             <?php if ($user_id): ?>
                <!-- Mobile User Menu -->
                <div class="border-t border-gray-200 dark:border-gray-700 mt-2 pt-2">
+                  <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 mb-1">
+                     <p class="text-xs text-gray-500 dark:text-gray-400">Đang đăng nhập</p>
+                     <p class="text-sm font-semibold text-gray-900 dark:text-white truncate"><?= htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?></p>
+                  </div>
+                  <?php if ($is_admin_session): ?>
+                     <a href="<?= get_admin_link('dashboard'); ?>" class="block px-4 py-3 text-main font-semibold hover:bg-main/10 transition-colors">
+                        Admin panel
+                     </a>
+                  <?php endif; ?>
                   <a href="<?= get_user_link('update_profile'); ?>" class="block px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                      Cập nhật hồ sơ
                   </a>

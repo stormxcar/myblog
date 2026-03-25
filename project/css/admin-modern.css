@@ -74,10 +74,21 @@ body {
 }
 
 .header .logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
   color: var(--ad-text) !important;
-  font-size: 2.15rem !important;
+  font-size: 1.95rem !important;
   font-weight: 700;
   letter-spacing: -0.02em;
+  padding: 1.6rem;
+}
+
+.header .logo .logo-mark {
+  width: 3.2rem;
+  height: 3.2rem;
+  object-fit: contain;
+  flex: 0 0 auto;
 }
 
 .header a {

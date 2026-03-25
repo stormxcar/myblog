@@ -46,7 +46,7 @@ $page_title = 'Bài viết đã lưu - My Blog';
 $page_description = 'Danh sách các bài viết bạn đã lưu để đọc lại sau trên My Blog.';
 $page_robots = 'noindex,follow,max-image-preview:large';
 $page_canonical = canonical_current_url();
-$page_og_image = site_url('uploaded_img/logo-removebg.png');
+$page_og_image = blog_brand_logo_url();
 ?>
 <?php include '../components/layout_header.php'; ?>
 

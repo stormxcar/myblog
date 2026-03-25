@@ -46,7 +46,10 @@ if (!isset($page_canonical)) {
 
 $og_image = isset($page_og_image) && !empty($page_og_image)
     ? $page_og_image
-    : site_url('uploaded_img/logo-removebg.png');
+    : blog_brand_logo_url();
+
+$brand_name = blog_brand_name();
+$brand_logo = blog_brand_logo_url();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -75,6 +78,7 @@ $og_image = isset($page_og_image) && !empty($page_og_image)
     <link rel="canonical" href="<?= htmlspecialchars($page_canonical, ENT_QUOTES, 'UTF-8'); ?>">
 
     <meta property="og:type" content="website">
+    <meta property="og:site_name" content="<?= htmlspecialchars($brand_name, ENT_QUOTES, 'UTF-8'); ?>">
     <meta property="og:title" content="<?= htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8'); ?>">
     <meta property="og:description" content="<?= htmlspecialchars($page_description, ENT_QUOTES, 'UTF-8'); ?>">
     <meta property="og:url" content="<?= htmlspecialchars($page_canonical, ENT_QUOTES, 'UTF-8'); ?>">
@@ -86,7 +90,8 @@ $og_image = isset($page_og_image) && !empty($page_og_image)
     <meta name="twitter:image" content="<?= htmlspecialchars($og_image, ENT_QUOTES, 'UTF-8'); ?>">
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars(layout_asset_url('uploaded_img/logo-removebg.png'), ENT_QUOTES, 'UTF-8'); ?>">
+    <link rel="icon" type="image/png" href="<?= htmlspecialchars($brand_logo, ENT_QUOTES, 'UTF-8'); ?>">
+    <link rel="apple-touch-icon" href="<?= htmlspecialchars($brand_logo, ENT_QUOTES, 'UTF-8'); ?>">
 
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
@@ -128,25 +133,46 @@ $og_image = isset($page_og_image) && !empty($page_og_image)
     <?php endif; ?>
 
     <?php
+    $globalOrgStructuredData = [
+        '@context' => 'https://schema.org',
+        '@type' => 'Organization',
+        'name' => $brand_name,
+        'url' => site_url(''),
+        'logo' => $brand_logo,
+    ];
+
+    $globalWebsiteStructuredData = [
+        '@context' => 'https://schema.org',
+        '@type' => 'WebSite',
+        'name' => $brand_name,
+        'url' => site_url(''),
+        'potentialAction' => [
+            '@type' => 'SearchAction',
+            'target' => site_url('static/search.php?q={search_term_string}'),
+            'query-input' => 'required name=search_term_string',
+        ],
+    ];
+
+    $structuredItems = [$globalOrgStructuredData, $globalWebsiteStructuredData];
+
     if (isset($page_structured_data)) {
-        $structuredItems = [];
         if (is_array($page_structured_data) && array_keys($page_structured_data) === range(0, count($page_structured_data) - 1)) {
-            $structuredItems = $page_structured_data;
+            $structuredItems = array_merge($structuredItems, $page_structured_data);
         } elseif (is_array($page_structured_data)) {
-            $structuredItems = [$page_structured_data];
+            $structuredItems[] = $page_structured_data;
+        }
+    }
+
+    foreach ($structuredItems as $structuredItem) {
+        if (!is_array($structuredItem) || empty($structuredItem)) {
+            continue;
         }
 
-        foreach ($structuredItems as $structuredItem) {
-            if (!is_array($structuredItem) || empty($structuredItem)) {
-                continue;
-            }
-
-            $jsonLd = json_encode($structuredItem, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            if (!is_string($jsonLd) || $jsonLd === '') {
-                continue;
-            }
-            echo '<script type="application/ld+json">' . $jsonLd . '</script>';
+        $jsonLd = json_encode($structuredItem, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (!is_string($jsonLd) || $jsonLd === '') {
+            continue;
         }
+        echo '<script type="application/ld+json">' . $jsonLd . '</script>';
     }
     ?>
 </head>
@@ -156,7 +182,7 @@ $og_image = isset($page_og_image) && !empty($page_og_image)
     <!-- Loader -->
     <div id="loader-wrapper" class="page-loader" role="status" aria-live="polite" aria-label="Đang tải trang">
         <div class="page-loader__panel">
-            <div class="page-loader__brand">My Blog</div>
+            <div class="page-loader__brand"><?= htmlspecialchars($brand_name, ENT_QUOTES, 'UTF-8'); ?></div>
             <div class="page-loader__label">Đang chuẩn bị nội dung...</div>
             <div class="page-loader__bar"><span></span></div>
         </div>

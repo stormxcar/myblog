@@ -1,5 +1,9 @@
 <?php
 
+if (!function_exists('site_url')) {
+    require_once __DIR__ . '/seo_helpers.php';
+}
+
 if (!function_exists('blog_ensure_feature_tables')) {
     function blog_ensure_feature_tables($conn)
     {
@@ -169,8 +173,13 @@ if (!function_exists('blog_push_notification')) {
             return;
         }
 
+        $linkValue = $link;
+        if (function_exists('blog_normalize_site_link')) {
+            $linkValue = blog_normalize_site_link($link);
+        }
+
         $insert = $conn->prepare('INSERT INTO `notifications` (user_id, type, title, message, link, is_read) VALUES (?, ?, ?, ?, ?, 0)');
-        $insert->execute([(int)$userId, (string)$type, (string)$title, (string)$message, $link]);
+        $insert->execute([(int)$userId, (string)$type, (string)$title, (string)$message, $linkValue]);
 
         $newNotificationId = (int)$conn->lastInsertId();
         $unreadStmt = $conn->prepare('SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0');
@@ -183,7 +192,7 @@ if (!function_exists('blog_push_notification')) {
             'type' => (string)$type,
             'title' => (string)$title,
             'message' => (string)$message,
-            'link' => $link,
+            'link' => $linkValue,
             'notification_id' => $newNotificationId,
             'unread_count' => $unreadCount,
             'created_at' => date('c')

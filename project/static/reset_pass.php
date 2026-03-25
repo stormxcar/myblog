@@ -68,7 +68,9 @@ if (isset($_SESSION['flash_message']) && $toastMessage === '') {
 $page_title = 'Đặt lại mật khẩu - My Blog';
 $page_description = 'Đặt lại mật khẩu tài khoản My Blog an toàn qua mã xác nhận email.';
 $page_canonical = canonical_current_url();
-$page_og_image = site_url('uploaded_img/logo-removebg.png');
+$page_og_image = blog_brand_logo_url();
+$brand_name = blog_brand_name();
+$brand_logo = blog_brand_logo_url();
 ?>
 
 <!DOCTYPE html>
@@ -83,6 +85,7 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
     <meta name="robots" content="noindex,follow,max-image-preview:large">
     <link rel="canonical" href="<?= htmlspecialchars($page_canonical, ENT_QUOTES, 'UTF-8'); ?>">
     <meta property="og:type" content="website">
+    <meta property="og:site_name" content="<?= htmlspecialchars($brand_name, ENT_QUOTES, 'UTF-8'); ?>">
     <meta property="og:title" content="<?= htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8'); ?>">
     <meta property="og:description" content="<?= htmlspecialchars($page_description, ENT_QUOTES, 'UTF-8'); ?>">
     <meta property="og:url" content="<?= htmlspecialchars($page_canonical, ENT_QUOTES, 'UTF-8'); ?>">
@@ -91,6 +94,8 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
     <meta name="twitter:title" content="<?= htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8'); ?>">
     <meta name="twitter:description" content="<?= htmlspecialchars($page_description, ENT_QUOTES, 'UTF-8'); ?>">
     <meta name="twitter:image" content="<?= htmlspecialchars($page_og_image, ENT_QUOTES, 'UTF-8'); ?>">
+    <link rel="icon" type="image/png" href="<?= htmlspecialchars($brand_logo, ENT_QUOTES, 'UTF-8'); ?>">
+    <link rel="apple-touch-icon" href="<?= htmlspecialchars($brand_logo, ENT_QUOTES, 'UTF-8'); ?>">
 
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
@@ -108,8 +113,8 @@ $page_og_image = site_url('uploaded_img/logo-removebg.png');
             <div class="max-w-md w-full auth-card">
                 <!-- Header -->
                 <header class="text-center mb-6">
-                    <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-full mb-3">
-                        <i class="fas fa-key text-white text-2xl"></i>
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-3 shadow-sm border border-gray-200 dark:border-gray-700">
+                        <img src="<?= htmlspecialchars($brand_logo, ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($brand_name, ENT_QUOTES, 'UTF-8'); ?> logo" class="w-10 h-10 object-contain">
                     </div>
                     <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Đặt lại mật khẩu</h1>
                     <p class="text-sm text-gray-600 dark:text-gray-400">Tạo mật khẩu mới để bảo mật tài khoản</p>

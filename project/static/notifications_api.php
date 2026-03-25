@@ -1,6 +1,9 @@
 <?php
 include '../components/connect.php';
 include '../components/feature_engine.php';
+if (!function_exists('site_url')) {
+    include_once '../components/seo_helpers.php';
+}
 
 session_start();
 header('Content-Type: application/json; charset=utf-8');
@@ -82,6 +85,13 @@ $params[] = $limit;
 $params[] = $offset;
 $listStmt->execute($params);
 $items = $listStmt->fetchAll(PDO::FETCH_ASSOC);
+
+if (function_exists('blog_normalize_site_link')) {
+    foreach ($items as &$item) {
+        $item['link'] = blog_normalize_site_link((string)($item['link'] ?? ''));
+    }
+    unset($item);
+}
 
 $hasMore = ($offset + count($items)) < $totalItems;
 

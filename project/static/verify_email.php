@@ -47,7 +47,7 @@ $page_title = 'Xac minh email - My Blog';
 $page_description = 'Xac minh email tai khoan My Blog de mo khoa day du tinh nang.';
 $page_robots = 'noindex,follow,max-image-preview:large';
 $page_canonical = canonical_current_url();
-$page_og_image = site_url('uploaded_img/logo-removebg.png');
+$page_og_image = blog_brand_logo_url();
 ?>
 
 <?php include '../components/layout_header.php'; ?>

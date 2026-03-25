@@ -6,9 +6,23 @@
 <link rel="stylesheet" href="../css/gooey-toast.css">
 <script src="../js/gooey-toast.js"></script>
 
+<?php
+if (!function_exists('blog_brand_logo_url')) {
+   include_once '../components/seo_helpers.php';
+}
+
+$brand_name = blog_brand_name();
+$brand_logo = blog_brand_logo_url();
+?>
+
 <header class="header">
 
    <div class="header_top">
+      <a href="dashboard.php" class="logo" aria-label="<?= htmlspecialchars($brand_name, ENT_QUOTES, 'UTF-8'); ?> admin">
+         <img src="<?= htmlspecialchars($brand_logo, ENT_QUOTES, 'UTF-8'); ?>" alt="<?= htmlspecialchars($brand_name, ENT_QUOTES, 'UTF-8'); ?> logo" class="logo-mark">
+         <span><?= htmlspecialchars($brand_name, ENT_QUOTES, 'UTF-8'); ?> Admin</span>
+      </a>
+
       <div class="sidebar-collapse-control">
          <button type="button" id="sidebar-toggle-btn" aria-label="Đóng hoặc mở sidebar">
             <i class="fas fa-arrow-left" id="sidebar-toggle-icon"></i>
