@@ -32,7 +32,7 @@ if (!function_exists('blog_decode_html_entities_deep')) {
     }
 }
 
-// Resolve post ID from slug route (/post/my-title-123) or legacy ?post_id=
+// Resolve post ID from slug route (/post/my-title-123.html) or legacy ?post_id=
 $slug_param = isset($_GET['slug']) ? trim($_GET['slug']) : '';
 $legacy_post_id = isset($_GET['post_id']) ? (int)$_GET['post_id'] : 0;
 
@@ -86,7 +86,7 @@ if (!$current_post) {
 
 $stored_slug = isset($current_post['slug']) ? trim((string)$current_post['slug']) : '';
 $canonical_slug = $stored_slug !== '' ? $stored_slug : post_slug($current_post['title'], $current_post['id']);
-$canonical_post_url = site_url('post/' . rawurlencode($canonical_slug));
+$canonical_post_url = site_url('post/' . rawurlencode($canonical_slug) . '.html');
 
 if ($slug_param === '' || $slug_param !== $canonical_slug) {
     header('Location: ' . $canonical_post_url, true, 301);

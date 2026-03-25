@@ -90,7 +90,8 @@ $brand_logo = blog_brand_logo_url();
     <meta name="twitter:image" content="<?= htmlspecialchars($og_image, ENT_QUOTES, 'UTF-8'); ?>">
 
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="<?= htmlspecialchars($brand_logo, ENT_QUOTES, 'UTF-8'); ?>">
+    <link rel="icon" type="image/x-icon" href="<?= htmlspecialchars(site_url('favicon.ico'), ENT_QUOTES, 'UTF-8'); ?>">
+    <link rel="shortcut icon" href="<?= htmlspecialchars(site_url('favicon.ico'), ENT_QUOTES, 'UTF-8'); ?>">
     <link rel="apple-touch-icon" href="<?= htmlspecialchars($brand_logo, ENT_QUOTES, 'UTF-8'); ?>">
 
     <!-- Font Awesome -->

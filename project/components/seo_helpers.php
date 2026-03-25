@@ -264,7 +264,7 @@ if (!function_exists('post_path')) {
     {
         $id = (int)$id;
         $slug = $title !== null ? post_slug($title, $id) : ('post-' . $id);
-        return site_url('post/' . $slug);
+        return site_url('post/' . rawurlencode($slug) . '.html');
     }
 }
 
