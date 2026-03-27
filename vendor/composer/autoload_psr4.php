@@ -6,19 +6,27 @@ $vendorDir = dirname(__DIR__);
 $baseDir = dirname($vendorDir);
 
 return array(
+    'Symfony\\Polyfill\\Php82\\' => array($vendorDir . '/symfony/polyfill-php82'),
     'Symfony\\Polyfill\\Php80\\' => array($vendorDir . '/symfony/polyfill-php80'),
     'Symfony\\Polyfill\\Mbstring\\' => array($vendorDir . '/symfony/polyfill-mbstring'),
     'Symfony\\Polyfill\\Ctype\\' => array($vendorDir . '/symfony/polyfill-ctype'),
     'Pusher\\' => array($vendorDir . '/pusher/pusher-php-server/src'),
     'Psr\\Log\\' => array($vendorDir . '/psr/log/src'),
-    'Psr\\Http\\Message\\' => array($vendorDir . '/psr/http-message/src', $vendorDir . '/psr/http-factory/src'),
+    'Psr\\Http\\Message\\' => array($vendorDir . '/psr/http-factory/src', $vendorDir . '/psr/http-message/src'),
     'Psr\\Http\\Client\\' => array($vendorDir . '/psr/http-client/src'),
     'PhpOption\\' => array($vendorDir . '/phpoption/phpoption/src/PhpOption'),
     'PHPMailer\\PHPMailer\\' => array($vendorDir . '/phpmailer/phpmailer/src'),
+    'OpenTelemetry\\Context\\' => array($vendorDir . '/open-telemetry/context'),
+    'OpenTelemetry\\API\\' => array($vendorDir . '/open-telemetry/api'),
+    'Http\\Promise\\' => array($vendorDir . '/php-http/promise/src'),
+    'Http\\Discovery\\' => array($vendorDir . '/php-http/discovery/src'),
+    'Http\\Client\\' => array($vendorDir . '/php-http/httplug/src'),
     'GuzzleHttp\\Psr7\\' => array($vendorDir . '/guzzlehttp/psr7/src'),
     'GuzzleHttp\\Promise\\' => array($vendorDir . '/guzzlehttp/promises/src'),
     'GuzzleHttp\\' => array($vendorDir . '/guzzlehttp/guzzle/src'),
     'GrahamCampbell\\ResultType\\' => array($vendorDir . '/graham-campbell/result-type/src'),
+    'Elastic\\Transport\\' => array($vendorDir . '/elastic/transport/src'),
+    'Elastic\\Elasticsearch\\' => array($vendorDir . '/elasticsearch/elasticsearch/src'),
     'Dotenv\\' => array($vendorDir . '/vlucas/phpdotenv/src'),
     'App\\' => array($baseDir . '/project'),
 );

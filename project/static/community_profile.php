@@ -241,11 +241,15 @@ render_breadcrumb($breadcrumb_items);
                                 <?php $rowUrl = community_profile_path((int)$row['id'], (string)($row['name'] ?? 'User')); ?>
                                 <a href="<?= htmlspecialchars($rowUrl, ENT_QUOTES, 'UTF-8'); ?>" class="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 hover:border-main transition-colors">
                                     <div class="flex items-center gap-3">
+                                        <?php
+                                        $avatarFallback = blog_user_avatar_src(null);
+                                        $avatarSrc = blog_user_avatar_src((string)($row['avatar'] ?? ''), $avatarFallback);
+                                        ?>
                                         <img
-                                            src="<?= htmlspecialchars(site_url('uploaded_img/' . (string)($row['avatar'] ?? 'default-avatar.png')), ENT_QUOTES, 'UTF-8'); ?>"
+                                            src="<?= htmlspecialchars($avatarSrc, ENT_QUOTES, 'UTF-8'); ?>"
                                             alt="<?= htmlspecialchars((string)($row['name'] ?? 'User'), ENT_QUOTES, 'UTF-8'); ?>"
                                             class="h-10 w-10 rounded-full object-cover border border-gray-200 dark:border-gray-700"
-                                            onerror="this.onerror=null;this.src='<?= htmlspecialchars(site_url('uploaded_img/default-avatar.png'), ENT_QUOTES, 'UTF-8'); ?>';" />
+                                            onerror="this.onerror=null;this.src='<?= htmlspecialchars($avatarFallback, ENT_QUOTES, 'UTF-8'); ?>';" />
                                         <div>
                                             <p class="text-sm font-semibold text-gray-900 dark:text-white"><?= htmlspecialchars((string)($row['name'] ?? 'User'), ENT_QUOTES, 'UTF-8'); ?></p>
                                             <p class="text-xs text-gray-500 dark:text-gray-400"><?= htmlspecialchars(date('d/m/Y H:i', strtotime((string)($row['created_at'] ?? 'now'))), ENT_QUOTES, 'UTF-8'); ?></p>

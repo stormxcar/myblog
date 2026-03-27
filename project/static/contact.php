@@ -39,7 +39,7 @@ try {
 $success_message = '';
 $error_message = '';
 
-if (isset($_POST['submit'])) {
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     try {
         $user_email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
         $user_name = trim(strip_tags((string)($_POST['name'] ?? '')));

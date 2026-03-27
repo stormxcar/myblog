@@ -233,6 +233,33 @@ try {
                 return $avatarValue;
             }
 
+            if (stripos($avatarValue, 'data:image/') === 0) {
+                return $avatarValue;
+            }
+
+            $normalized = str_replace('\\', '/', trim($avatarValue));
+            $looksLikeFilename =
+                strpos($normalized, 'uploaded_img/') !== false
+                || strpos($normalized, 'static/uploaded_img/') === 0
+                || strpos($normalized, '../uploaded_img/') === 0
+                || (bool)preg_match('/\.(jpg|jpeg|png|webp|gif|avif|bmp|svg)$/i', $normalized);
+
+            if ($looksLikeFilename && !preg_match('/[[:cntrl:]]/', $normalized)) {
+                $relative = $normalized;
+                $uploadedPos = stripos($relative, 'uploaded_img/');
+                if ($uploadedPos !== false) {
+                    $relative = substr($relative, $uploadedPos + strlen('uploaded_img/'));
+                }
+                $relative = ltrim(preg_replace('#^(?:\./|\.\./)+#', '', (string)$relative), '/');
+
+                $fallbackPrefix = str_replace('\\', '/', dirname((string)$fallback));
+                if ($fallbackPrefix === '.' || $fallbackPrefix === '' || $fallbackPrefix === '/') {
+                    $fallbackPrefix = '../uploaded_img';
+                }
+                $fallbackPrefix = rtrim($fallbackPrefix, '/');
+                return $fallbackPrefix . '/' . $relative;
+            }
+
             $mime = 'image/jpeg';
             if (function_exists('finfo_open')) {
                 $finfo = finfo_open(FILEINFO_MIME_TYPE);

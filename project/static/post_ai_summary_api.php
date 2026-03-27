@@ -474,6 +474,121 @@ function ai_summary_is_quality_ok(string $summary, string $mode): bool
     return $length >= 120 && $listLines >= 4 && $hasConclusion;
 }
 
+function ai_summary_extract_json_payload(string $text): ?array
+{
+    $raw = trim($text);
+    if ($raw === '') {
+        return null;
+    }
+
+    $direct = json_decode($raw, true);
+    if (is_array($direct)) {
+        return $direct;
+    }
+
+    $unfenced = preg_replace('/^```(?:json)?\s*|\s*```$/mi', '', $raw);
+    if (is_string($unfenced) && trim($unfenced) !== '') {
+        $parsed = json_decode(trim($unfenced), true);
+        if (is_array($parsed)) {
+            return $parsed;
+        }
+    }
+
+    $start = strpos($raw, '{');
+    $end = strrpos($raw, '}');
+    if ($start !== false && $end !== false && $end > $start) {
+        $slice = substr($raw, $start, $end - $start + 1);
+        $parsed = json_decode($slice, true);
+        if (is_array($parsed)) {
+            return $parsed;
+        }
+    }
+
+    return null;
+}
+
+function ai_summary_trim_source(string $content, string $mode): string
+{
+    $max = $mode === 'detailed' ? 16000 : 9000;
+    if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+        if (mb_strlen($content, 'UTF-8') <= $max) {
+            return $content;
+        }
+        return mb_substr($content, 0, $max, 'UTF-8');
+    }
+    if (strlen($content) <= $max) {
+        return $content;
+    }
+    return substr($content, 0, $max);
+}
+
+function ai_summary_build_outline_prompt(string $title, string $content, string $mode): string
+{
+    $detailRule = $mode === 'detailed'
+        ? 'Ưu tiên độ phủ ý sâu, bối cảnh và hệ quả của từng luận điểm.'
+        : 'Ưu tiên ngắn gọn, rõ ý, đọc lướt trong 30 giây.';
+
+    return "Bạn là Senior Content Strategist tiếng Việt. Hãy phân tích bài viết để lập bản đồ tóm tắt trước khi viết summary. "
+        . $detailRule
+        . "\n\nTiêu đề: " . $title
+        . "\n\nNội dung nguồn:\n" . $content
+        . "\n\nTrả về JSON thuần (không markdown), đúng schema:\n"
+        . "{\n"
+        . "  \"main_topic\": \"...\",\n"
+        . "  \"reader_intent\": \"...\",\n"
+        . "  \"key_points\": [\"...\", \"...\"],\n"
+        . "  \"entities\": [\"...\", \"...\"],\n"
+        . "  \"faq_focus\": [\"...\", \"...\"]\n"
+        . "}";
+}
+
+function ai_summary_build_summary_prompt(string $title, string $content, string $mode, array $outline): string
+{
+    $pointCount = $mode === 'detailed' ? '8-12' : '4-6';
+    $lineRule = $mode === 'detailed' ? 'mỗi ý 1-2 câu' : 'mỗi ý tối đa 20 từ';
+    $conclusionRule = $mode === 'detailed'
+        ? 'Kết luận: 2 câu hành động, nhấn bài học cốt lõi.'
+        : 'Kết luận: 1 câu chốt giá trị lớn nhất.';
+
+    $keyPoints = isset($outline['key_points']) && is_array($outline['key_points'])
+        ? implode('; ', array_map('strval', $outline['key_points']))
+        : '';
+    $entities = isset($outline['entities']) && is_array($outline['entities'])
+        ? implode(', ', array_map('strval', $outline['entities']))
+        : '';
+    $faqFocus = isset($outline['faq_focus']) && is_array($outline['faq_focus'])
+        ? implode('; ', array_map('strval', $outline['faq_focus']))
+        : '';
+
+    return "Bạn là Biên tập viên trưởng tiếng Việt, chuyên viết bản tóm tắt chất lượng xuất bản."
+        . "\nYêu cầu định dạng bắt buộc:"
+        . "\n- Danh sách đánh số " . $pointCount . " ý; " . $lineRule
+        . "\n- Có dòng bắt đầu bằng đúng cụm: Kết luận:"
+        . "\n- Không dùng markdown heading, không mở đầu kiểu 'Dưới đây là'."
+        . "\n- Không bịa chi tiết ngoài nội dung nguồn."
+        . "\n\nBối cảnh chiến lược:"
+        . "\n- Main topic: " . (string)($outline['main_topic'] ?? '')
+        . "\n- Reader intent: " . (string)($outline['reader_intent'] ?? '')
+        . "\n- Key points trọng tâm: " . $keyPoints
+        . "\n- Entities ưu tiên giữ lại: " . $entities
+        . "\n- FAQ focus: " . $faqFocus
+        . "\n\n" . $conclusionRule
+        . "\n\nTiêu đề: " . $title
+        . "\n\nNội dung nguồn:\n" . $content;
+}
+
+function ai_summary_build_polish_prompt(string $draft, string $mode): string
+{
+    $rule = $mode === 'detailed'
+        ? 'Giữ độ sâu thông tin, loại bỏ lặp ý, chỉnh giọng văn chuyên nghiệp, mạch lạc.'
+        : 'Rút gọn câu chữ, tăng độ rõ ràng, tránh trùng lặp từ.';
+
+    return "Bạn là Managing Editor. Hãy biên tập lại bản tóm tắt dưới đây để đạt chất lượng xuất bản. "
+        . $rule
+        . "\nGiữ nguyên định dạng đánh số và dòng 'Kết luận:'. Không thêm markdown.\n\n"
+        . $draft;
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     ai_summary_json_response([
         'ok' => false,
@@ -555,32 +670,7 @@ if (!$rateResult['allowed']) {
     ]);
 }
 
-$promptGuide = $summaryMode === 'detailed'
-    ? 'Hãy tóm tắt theo dạng CHI TIẾT: 8-12 ý được đánh số 1., 2., 3...; mỗi ý 1-2 câu; nêu rõ dữ kiện quan trọng, bối cảnh và ý nghĩa. Sau cùng ghi đúng 1 dòng "Kết luận:" gồm 2 câu ngắn.'
-    : 'Hãy tóm tắt theo dạng NGẮN: 4-6 ý được đánh số 1., 2., 3...; mỗi ý tối đa 20 từ; tập trung ý chính. Sau cùng ghi đúng 1 dòng "Kết luận:" gồm 1 câu ngắn.';
-
-$prompt = "Bạn là trợ lý biên tập tiếng Việt. "
-    . $promptGuide
-    . " Không bịa thông tin, chỉ dùng dữ kiện trong bài. Không mở đầu bằng câu dẫn kiểu 'Dưới đây là...'. Không dùng markdown tiêu đề.\n\nTiêu đề: "
-    . $decodedTitle
-    . "\n\nNội dung:\n"
-    . $contentPlain;
-
-$requestBody = [
-    'contents' => [
-        [
-            'parts' => [
-                ['text' => $prompt]
-            ]
-        ]
-    ],
-    'generationConfig' => [
-        'temperature' => 0.3,
-        'topK' => 32,
-        'topP' => 0.9,
-        'maxOutputTokens' => $summaryMode === 'detailed' ? 900 : 420,
-    ]
-];
+$contentForPrompt = ai_summary_trim_source($contentPlain, $summaryMode);
 
 $configuredModel = trim((string)(getenv('GEMINI_MODEL') ?: ''));
 $discovery = ai_summary_discover_models($geminiKey, 21600);
@@ -595,12 +685,51 @@ $lastTransportError = '';
 $qualityWarning = '';
 
 foreach ($models as $model) {
+    $outlinePrompt = ai_summary_build_outline_prompt($decodedTitle, $contentForPrompt, $summaryMode);
+    $outlineBody = [
+        'contents' => [[
+            'parts' => [
+                ['text' => $outlinePrompt]
+            ]
+        ]],
+        'generationConfig' => [
+            'temperature' => 0.25,
+            'topK' => 24,
+            'topP' => 0.9,
+            'maxOutputTokens' => $summaryMode === 'detailed' ? 720 : 420,
+        ]
+    ];
+
+    $outlineResult = ai_summary_request_gemini($model, $geminiKey, $outlineBody);
+    $outlineData = [];
+    if (!empty($outlineResult['ok']) && !empty($outlineResult['summary'])) {
+        $parsedOutline = ai_summary_extract_json_payload((string)$outlineResult['summary']);
+        if (is_array($parsedOutline)) {
+            $outlineData = $parsedOutline;
+        }
+    }
+
+    $summaryPrompt = ai_summary_build_summary_prompt($decodedTitle, $contentForPrompt, $summaryMode, $outlineData);
+    $requestBody = [
+        'contents' => [[
+            'parts' => [
+                ['text' => $summaryPrompt]
+            ]
+        ]],
+        'generationConfig' => [
+            'temperature' => 0.3,
+            'topK' => 32,
+            'topP' => 0.9,
+            'maxOutputTokens' => $summaryMode === 'detailed' ? 1100 : 500,
+        ]
+    ];
+
     $result = ai_summary_request_gemini($model, $geminiKey, $requestBody);
     if (!empty($result['ok']) && !empty($result['summary'])) {
         $candidate = trim((string)$result['summary']);
 
         if (!ai_summary_is_quality_ok($candidate, $summaryMode)) {
-            $retryPrompt = $prompt
+            $retryPrompt = $summaryPrompt
                 . "\n\nYêu cầu bắt buộc lại: câu trả lời phải ĐỦ ý, không bị cụt, đúng định dạng danh sách đánh số và có dòng 'Kết luận:'.";
             $retryBody = $requestBody;
             $retryBody['contents'][0]['parts'][0]['text'] = $retryPrompt;
@@ -623,6 +752,29 @@ foreach ($models as $model) {
 
             $qualityWarning = 'Gemini phản hồi chưa đủ chi tiết theo định dạng yêu cầu.';
             continue;
+        }
+
+        $polishPrompt = ai_summary_build_polish_prompt($candidate, $summaryMode);
+        $polishBody = [
+            'contents' => [[
+                'parts' => [
+                    ['text' => $polishPrompt]
+                ]
+            ]],
+            'generationConfig' => [
+                'temperature' => 0.2,
+                'topK' => 24,
+                'topP' => 0.9,
+                'maxOutputTokens' => $summaryMode === 'detailed' ? 1200 : 560,
+            ]
+        ];
+
+        $polishResult = ai_summary_request_gemini($model, $geminiKey, $polishBody);
+        if (!empty($polishResult['ok']) && !empty($polishResult['summary'])) {
+            $polished = trim((string)$polishResult['summary']);
+            if (ai_summary_is_quality_ok($polished, $summaryMode)) {
+                $candidate = $polished;
+            }
         }
 
         $geminiSummary = $candidate;

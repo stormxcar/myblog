@@ -10,6 +10,7 @@ document.addEventListener("DOMContentLoaded", function () {
   initUserMenu();
   initLoader();
   initNotification();
+  initRealtimePostUpdates();
   initScrollToTop();
   initPostInteractionAjax();
   initSearchAutocomplete();
@@ -77,6 +78,59 @@ function initDarkMode() {
       localStorage.setItem("darkMode", isDark ? "enabled" : "disabled");
       updateThemeIcon();
     });
+  }
+}
+
+function initRealtimePostUpdates() {
+  if (typeof window.Pusher === "undefined" || !window.BLOG_PUSHER) {
+    return;
+  }
+
+  const cfg = window.BLOG_PUSHER;
+  if (!cfg.key || !cfg.cluster) {
+    return;
+  }
+
+  try {
+    const pusher = new window.Pusher(cfg.key, {
+      cluster: cfg.cluster,
+      forceTLS: true,
+      authEndpoint: cfg.authEndpoint,
+    });
+
+    const channel = pusher.subscribe("public-site-events");
+    channel.bind("post:published", function (payload) {
+      const title =
+        payload && payload.title ? String(payload.title) : "Bài viết mới";
+      const url = payload && payload.url ? String(payload.url) : "";
+
+      showNotification(`Có bài viết mới: ${title}`, "info");
+
+      if (!url) return;
+      const barId = "live-post-bar";
+      let bar = document.getElementById(barId);
+
+      if (!bar) {
+        bar = document.createElement("div");
+        bar.id = barId;
+        bar.style.position = "fixed";
+        bar.style.left = "50%";
+        bar.style.bottom = "16px";
+        bar.style.transform = "translateX(-50%)";
+        bar.style.zIndex = "9999";
+        bar.style.background = "#0f172a";
+        bar.style.color = "#fff";
+        bar.style.padding = "10px 14px";
+        bar.style.borderRadius = "999px";
+        bar.style.boxShadow = "0 10px 30px rgba(2,6,23,.35)";
+        bar.style.fontSize = "13px";
+        document.body.appendChild(bar);
+      }
+
+      bar.innerHTML = `Bài viết mới đã đăng <a href="${url}" style="color:#67e8f9;font-weight:700;margin-left:8px;text-decoration:none;">Xem ngay</a>`;
+    });
+  } catch (error) {
+    // Best effort only.
   }
 }
 

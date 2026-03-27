@@ -203,6 +203,31 @@ render_breadcrumb($breadcrumb_items);
             background: rgba(15, 23, 42, 0.95);
         }
 
+        .community-post-card[data-read="1"] {
+            position: relative;
+            outline: 1px dashed rgba(107, 114, 128, 0.45);
+            opacity: 0.9;
+        }
+
+        .community-post-card[data-read="1"]::after {
+            content: 'DA DOC';
+            position: absolute;
+            top: 0.6rem;
+            right: 0.75rem;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            color: #4b5563;
+            background: #e5e7eb;
+            border-radius: 999px;
+            padding: 0.15rem 0.45rem;
+            z-index: 8;
+        }
+
+        .community-read-hidden {
+            display: none !important;
+        }
+
         #community-gallery-image-spinner {
             display: flex;
             align-items: center;
@@ -239,6 +264,14 @@ render_breadcrumb($breadcrumb_items);
 
         <section class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             <div class="w-full lg:col-span-7 xl:col-span-8">
+                <div class="mx-auto w-full mb-3" style="max-width:850px;">
+                    <div class="flex flex-wrap items-center gap-2 text-xs">
+                        <button type="button" id="community-toggle-hide-read" class="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-main/10 hover:text-main">An bai da doc</button>
+                        <button type="button" id="community-reset-read" class="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-main/10 hover:text-main">Hien lai bai da doc</button>
+                        <span id="community-read-stats" class="text-gray-500 dark:text-gray-400">0 bai da doc</span>
+                    </div>
+                </div>
+
                 <div id="community-feed-list" class="space-y-6 mx-auto w-full" style="max-width:850px;" data-next-page="<?= $firstBundle['next_page'] === null ? '' : (int)$firstBundle['next_page']; ?>" data-has-more="<?= $firstBundle['has_more'] ? '1' : '0'; ?>" data-topic="<?= htmlspecialchars($activeTopicSlug, ENT_QUOTES, 'UTF-8'); ?>">
                     <?php if (!empty($firstBundle['posts'])): ?>
                         <?= $firstPostsHtml; ?>
@@ -286,6 +319,7 @@ render_breadcrumb($breadcrumb_items);
                 <div id="community-feed-loading" class="hidden mt-4 text-center text-sm text-gray-500 dark:text-gray-400 mx-auto w-full" style="max-width:850px;">
                     <i class="fas fa-spinner fa-spin mr-2"></i>Đang tải thêm bài viết...
                 </div>
+                <div id="community-feed-error" class="hidden mt-3 text-center text-xs text-red-600 dark:text-red-300 mx-auto w-full" style="max-width:850px;"></div>
                 <div id="community-feed-end" class="hidden mt-4 text-center text-xs text-gray-500 dark:text-gray-400 mx-auto w-full" style="max-width:850px;">Bạn đã xem hết bài viết.</div>
                 <div id="community-feed-sentinel" class="h-8 mx-auto w-full" style="max-width:850px;"></div>
             </div>
@@ -567,8 +601,12 @@ render_breadcrumb($breadcrumb_items);
         const feedList = document.getElementById('community-feed-list');
         const loadingEl = document.getElementById('community-feed-loading');
         const skeletonEl = document.getElementById('community-feed-skeleton');
+        const errorEl = document.getElementById('community-feed-error');
         const endEl = document.getElementById('community-feed-end');
         const sentinel = document.getElementById('community-feed-sentinel');
+        const toggleHideReadBtn = document.getElementById('community-toggle-hide-read');
+        const resetReadBtn = document.getElementById('community-reset-read');
+        const readStatsEl = document.getElementById('community-read-stats');
         const deleteModal = document.getElementById('community-delete-modal');
         const deleteConfirmBtn = document.getElementById('community-delete-confirm');
         const deleteCancelBtn = document.getElementById('community-delete-cancel');
@@ -595,6 +633,83 @@ render_breadcrumb($breadcrumb_items);
         }
 
         let isLoadingMore = false;
+        let consecutiveLoadFailures = 0;
+
+        const storageScope = String(<?= (int)$user_id; ?> || 'guest');
+        const readStorageKey = 'community_read_posts_v1_' + storageScope;
+        const hideReadStorageKey = 'community_hide_read_v1_' + storageScope;
+
+        const readPostIds = new Set((() => {
+            try {
+                const raw = localStorage.getItem(readStorageKey);
+                const parsed = raw ? JSON.parse(raw) : [];
+                return Array.isArray(parsed) ? parsed.map(function(id) { return Number(id) || 0; }).filter(function(id) { return id > 0; }) : [];
+            } catch (err) {
+                return [];
+            }
+        })());
+        let hideReadPosts = (function() {
+            try {
+                return localStorage.getItem(hideReadStorageKey) === '1';
+            } catch (err) {
+                return false;
+            }
+        })();
+
+        const persistReadState = function() {
+            try {
+                localStorage.setItem(readStorageKey, JSON.stringify(Array.from(readPostIds)));
+                localStorage.setItem(hideReadStorageKey, hideReadPosts ? '1' : '0');
+            } catch (err) {
+                // Ignore storage failures.
+            }
+        };
+
+        const updateReadStats = function() {
+            if (readStatsEl) {
+                readStatsEl.textContent = String(readPostIds.size) + ' bai da doc';
+            }
+            if (toggleHideReadBtn) {
+                toggleHideReadBtn.textContent = hideReadPosts ? 'Dang an bai da doc' : 'An bai da doc';
+                toggleHideReadBtn.classList.toggle('bg-main', hideReadPosts);
+                toggleHideReadBtn.classList.toggle('text-white', hideReadPosts);
+            }
+        };
+
+        const getPostIdFromCard = function(card) {
+            if (!card || !card.id) {
+                return 0;
+            }
+            const match = String(card.id).match(/^community-post-(\d+)$/);
+            return match ? Number(match[1]) : 0;
+        };
+
+        const applyReadStateToCard = function(card) {
+            const postId = getPostIdFromCard(card);
+            if (!postId) {
+                return;
+            }
+            const isRead = readPostIds.has(postId);
+            card.setAttribute('data-read', isRead ? '1' : '0');
+            card.classList.toggle('community-read-hidden', hideReadPosts && isRead);
+        };
+
+        const applyReadStateToFeed = function() {
+            feedList.querySelectorAll('.community-post-card').forEach(function(card) {
+                applyReadStateToCard(card);
+            });
+            updateReadStats();
+        };
+
+        const markPostRead = function(postId) {
+            postId = Number(postId || 0);
+            if (!postId || readPostIds.has(postId)) {
+                return;
+            }
+            readPostIds.add(postId);
+            persistReadState();
+            applyReadStateToFeed();
+        };
 
         const getFeedEndpoint = () => {
             if (window.BLOG_ENDPOINTS && window.BLOG_ENDPOINTS.communityFeedList) {
@@ -648,6 +763,17 @@ render_breadcrumb($breadcrumb_items);
             loadingEl.classList.toggle('hidden', !value);
             if (skeletonEl) {
                 skeletonEl.classList.toggle('hidden', !value);
+            }
+            if (value && errorEl) {
+                errorEl.classList.add('hidden');
+                errorEl.textContent = '';
+            }
+        };
+
+        const showLoadError = (message) => {
+            if (errorEl) {
+                errorEl.textContent = message;
+                errorEl.classList.remove('hidden');
             }
         };
 
@@ -794,15 +920,22 @@ render_breadcrumb($breadcrumb_items);
                     }
                 });
                 if (!res.ok) {
-                    return;
+                    throw new Error('HTTP ' + res.status);
                 }
-                const payload = await res.json();
+                const rawText = await res.text();
+                let payload = null;
+                try {
+                    payload = JSON.parse(rawText);
+                } catch (err) {
+                    throw new Error('INVALID_JSON');
+                }
                 if (!payload || payload.ok !== true) {
-                    return;
+                    throw new Error('API_FAIL');
                 }
 
                 if (payload.html) {
                     feedList.insertAdjacentHTML('beforeend', String(payload.html));
+                    applyReadStateToFeed();
                     if (shared) {
                         shared.initCarousels(feedList);
                     } else {
@@ -811,8 +944,13 @@ render_breadcrumb($breadcrumb_items);
                 }
                 feedList.setAttribute('data-next-page', payload.next_page ? String(payload.next_page) : '');
                 setHasMore(!!payload.has_more);
+                consecutiveLoadFailures = 0;
             } catch (err) {
-                // Keep silent to avoid disrupting reading flow.
+                consecutiveLoadFailures += 1;
+                showLoadError('Khong tai duoc bai tiep theo. Thu keo xuong lai sau it giay.');
+                if (consecutiveLoadFailures >= 3) {
+                    setHasMore(false);
+                }
             } finally {
                 setLoading(false);
                 isLoadingMore = false;
@@ -1390,6 +1528,21 @@ render_breadcrumb($breadcrumb_items);
                 return;
             }
 
+            const postLink = event.target.closest('a[href]');
+            if (postLink) {
+                const href = String(postLink.getAttribute('href') || '');
+                const isPostDetailLink = href.indexOf('/community/p/') !== -1 || href.indexOf('community_post.php') !== -1;
+                if (isPostDetailLink) {
+                    const postCard = postLink.closest('.community-post-card');
+                    if (postCard) {
+                        const postId = getPostIdFromCard(postCard);
+                        if (postId > 0) {
+                            markPostRead(postId);
+                        }
+                    }
+                }
+            }
+
             const ownerTrigger = event.target.closest('[data-community-owner-trigger]');
             if (ownerTrigger) {
                 event.preventDefault();
@@ -1694,11 +1847,37 @@ render_breadcrumb($breadcrumb_items);
             observer.observe(sentinel);
         }
 
+        if (toggleHideReadBtn) {
+            toggleHideReadBtn.addEventListener('click', function() {
+                hideReadPosts = !hideReadPosts;
+                persistReadState();
+                applyReadStateToFeed();
+            });
+        }
+
+        if (resetReadBtn) {
+            resetReadBtn.addEventListener('click', function() {
+                readPostIds.clear();
+                hideReadPosts = false;
+                persistReadState();
+                applyReadStateToFeed();
+            });
+        }
+
         if (shared) {
             shared.initCarousels(feedList);
         } else {
             initCarousels(feedList);
         }
+
+        applyReadStateToFeed();
+
+        // Try one proactive load when sentinel is already visible on tall screens.
+        setTimeout(function() {
+            if (hasMore()) {
+                loadMoreFeed();
+            }
+        }, 250);
 
         document.querySelectorAll('[data-community-poll-wrap]').forEach(function(wrap) {
             const pid = Number(wrap.getAttribute('data-post-id') || '0');

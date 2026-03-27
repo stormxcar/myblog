@@ -307,6 +307,27 @@ if (!function_exists('blog_pusher_publish')) {
     }
 }
 
+if (!function_exists('blog_pusher_publish_public')) {
+    function blog_pusher_publish_public($eventName, $payload)
+    {
+        $event = trim((string)$eventName);
+        if ($event === '') {
+            return;
+        }
+
+        $client = blog_get_pusher_client();
+        if (!$client) {
+            return;
+        }
+
+        try {
+            $client->trigger('public-site-events', $event, $payload);
+        } catch (Exception $e) {
+            // Best effort only.
+        }
+    }
+}
+
 if (!function_exists('blog_user_badge')) {
     function blog_user_badge($interactionScore)
     {

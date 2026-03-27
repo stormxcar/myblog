@@ -27,29 +27,24 @@ if (isset($_POST['save'])) {
 
     $message[] = 'post updated!';
 
-    $old_image = $_POST['old_image'];
-    $image = $_FILES['image']['name'];
-    $image = filter_var($image, FILTER_SANITIZE_STRING);
-    $image_size = $_FILES['image']['size'];
-    $image_tmp_name = $_FILES['image']['tmp_name'];
-    $image_folder = '../uploaded_img/' . $image;
-
-    $select_image = $conn->prepare("SELECT * FROM `posts` WHERE image = ? AND admin_id = ?");
-    $select_image->execute([$image, $admin_id]);
-
-    if (!empty($image)) {
+    $old_image = trim((string)($_POST['old_image'] ?? ''));
+    if (isset($_FILES['image']) && (int)($_FILES['image']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+        $image_size = (int)($_FILES['image']['size'] ?? 0);
         if ($image_size > 2000000) {
             $message[] = 'images size is too large!';
-        } elseif ($select_image->rowCount() > 0 and $image != '') {
-            $message[] = 'please rename your image!';
         } else {
-            $update_image = $conn->prepare("UPDATE `posts` SET image = ? WHERE id = ?");
-            move_uploaded_file($image_tmp_name, $image_folder);
-            $update_image->execute([$image, $post_id]);
-            if ($old_image != $image and $old_image != '') {
-                unlink('../uploaded_img/' . $old_image);
+            $uploadResult = blog_cloudinary_upload($_FILES['image'], blog_cloudinary_default_folder() . '/posts');
+            if (!($uploadResult['ok'] ?? false)) {
+                $message[] = (string)($uploadResult['error'] ?? 'Khong the upload anh len Cloudinary.');
+            } else {
+                $newImageValue = (string)$uploadResult['secure_url'];
+                $update_image = $conn->prepare("UPDATE `posts` SET image = ? WHERE id = ?");
+                $update_image->execute([$newImageValue, $post_id]);
+                if ($old_image !== '' && $old_image !== $newImageValue) {
+                    blog_delete_image_resource($old_image);
+                }
+                $message[] = 'image updated!';
             }
-            $message[] = 'image updated!';
         }
     }
 }
@@ -61,8 +56,8 @@ if (isset($_POST['delete_post'])) {
     $delete_image = $conn->prepare("SELECT * FROM `posts` WHERE id = ?");
     $delete_image->execute([$post_id]);
     $fetch_delete_image = $delete_image->fetch(PDO::FETCH_ASSOC);
-    if ($fetch_delete_image['image'] != '') {
-        unlink('../uploaded_img/' . $fetch_delete_image['image']);
+    if (!empty($fetch_delete_image['image'])) {
+        blog_delete_image_resource((string)$fetch_delete_image['image']);
     }
     $delete_post = $conn->prepare("DELETE FROM `posts` WHERE id = ?");
     $delete_post->execute([$post_id]);
@@ -79,8 +74,8 @@ if (isset($_POST['delete_image'])) {
     $delete_image = $conn->prepare("SELECT * FROM `posts` WHERE id = ?");
     $delete_image->execute([$post_id]);
     $fetch_delete_image = $delete_image->fetch(PDO::FETCH_ASSOC);
-    if ($fetch_delete_image['image'] != '') {
-        unlink('../uploaded_img/' . $fetch_delete_image['image']);
+    if (!empty($fetch_delete_image['image'])) {
+        blog_delete_image_resource((string)$fetch_delete_image['image']);
     }
     $unset_image = $conn->prepare("UPDATE `posts` SET image = ? WHERE id = ?");
     $unset_image->execute([$empty_image, $post_id]);
@@ -297,24 +292,24 @@ if (isset($_POST['save_lienhe'])) {
         $lienhe_email = filter_var($lienhe_email, FILTER_SANITIZE_STRING);
         $update_lienhe_email = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'lienhe_email'");
         $update_lienhe_email->execute([$lienhe_email]);
-        $message[] = 'Cáº­p nháº­t email Ä‘Æ°á»£c cáº­p nháº­t!';
+        $message[] = 'Cập nhật email thành công!';
     }
 
     if (!empty($lienhe_zalo) && $lienhe_zalo !== $settings['lienhe_zalo']) {
         $lienhe_zalo = filter_var($lienhe_zalo, FILTER_SANITIZE_URL);
         $update_lienhe_zalo = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'lienhe_zalo'");
         $update_lienhe_zalo->execute([$lienhe_zalo]);
-        $message[] = 'Cáº­p nháº­t zalo Ä‘Æ°á»£c cáº­p nháº­t!';
+        $message[] = 'Cập nhật Zalo thành công!';
     }
+
     if (!empty($lienhe_name) && $lienhe_name !== $settings['lienhe_name']) {
-        $lienhe_name = filter_var($lienhe_email, FILTER_SANITIZE_STRING);
+        $lienhe_name = filter_var($lienhe_name, FILTER_SANITIZE_STRING);
         $update_lienhe_name = $conn->prepare("UPDATE `settings` SET setting_value = ? WHERE setting_key = 'lienhe_name'");
-        $update_lienhe_name->execute([$lienhe_email]);
-        $message[] = 'Cáº­p nháº­t tÃªn Ä‘Æ°á»£c cáº­p nháº­t!';
+        $update_lienhe_name->execute([$lienhe_name]);
+        $message[] = 'Cập nhật tên liên hệ thành công!';
     }
 }
 ?>
-
 
 <!DOCTYPE html>
 <html lang="vi">
@@ -329,6 +324,148 @@ if (isset($_POST['save_lienhe'])) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 
     <!-- custom css file link  -->
+    <style>
+        .setting {
+            max-width: 1200px;
+            margin: 1.5rem auto 2.5rem;
+            padding: 1rem;
+            display: grid;
+            gap: 1rem;
+        }
+
+        .setting .heading {
+            margin: 0;
+            border-radius: 14px;
+            padding: 1rem 1.2rem;
+            background: linear-gradient(135deg, #f0f7ff, #e8f4ff);
+            border: 1px solid #c8ddff;
+        }
+
+        .setting form {
+            border-radius: 16px;
+            border: 1px solid #d8e5f7;
+            background: #fff;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+            padding: 1rem;
+        }
+
+        .title_banner {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin: 0 0 .8rem;
+        }
+
+        .btn_top {
+            display: flex;
+            gap: .6rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+
+        .tablink {
+            border: 1px solid #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+            padding: .65rem 1rem;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .tabcontent {
+            border: 1px solid #e5edf9;
+            border-radius: 12px;
+            padding: 1rem;
+            background: #fcfdff;
+        }
+
+        .tabcontent h3 {
+            margin: .1rem 0 .8rem;
+            font-size: 1.2rem;
+        }
+
+        .tabcontent h4 {
+            margin: .8rem 0 .35rem;
+            font-size: .95rem;
+            color: #334155;
+            font-weight: 700;
+        }
+
+        .tabcontent input[type="text"],
+        .tabcontent input[type="file"],
+        .tabcontent textarea {
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid #cbd5e1;
+            padding: .7rem .8rem;
+            font-size: .95rem;
+            background: #fff;
+        }
+
+        .tabcontent textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .diff_edit_form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .logo_edit,
+        .license_edit {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1rem;
+            background: #f8fbff;
+        }
+
+        .logo_edit img,
+        .lienhe_image img {
+            margin-top: .6rem;
+            width: 120px;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 10px;
+            border: 1px solid #d1d5db;
+            background: #fff;
+        }
+
+        .btn_handle {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .6rem;
+            margin-top: 1rem;
+        }
+
+        .submit_btn,
+        .reset_btn,
+        .add_social,
+        .add_tieude_noidung {
+            border: 0;
+            border-radius: 10px;
+            padding: .62rem 1rem;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .submit_btn {
+            background: #2563eb;
+            color: #fff;
+        }
+
+        .reset_btn {
+            background: #e2e8f0;
+            color: #1e293b;
+        }
+
+        .add_social,
+        .add_tieude_noidung {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+    </style>
 
 </head>
 
@@ -390,7 +527,7 @@ if (isset($_POST['save_lienhe'])) {
 
 
                         </div>
-                        <button class="add_tieude_noidung" style="width:100px">Thêm</button>
+                        <button type="button" class="add_tieude_noidung" style="width:100px">Thêm</button>
                     </div>
                     <div class="detail_socials">
                         <h3>Socials:</h3>
@@ -564,20 +701,17 @@ if (isset($_POST['save_lienhe'])) {
                 tabcontent[i].style.display = "none";
             }
 
-            // Remove the background color of all tablinks/buttons
             tablinks = document.getElementsByClassName("tablink");
             for (i = 0; i < tablinks.length; i++) {
                 tablinks[i].style.backgroundColor = "";
             }
 
-            // Show the specific tab content
             document.getElementById(pageName).style.display = "block";
 
             // Add the specific color to the button used to open the tab content
             elmnt.style.backgroundColor = color;
         }
 
-        // Get the element with id="defaultOpen" and click on it
         document.getElementById("defaultOpen").click();
 
 

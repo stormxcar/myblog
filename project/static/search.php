@@ -3,6 +3,8 @@
 include '../components/connect.php';
 include '../components/seo_helpers.php';
 
+use App\Services\SearchService;
+
 if (function_exists('blog_inject_lazy_loading_into_html')) {
     ob_start('blog_inject_lazy_loading_into_html');
 }
@@ -55,6 +57,8 @@ if (!function_exists('highlight_search_term')) {
         return preg_replace('/(' . preg_quote($safe_term, '/') . ')/i', '<mark class="bg-yellow-200 dark:bg-yellow-600/70 px-1 rounded">$1</mark>', $safe_text);
     }
 }
+
+$search_service = new SearchService($conn);
 
 ?>
 
@@ -154,27 +158,12 @@ render_breadcrumb($breadcrumb_items);
                 <!-- Results Grid -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                     <?php
-                    $search_term = "%{$search_query}%";
-                    $countSql = "SELECT COUNT(DISTINCT p.id)
-                        FROM posts p
-                        LEFT JOIN post_tags pt ON pt.post_id = p.id
-                        LEFT JOIN tags t ON t.id = pt.tag_id
-                        WHERE p.status = 'active'";
-                    $countParams = [];
-                    if ($is_tag_search) {
-                        $countSql .= " AND t.slug = ?";
-                        $countParams[] = $tag_filter;
-                    }
-                    if ($search_query !== '') {
-                        $countSql .= " AND (p.title LIKE ? OR p.category LIKE ? OR p.content LIKE ? OR t.name LIKE ?)";
-                        $countParams[] = $search_term;
-                        $countParams[] = $search_term;
-                        $countParams[] = $search_term;
-                        $countParams[] = $search_term;
-                    }
-                    $count_stmt = $conn->prepare($countSql);
-                    $count_stmt->execute($countParams);
-                    $result_count = (int)$count_stmt->fetchColumn();
+                    $search_result = $search_service->searchPosts($search_query, $tag_filter, $current_page, $page_size);
+                    $result_count = (int)($search_result['total'] ?? 0);
+                    $result_ids = isset($search_result['ids']) && is_array($search_result['ids'])
+                        ? array_values(array_filter(array_map('intval', $search_result['ids'])))
+                        : [];
+                    $search_engine = (string)($search_result['engine'] ?? 'mysql');
 
                     if ($result_count > 0) {
                         $total_pages = (int)ceil($result_count / $page_size);
@@ -183,49 +172,82 @@ render_breadcrumb($breadcrumb_items);
                         }
                         if ($current_page > $total_pages) {
                             $current_page = $total_pages;
+                            $search_result = $search_service->searchPosts($search_query, $tag_filter, $current_page, $page_size);
+                            $result_ids = isset($search_result['ids']) && is_array($search_result['ids'])
+                                ? array_values(array_filter(array_map('intval', $search_result['ids'])))
+                                : [];
+                            $search_engine = (string)($search_result['engine'] ?? $search_engine);
                         }
-                        $offset = ($current_page - 1) * $page_size;
 
-                        $selectSql = "SELECT p.*, 
-                            (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
-                            (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count,
-                            (SELECT COUNT(*) FROM likes ul WHERE ul.post_id = p.id AND ul.user_id = ?) AS user_liked,
-                            (SELECT COUNT(*) FROM favorite_posts sf WHERE sf.post_id = p.id AND sf.user_id = ?) AS user_saved
-                            FROM posts p
-                            LEFT JOIN post_tags pt ON pt.post_id = p.id
-                            LEFT JOIN tags t ON t.id = pt.tag_id
-                            WHERE p.status = 'active'";
-                        $selectParams = [(string)$user_id, (string)$user_id];
-                        if ($is_tag_search) {
-                            $selectSql .= ' AND t.slug = ?';
-                            $selectParams[] = $tag_filter;
-                        }
-                        if ($search_query !== '') {
-                            $selectSql .= ' AND (p.title LIKE ? OR p.category LIKE ? OR p.content LIKE ? OR t.name LIKE ?)';
-                            $selectParams[] = $search_term;
-                            $selectParams[] = $search_term;
-                            $selectParams[] = $search_term;
-                            $selectParams[] = $search_term;
-                        }
-                        $selectSql .= ' GROUP BY p.id ORDER BY p.date DESC LIMIT ? OFFSET ?';
+                        $posts_rows = [];
+                        if ($search_engine === 'elasticsearch' && !empty($result_ids)) {
+                            $idPlaceholders = implode(',', array_fill(0, count($result_ids), '?'));
+                            $selectSql = "SELECT p.*, 
+                                (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
+                                (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count,
+                                (SELECT COUNT(*) FROM likes ul WHERE ul.post_id = p.id AND ul.user_id = ?) AS user_liked,
+                                (SELECT COUNT(*) FROM favorite_posts sf WHERE sf.post_id = p.id AND sf.user_id = ?) AS user_saved
+                                FROM posts p
+                                WHERE p.status = 'active' AND p.id IN ({$idPlaceholders})
+                                ORDER BY FIELD(p.id, {$idPlaceholders})";
+                            $select_posts = $conn->prepare($selectSql);
+                            $bindIndex = 1;
+                            $select_posts->bindValue($bindIndex++, (string)$user_id, PDO::PARAM_STR);
+                            $select_posts->bindValue($bindIndex++, (string)$user_id, PDO::PARAM_STR);
+                            foreach ($result_ids as $postIdValue) {
+                                $select_posts->bindValue($bindIndex++, (int)$postIdValue, PDO::PARAM_INT);
+                            }
+                            foreach ($result_ids as $postIdValue) {
+                                $select_posts->bindValue($bindIndex++, (int)$postIdValue, PDO::PARAM_INT);
+                            }
+                            $select_posts->execute();
+                            $posts_rows = $select_posts->fetchAll(PDO::FETCH_ASSOC);
+                        } else {
+                            $offset = ($current_page - 1) * $page_size;
+                            $search_term = "%{$search_query}%";
+                            $selectSql = "SELECT p.*, 
+                                (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comment_count,
+                                (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS like_count,
+                                (SELECT COUNT(*) FROM likes ul WHERE ul.post_id = p.id AND ul.user_id = ?) AS user_liked,
+                                (SELECT COUNT(*) FROM favorite_posts sf WHERE sf.post_id = p.id AND sf.user_id = ?) AS user_saved
+                                FROM posts p
+                                LEFT JOIN post_tags pt ON pt.post_id = p.id
+                                LEFT JOIN tags t ON t.id = pt.tag_id
+                                WHERE p.status = 'active'";
+                            $selectParams = [(string)$user_id, (string)$user_id];
+                            if ($is_tag_search) {
+                                $selectSql .= ' AND t.slug = ?';
+                                $selectParams[] = $tag_filter;
+                            }
+                            if ($search_query !== '') {
+                                $selectSql .= ' AND (p.title LIKE ? OR p.category LIKE ? OR p.content LIKE ? OR t.name LIKE ?)';
+                                $selectParams[] = $search_term;
+                                $selectParams[] = $search_term;
+                                $selectParams[] = $search_term;
+                                $selectParams[] = $search_term;
+                            }
+                            $selectSql .= ' GROUP BY p.id ORDER BY p.date DESC LIMIT ? OFFSET ?';
 
-                        $select_posts = $conn->prepare($selectSql);
-                        $bindIndex = 1;
-                        foreach ($selectParams as $paramValue) {
-                            $select_posts->bindValue($bindIndex, $paramValue, PDO::PARAM_STR);
-                            $bindIndex++;
+                            $select_posts = $conn->prepare($selectSql);
+                            $bindIndex = 1;
+                            foreach ($selectParams as $paramValue) {
+                                $select_posts->bindValue($bindIndex, $paramValue, PDO::PARAM_STR);
+                                $bindIndex++;
+                            }
+                            $select_posts->bindValue($bindIndex++, $page_size, PDO::PARAM_INT);
+                            $select_posts->bindValue($bindIndex, $offset, PDO::PARAM_INT);
+                            $select_posts->execute();
+                            $posts_rows = $select_posts->fetchAll(PDO::FETCH_ASSOC);
                         }
-                        $select_posts->bindValue($bindIndex++, $page_size, PDO::PARAM_INT);
-                        $select_posts->bindValue($bindIndex, $offset, PDO::PARAM_INT);
-                        $select_posts->execute();
-                        $posts_rows = $select_posts->fetchAll(PDO::FETCH_ASSOC);
+
                         $tag_map = blog_get_tags_map_for_posts($conn, array_map(function ($row) {
                             return (int)($row['id'] ?? 0);
                         }, $posts_rows));
 
                         echo "<div class='col-span-full mb-6'>";
                         echo "<div class='bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4'>";
-                        echo "<p class='text-blue-800 dark:text-blue-200'><i class='fas fa-info-circle mr-2'></i>Tìm thấy <strong>{$result_count}</strong> kết quả. Hiển thị trang <strong>{$current_page}/{$total_pages}</strong> ({$page_size} bài/trang).</p>";
+                        echo "<p class='text-blue-800 dark:text-blue-200'><i class='fas fa-info-circle mr-2'></i>Tìm thấy <strong>{$result_count}</strong> kết quả. Hiển thị trang <strong>{$current_page}/{$total_pages}</strong> ({$page_size} bài/trang).";
+                        echo "</p>";
                         echo "</div>";
                         echo "</div>";
 

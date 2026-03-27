@@ -24,10 +24,13 @@ RewriteCond %{REQUEST_URI} ^/(?:static/)?view_post\.php$ [NC]
 RewriteCond %{QUERY_STRING} (^|&)post_id=([0-9]+)(&|$) [NC]
 RewriteRule ^(?:static/)?view_post\.php$ static/post_redirect.php?post_id=%2 [L,NC]
 
+# Fix relative links crawled from /post/* pages (e.g. /post/all_photos.php)
+RewriteRule ^post/(home|posts|category|all_photos|search|contact|login|register|forgot_pass|reset_pass|update|new_post|user_likes|user_comments|author_posts|menu|introduce)\.php$ static/$1.php [L,QSA,NC]
+
 # Clean routes for static pages without .php extension
 RewriteRule ^(home|posts|category|all_photos|search|contact|login|register|forgot_pass|reset_pass|update|new_post|user_likes|user_comments|author_posts|menu|introduce)/?$ static/$1.php [L,QSA,NC]
 
-RewriteRule ^post/([^/.]+)/?$ /post/$1.html [R=301,L,NC]
+RewriteRule ^post/([^/.]+)/?$ static/view_post.php?slug=$1 [L,QSA,NC]
 
 # SEO post route: /post/my-title-123.html
 RewriteRule ^post/([^/]+)\.html$ static/view_post.php?slug=$1 [L,QSA,NC]

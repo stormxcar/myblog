@@ -328,6 +328,7 @@ if (!function_exists('community_render_feed_posts_html')) {
             $postTitle = $postTitleRaw !== '' ? $postTitleRaw : (function_exists('community_extract_title') ? community_extract_title((string)$post['content']) : 'Bai dang cong dong');
             $postTitle = html_entity_decode((string)$postTitle, ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $postBodyRaw = function_exists('community_extract_body') ? community_extract_body((string)$post['content']) : $contentRaw;
+            $postBodyRaw = community_decode_entities_deep((string)$postBodyRaw, 4);
             $reaction = (int)($maps['reactionByPost'][$postId] ?? 0);
             $isUpvoted = $reaction === 1;
             $isDownvoted = $reaction === -1;
@@ -400,6 +401,7 @@ if (!function_exists('community_render_feed_posts_html')) {
                 }
 
                 $postBodyRaw = trim((string)preg_replace('/\[POLL\].*?\[\/POLL\]/is', '', $postBodyRaw));
+                $postBodyRaw = community_decode_entities_deep((string)$postBodyRaw, 4);
                 $safeContentHtml = nl2br(htmlspecialchars($postBodyRaw, ENT_QUOTES, 'UTF-8'));
                 $safeContentHtml = preg_replace_callback('/(^|[\s>])#([\p{L}\p{N}_-]{2,60})/u', function ($matches) use ($isFeedPage) {
                     $prefix = (string)($matches[1] ?? '');
@@ -572,8 +574,6 @@ if (!function_exists('community_render_feed_posts_html')) {
                                     $normalized = substr($normalized, $uploadedPos);
                                 } elseif ($normalized !== '' && strpos($normalized, 'static/uploaded_img/') === 0) {
                                     $normalized = substr($normalized, strlen('static/'));
-                                } else {
-                                    $normalized = 'uploaded_img/' . ltrim($normalized, '/');
                                 }
 
                                 $allMediaUrls[] = site_url($normalized);
@@ -701,5 +701,21 @@ if (!function_exists('community_render_feed_posts_html')) {
         }
 
         return (string)ob_get_clean();
+    }
+}
+
+if (!function_exists('community_decode_entities_deep')) {
+    function community_decode_entities_deep($value, $maxDepth = 3)
+    {
+        $result = (string)$value;
+        $maxDepth = max(1, (int)$maxDepth);
+        for ($i = 0; $i < $maxDepth; $i++) {
+            $decoded = html_entity_decode($result, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            if ($decoded === $result) {
+                break;
+            }
+            $result = $decoded;
+        }
+        return $result;
     }
 }

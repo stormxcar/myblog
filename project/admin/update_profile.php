@@ -10,7 +10,7 @@ if(!isset($admin_id)){
    header('location:admin_login.php');
 }
 
-if(isset($_POST['submit'])){
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
    $name = $_POST['name'];
    $name = filter_var($name, FILTER_SANITIZE_STRING);

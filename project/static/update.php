@@ -5,11 +5,6 @@ include '../components/security_helpers.php';
 session_start();
 $message = [];
 
-if (!isset($_SERVER['HTTP_REFERER'])) {
-    header('location: home.php');
-    exit;
-}
-
 if (isset($_SESSION['user_id'])) {
     $user_id = $_SESSION['user_id'];
 } else {
@@ -28,12 +23,10 @@ if (!$fetch_user) {
     exit;
 }
 
-if (isset($_POST['submit'])) {
-    $name = $_POST['name'];
-    $name = filter_var($name, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-
-    $email = $_POST['email'];
-    $email = filter_var($email, FILTER_SANITIZE_EMAIL);
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    $name = trim((string)($_POST['name'] ?? ''));
+    $name = strip_tags($name);
+    $name = html_entity_decode($name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
     $success_messages = [];
     $error_messages = [];
@@ -46,23 +39,6 @@ if (isset($_POST['submit'])) {
             $success_messages[] = 'Cập nhật tên thành công!';
         } else {
             $error_messages[] = 'Tên phải từ 2-50 ký tự!';
-        }
-    }
-
-    // Update email
-    if (!empty($email) && $email != $fetch_user['email']) {
-        if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $select_email = $conn->prepare("SELECT * FROM `users` WHERE email = ? AND id != ?");
-            $select_email->execute([$email, $user_id]);
-            if ($select_email->rowCount() > 0) {
-                $error_messages[] = 'Email này đã được sử dụng!';
-            } else {
-                $update_email = $conn->prepare("UPDATE `users` SET email = ? WHERE id = ?");
-                $update_email->execute([$email, $user_id]);
-                $success_messages[] = 'Cập nhật email thành công!';
-            }
-        } else {
-            $error_messages[] = 'Định dạng email không hợp lệ!';
         }
     }
 
@@ -91,13 +67,45 @@ if (isset($_POST['submit'])) {
     }
 
     // Update avatar
-    if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === 0) {
-        $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        $file_type = $_FILES['avatar']['type'];
+    if (isset($_FILES['avatar'])) {
+        $avatarUploadError = (int)($_FILES['avatar']['error'] ?? UPLOAD_ERR_NO_FILE);
+
+        if ($avatarUploadError !== UPLOAD_ERR_NO_FILE && $avatarUploadError !== UPLOAD_ERR_OK) {
+            $uploadErrorMap = [
+                UPLOAD_ERR_INI_SIZE => 'Ảnh vượt quá giới hạn upload của máy chủ.',
+                UPLOAD_ERR_FORM_SIZE => 'Ảnh vượt quá giới hạn của biểu mẫu.',
+                UPLOAD_ERR_PARTIAL => 'Ảnh upload chưa hoàn tất, vui lòng thử lại.',
+                UPLOAD_ERR_NO_TMP_DIR => 'Máy chủ thiếu thư mục tạm để xử lý upload.',
+                UPLOAD_ERR_CANT_WRITE => 'Máy chủ không thể ghi file upload.',
+                UPLOAD_ERR_EXTENSION => 'Upload bị dừng bởi extension của PHP.',
+            ];
+            $error_messages[] = $uploadErrorMap[$avatarUploadError] ?? ('Lỗi upload ảnh (mã: ' . $avatarUploadError . ').');
+        }
+    }
+
+    if (isset($_FILES['avatar']) && (int)($_FILES['avatar']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+        $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif'];
+        $file_type = '';
+        if (function_exists('finfo_open')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            if ($finfo !== false) {
+                $detectedType = finfo_file($finfo, (string)($_FILES['avatar']['tmp_name'] ?? ''));
+                finfo_close($finfo);
+                if (is_string($detectedType)) {
+                    $file_type = $detectedType;
+                }
+            }
+        }
+        if ($file_type === '') {
+            $file_type = (string)($_FILES['avatar']['type'] ?? '');
+        }
+        if ($file_type === 'image/jpg') {
+            $file_type = 'image/jpeg';
+        }
         $file_size = $_FILES['avatar']['size'];
 
         if (!in_array($file_type, $allowed_types)) {
-            $error_messages[] = 'Chỉ chấp nhận file ảnh (JPEG, PNG, GIF, WebP)!';
+            $error_messages[] = 'Chỉ chấp nhận file ảnh (JPEG, PNG, GIF, WebP, AVIF)!';
         } elseif ($file_size > 5 * 1024 * 1024) { // 5MB
             $error_messages[] = 'Kích thước file không được vượt quá 5MB!';
         } else {
@@ -120,6 +128,10 @@ if (isset($_POST['submit'])) {
         }
     }
 
+    if (empty($success_messages) && empty($error_messages)) {
+        $_SESSION['success_message'] = 'Không có thay đổi nào để cập nhật.';
+    }
+
     // Set session messages
     if (!empty($success_messages)) {
         $_SESSION['success_message'] = implode('<br>', $success_messages);
@@ -128,9 +140,8 @@ if (isset($_POST['submit'])) {
         $_SESSION['error_message'] = implode('<br>', $error_messages);
     }
 
-    // Refresh user data
-    $select_user->execute([$user_id]);
-    $fetch_user = $select_user->fetch(PDO::FETCH_ASSOC);
+    header('location: update.php');
+    exit;
 }
 ?>
 
@@ -299,11 +310,13 @@ render_breadcrumb($breadcrumb_items);
                                             name="email"
                                             value="<?= htmlspecialchars($fetch_user['email']) ?>"
                                             maxlength="50"
-                                            placeholder="Nhập email của bạn"
-                                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-main focus:border-transparent dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all duration-300">
+                                            placeholder="Email đăng nhập"
+                                            readonly
+                                            aria-readonly="true"
+                                            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700/70 text-gray-500 dark:text-gray-300 cursor-not-allowed transition-all duration-300">
                                         <div id="emailError" class="mt-1 text-sm text-red-600 dark:text-red-400 hidden"></div>
                                         <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                            Email được sử dụng để đăng nhập và nhận thông báo
+                                            Email được dùng để đăng nhập và đã bị khóa thay đổi để bảo mật tài khoản
                                         </div>
                                     </div>
                                 </div>
@@ -461,7 +474,7 @@ render_breadcrumb($breadcrumb_items);
                                             <i class="fas fa-save mr-2"></i>
                                             Cập nhật thông tin
                                         </span>
-                                        <span id="loadingText" class="hidden flex items-center">
+                                        <span id="loadingText" class="hidden items-center">
                                             <i class="fas fa-spinner fa-spin mr-2"></i>
                                             Đang cập nhật...
                                         </span>
@@ -500,20 +513,22 @@ render_breadcrumb($breadcrumb_items);
             }
         });
 
-        emailInput.addEventListener('input', function() {
-            const email = this.value.trim();
-            const emailError = document.getElementById('emailError');
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailInput.hasAttribute('readonly')) {
+            emailInput.addEventListener('input', function() {
+                const email = this.value.trim();
+                const emailError = document.getElementById('emailError');
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-            if (email.length > 0 && !emailRegex.test(email)) {
-                emailError.textContent = 'Định dạng email không hợp lệ';
-                emailError.classList.remove('hidden');
-                this.classList.add('border-red-500');
-            } else {
-                emailError.classList.add('hidden');
-                this.classList.remove('border-red-500');
-            }
-        });
+                if (email.length > 0 && !emailRegex.test(email)) {
+                    emailError.textContent = 'Định dạng email không hợp lệ';
+                    emailError.classList.remove('hidden');
+                    this.classList.add('border-red-500');
+                } else {
+                    emailError.classList.add('hidden');
+                    this.classList.remove('border-red-500');
+                }
+            });
+        }
 
         // Password confirmation check
         function checkPasswordMatch() {
@@ -553,6 +568,7 @@ render_breadcrumb($breadcrumb_items);
             submitBtn.disabled = true;
             submitText.classList.add('hidden');
             loadingText.classList.remove('hidden');
+            loadingText.classList.add('flex');
             submitBtn.classList.add('opacity-75');
         });
 
@@ -650,10 +666,10 @@ render_breadcrumb($breadcrumb_items);
         if (input.files && input.files[0]) {
             const file = input.files[0];
             const maxSize = 5 * 1024 * 1024; // 5MB
-            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif'];
 
             if (!allowedTypes.includes(file.type)) {
-                avatarError.textContent = 'Chỉ chấp nhận file ảnh (JPEG, PNG, GIF, WebP)';
+                avatarError.textContent = 'Chỉ chấp nhận file ảnh (JPEG, PNG, GIF, WebP, AVIF)';
                 avatarError.classList.remove('hidden');
                 input.value = '';
                 return;

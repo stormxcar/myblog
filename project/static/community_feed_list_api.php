@@ -1,5 +1,6 @@
 <?php
 include '../components/connect.php';
+include '../components/seo_helpers.php';
 include '../components/community_engine.php';
 include '../components/community_feed_renderer.php';
 
@@ -27,15 +28,19 @@ $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 6;
 $topic = trim((string)($_GET['topic'] ?? ''));
 
-$bundle = community_fetch_feed_posts_page($conn, $userId, $page, $limit, $topic);
-$maps = community_load_post_maps($conn, $bundle['posts'], $userId);
-$html = community_render_feed_posts_html($bundle['posts'], $maps, $userId);
+try {
+    $bundle = community_fetch_feed_posts_page($conn, $userId, $page, $limit, $topic);
+    $maps = community_load_post_maps($conn, $bundle['posts'], $userId);
+    $html = community_render_feed_posts_html($bundle['posts'], $maps, $userId);
 
-echo json_encode([
-    'ok' => true,
-    'html' => $html,
-    'items_count' => count($bundle['posts']),
-    'has_more' => (bool)$bundle['has_more'],
-    'next_page' => $bundle['next_page'],
-    'current_page' => $bundle['current_page'],
-], JSON_UNESCAPED_UNICODE);
+    echo json_encode([
+        'ok' => true,
+        'html' => $html,
+        'items_count' => count($bundle['posts']),
+        'has_more' => (bool)$bundle['has_more'],
+        'next_page' => $bundle['next_page'],
+        'current_page' => $bundle['current_page'],
+    ], JSON_UNESCAPED_UNICODE);
+} catch (Throwable $e) {
+    feed_list_fail('Khong the tai them bai viet luc nay.', 500);
+}

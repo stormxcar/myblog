@@ -163,7 +163,7 @@ if ($action === 'posts_list') {
             $decodedCategory = decode_deep((string)($row['category'] ?? ''));
             $decodedTitle = decode_deep((string)($row['title'] ?? ''));
             $imageHtml = $row['image'] !== ''
-                ? '<img src="../uploaded_img/' . htmlspecialchars($row['image'], ENT_QUOTES, 'UTF-8') . '" class="image" alt="post">'
+                ? '<img src="' . htmlspecialchars(blog_post_image_src((string)$row['image'], '../uploaded_img/', '../uploaded_img/default_img.jpg'), ENT_QUOTES, 'UTF-8') . '" class="image" alt="post">'
                 : '<span class="admin-muted">-</span>';
 
             $html .= '<tr>';
@@ -939,10 +939,7 @@ if ($action === 'bulk_delete_posts') {
 
     foreach ($images as $img) {
         if ($img) {
-            $path = '../uploaded_img/' . $img;
-            if (is_file($path)) {
-                @unlink($path);
-            }
+            blog_delete_image_resource((string)$img);
         }
     }
 
@@ -985,10 +982,7 @@ if ($action === 'delete_post') {
     $conn->prepare('DELETE FROM likes WHERE post_id = ?')->execute([$post_id]);
 
     if (!empty($post['image'])) {
-        $filePath = '../uploaded_img/' . $post['image'];
-        if (is_file($filePath)) {
-            @unlink($filePath);
-        }
+        blog_delete_image_resource((string)$post['image']);
     }
 
     json_success(['message' => 'Da xoa bai viet thanh cong.']);

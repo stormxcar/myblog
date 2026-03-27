@@ -75,7 +75,7 @@ if (isset($_POST['publish']) || isset($_POST['draft'])) {
 
         if ($status === 'active' && $newPostId > 0) {
             blog_ensure_feature_tables($conn);
-            $postLink = site_url('static/view_post.php?post_id=' . $newPostId);
+            $postLink = post_path($newPostId, $title);
             blog_notify_all_users(
                 $conn,
                 'new_post',
@@ -84,6 +84,13 @@ if (isset($_POST['publish']) || isset($_POST['draft'])) {
                 $postLink,
                 0
             );
+
+            blog_pusher_publish_public('post:published', [
+                'post_id' => $newPostId,
+                'title' => $title,
+                'url' => $postLink,
+                'ts' => time(),
+            ]);
         }
 
         $_SESSION['message'] = isset($_POST['publish']) ? 'Bài viết đã được đăng thành công.' : 'Đã lưu bản nháp.';
@@ -224,6 +231,66 @@ $tag_names = $tag_names_stmt->fetchAll(PDO::FETCH_COLUMN);
             min-height: 2rem;
             background: transparent;
         }
+
+        .ai-skeleton-wrap {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .ai-skeleton-card {
+            border: 1px solid #bfdbfe;
+            background: #eff6ff;
+            border-radius: 0.75rem;
+            padding: 0.9rem;
+        }
+
+        .ai-skeleton-line {
+            position: relative;
+            overflow: hidden;
+            height: 10px;
+            border-radius: 999px;
+            background: #dbeafe;
+            margin-bottom: 0.5rem;
+        }
+
+        .ai-skeleton-line:last-child {
+            margin-bottom: 0;
+        }
+
+        .ai-skeleton-line::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            transform: translateX(-100%);
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0));
+            animation: aiShimmer 1.2s infinite;
+        }
+
+        @keyframes aiShimmer {
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        .ai-skeleton-chip {
+            width: 92px;
+            height: 28px;
+            border-radius: 999px;
+            background: #dbeafe;
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            margin-right: 0.5rem;
+        }
+
+        .ai-skeleton-chip::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            transform: translateX(-100%);
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0));
+            animation: aiShimmer 1.2s infinite;
+        }
     </style>
 </head>
 
@@ -238,6 +305,42 @@ $tag_names = $tag_names_stmt->fetchAll(PDO::FETCH_COLUMN);
 
         <form action="" method="post" enctype="multipart/form-data" onsubmit="return submitForm()" class="ui-card" data-no-submit-lock="true">
             <input type="hidden" name="name" value="<?= htmlspecialchars((string)($fetch_profile['name'] ?? 'admin'), ENT_QUOTES, 'UTF-8'); ?>">
+
+            <div class="mb-4 rounded-xl border border-blue-200 bg-blue-50/70 p-4">
+                <h3 class="text-base font-semibold text-blue-900 mb-2"><i class="fas fa-wand-magic-sparkles mr-2"></i>Trợ lý AI tạo bài viết</h3>
+                <p class="text-sm text-blue-800 mb-3">AI sẽ gợi ý 2-5 tiêu đề và tạo bài viết chuẩn SEO theo rule dài-form để tiết kiệm thời gian đăng bài.</p>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <input type="text" id="aiTopicInput" class="box ui-input md:col-span-2" placeholder="Nhập chủ đề, ví dụ: Du lịch Đà Lạt tự túc">
+                    <select id="aiStyleInput" class="box ui-select">
+                        <option value="storytelling">Storytelling cảm xúc</option>
+                        <option value="chuyen-gia">Chuyên gia - thực chiến</option>
+                        <option value="than-thien">Thân thiện, gần gũi</option>
+                    </select>
+                    <button type="button" id="aiGenerateBtn" class="btn ui-btn">AI tạo tiêu đề + nội dung</button>
+                </div>
+                <div id="aiStatus" class="mt-2 text-sm text-blue-700 hidden"></div>
+                <div id="aiSkeleton" class="mt-3 ai-skeleton-wrap" aria-hidden="true" style="display:none;">
+                    <div class="ai-skeleton-card">
+                        <div class="text-xs font-semibold text-blue-800 mb-2">AI đang tạo tiêu đề</div>
+                        <div class="ai-skeleton-chip"></div>
+                        <div class="ai-skeleton-chip"></div>
+                        <div class="ai-skeleton-chip"></div>
+                    </div>
+                    <div class="ai-skeleton-card">
+                        <div class="text-xs font-semibold text-blue-800 mb-2">AI đang viết nội dung</div>
+                        <div class="ai-skeleton-line" style="width: 100%;"></div>
+                        <div class="ai-skeleton-line" style="width: 94%;"></div>
+                        <div class="ai-skeleton-line" style="width: 88%;"></div>
+                        <div class="ai-skeleton-line" style="width: 96%;"></div>
+                        <div class="ai-skeleton-line" style="width: 84%;"></div>
+                    </div>
+                </div>
+                <div id="aiTitleSuggest" class="mt-3 hidden">
+                    <p class="text-sm font-semibold text-gray-700 mb-2">Tiêu đề gợi ý:</p>
+                    <div id="aiTitleSuggestList" class="flex flex-wrap gap-2"></div>
+                </div>
+                <div id="aiMetaPreview" class="mt-3 text-xs text-gray-600 hidden"></div>
+            </div>
 
             <p>Tiêu đề bài viết <span>*</span></p>
             <input type="text" name="title" maxlength="100" required placeholder="Thêm tiêu đề" class="box ui-input">
@@ -310,6 +413,136 @@ $tag_names = $tag_names_stmt->fetchAll(PDO::FETCH_COLUMN);
             }
             return true;
         }
+
+        const aiTopicInput = document.getElementById('aiTopicInput');
+        const aiStyleInput = document.getElementById('aiStyleInput');
+        const aiGenerateBtn = document.getElementById('aiGenerateBtn');
+        const aiStatus = document.getElementById('aiStatus');
+        const aiSkeleton = document.getElementById('aiSkeleton');
+        const aiTitleSuggest = document.getElementById('aiTitleSuggest');
+        const aiTitleSuggestList = document.getElementById('aiTitleSuggestList');
+        const aiMetaPreview = document.getElementById('aiMetaPreview');
+        const titleInput = document.querySelector('input[name="title"]');
+
+        if (aiSkeleton) {
+            aiSkeleton.style.display = 'none';
+        }
+
+        function setAiStatus(text, isError = false) {
+            if (!aiStatus) return;
+            aiStatus.classList.remove('hidden');
+            aiStatus.classList.toggle('text-red-600', isError);
+            aiStatus.classList.toggle('text-blue-700', !isError);
+            aiStatus.textContent = text || '';
+        }
+
+        function escapeHtml(text) {
+            return String(text || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function toggleAiLoading(isLoading) {
+            if (aiSkeleton) {
+                aiSkeleton.style.display = isLoading ? 'grid' : 'none';
+            }
+            if (aiGenerateBtn) {
+                aiGenerateBtn.disabled = !!isLoading;
+                aiGenerateBtn.textContent = isLoading ? 'AI đang tạo...' : 'AI tạo tiêu đề + nội dung';
+            }
+        }
+
+        async function generateAiDraft() {
+            const topic = (aiTopicInput?.value || '').trim();
+            const style = (aiStyleInput?.value || 'storytelling').trim();
+
+            if (topic.length < 3) {
+                setAiStatus('Vui lòng nhập chủ đề từ 3 ký tự trở lên.', true);
+                aiTopicInput?.focus();
+                return;
+            }
+
+            toggleAiLoading(true);
+            aiTitleSuggest.classList.add('hidden');
+            aiTitleSuggestList.innerHTML = '';
+            aiMetaPreview.classList.add('hidden');
+            aiMetaPreview.innerHTML = '';
+            setAiStatus('Đang tạo tiêu đề và nội dung chuẩn SEO...');
+
+            try {
+                const fd = new FormData();
+                fd.append('topic', topic);
+                fd.append('style', style);
+                const res = await fetch('../static/post_ai_writer_api.php', {
+                    method: 'POST',
+                    body: fd,
+                    credentials: 'same-origin',
+                });
+
+                const raw = await res.text();
+                let data = null;
+                try {
+                    data = raw ? JSON.parse(raw) : null;
+                } catch (e) {
+                    // Ignore parse detail on UI; status text is enough for editors.
+                }
+
+                if (!data || !data.ok) {
+                    const message = (data && data.message) ? data.message : 'AI chưa phản hồi hợp lệ.';
+                    setAiStatus(message, true);
+                    return;
+                }
+
+                if (titleInput && data.chosen_title) {
+                    titleInput.value = data.chosen_title;
+                }
+
+                if (typeof CKEDITOR !== 'undefined' && CKEDITOR.instances && CKEDITOR.instances.content && data.content_html) {
+                    CKEDITOR.instances.content.setData(data.content_html);
+                }
+
+                const titles = Array.isArray(data.titles) && data.titles.length ?
+                    data.titles.slice(0, 5) :
+                    (data.chosen_title ? [data.chosen_title] : []);
+                if (titles.length) {
+                    aiTitleSuggest.classList.remove('hidden');
+                    aiTitleSuggestList.innerHTML = titles
+                        .map((t) => `<button type="button" class="px-3 py-1.5 rounded-full bg-white border border-blue-200 text-blue-700 text-xs hover:bg-blue-100" data-ai-title="${escapeHtml(t)}">${escapeHtml(t)}</button>`)
+                        .join('');
+                } else {
+                    aiTitleSuggest.classList.add('hidden');
+                    aiTitleSuggestList.innerHTML = '';
+                }
+
+                const keywords = Array.isArray(data.keywords) ? data.keywords.join(', ') : '';
+                const metaText = data.meta_description ? String(data.meta_description) : '';
+                if (metaText || keywords) {
+                    aiMetaPreview.classList.remove('hidden');
+                    aiMetaPreview.innerHTML = `${metaText ? `<strong>Meta:</strong> ${escapeHtml(metaText)}<br>` : ''}${keywords ? `<strong>Keywords:</strong> ${escapeHtml(keywords)}` : ''}`;
+                } else {
+                    aiMetaPreview.classList.add('hidden');
+                    aiMetaPreview.innerHTML = '';
+                }
+
+                setAiStatus('Đã tạo xong. Bạn có thể chỉnh sửa trước khi đăng.');
+            } catch (err) {
+                setAiStatus('Lỗi kết nối AI. Vui lòng thử lại.', true);
+            } finally {
+                toggleAiLoading(false);
+            }
+        }
+
+        aiGenerateBtn?.addEventListener('click', generateAiDraft);
+
+        aiTitleSuggestList?.addEventListener('click', function(event) {
+            const btn = event.target.closest('[data-ai-title]');
+            if (!btn || !titleInput) return;
+            titleInput.value = btn.getAttribute('data-ai-title') || '';
+            titleInput.focus();
+        });
 
         const imageFileInput = document.getElementById('imageFileInput');
         const imageUrlInput = document.getElementById('imageUrlInput');
